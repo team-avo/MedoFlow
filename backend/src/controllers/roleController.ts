@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import * as roleService from '../services/roleService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -21,7 +21,12 @@ export const getRole = asyncHandler(
 
 export const createRole = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const { name, description, permissions, presetKey } = req.body
+    const { name, description, permissions, presetKey } = req.body as {
+      name: string
+      description?: string
+      permissions: unknown
+      presetKey?: string
+    }
     const role = await roleService.createRole(
       { name, description, permissions, presetKey },
       req.clinicId!
@@ -40,7 +45,11 @@ export const createRole = asyncHandler(
 export const updateRole = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const id = req.params.id as string
-    const { name, description, permissions } = req.body
+    const { name, description, permissions } = req.body as {
+      name?: string
+      description?: string
+      permissions?: unknown
+    }
     const before = await roleService.getRole(id, req.clinicId!)
     const role = await roleService.updateRole(id, { name, description, permissions }, req.clinicId!)
     await auditPermissionChange(req, {
@@ -78,11 +87,12 @@ export const seedPresets = asyncHandler(
 )
 
 export const getPermissionRegistry = asyncHandler(
-  async (_req: Request, res: Response, _next: NextFunction): Promise<void> => {
+  (_req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { PERMISSION_GROUPS, ROLE_PRESETS } = roleService
     successResponse(res, 200, 'Permission registry', {
       groups: PERMISSION_GROUPS,
       presets: ROLE_PRESETS,
     })
+    return Promise.resolve()
   }
 )

@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { ALL_PERMISSION_KEYS, ROLE_PRESETS } from '../config/permissions'
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -10,7 +10,9 @@ function validatePermissions(permissions: unknown): string[] {
     err.statusCode = 400
     throw err
   }
-  const invalid = permissions.filter((p) => !ALL_PERMISSION_KEYS.includes(p))
+  const invalid = (permissions as unknown[]).filter(
+    (p) => typeof p !== 'string' || !ALL_PERMISSION_KEYS.includes(p)
+  )
   if (invalid.length > 0) {
     const err = new Error(`Invalid permissions: ${invalid.join(', ')}`) as ApiError
     err.statusCode = 400

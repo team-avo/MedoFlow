@@ -6,18 +6,17 @@ import {
   type TenantContext,
 } from './tenantContext'
 
-declare global {
-  var prisma: PrismaClient | undefined
-}
+// One client per process in development (survives hot reloads).
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
 const basePrisma =
-  global.prisma ||
+  globalForPrisma.prisma ||
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? (['error', 'warn'] as const) : ['error'],
   })
 
 if (process.env.NODE_ENV !== 'production') {
-  global.prisma = basePrisma
+  globalForPrisma.prisma = basePrisma
 }
 
 /**
@@ -91,7 +90,7 @@ function readClinicValue(value: unknown): ClinicConstraint {
     const keys = Object.keys(v)
     if (keys.length === 1 && typeof v.equals === 'string') return [v.equals]
     if (keys.length === 1 && Array.isArray(v.in) && v.in.every((x) => typeof x === 'string')) {
-      return v.in as string[]
+      return v.in
     }
   }
   return 'invalid'
@@ -243,6 +242,61 @@ export function assertTenantScope(
 }
 
 /**
+ * Soft-vs-hard delete policy (B0.6.7). PHI and money records are never
+ * hard-deleted by application code: they are cancelled, finalized or
+ * soft-deleted (`PatientFile.isDeleted`). Hard deletion is reserved for the
+ * data-lifecycle service (customer off-boarding, retention expiry), which
+ * runs inside a `withTenantBypass('lifecycle:…')` scope.
+ */
+export const HARD_DELETE_PROTECTED_MODELS = new Set([
+  'AIScribeSession',
+  'Appointment',
+  'AppointmentSeries',
+  'AuditLog',
+  'BreakGlassGrant',
+  'Clinic',
+  'CommissionRecord',
+  'ConsultationSession',
+  'FormResponse',
+  'Invoice',
+  'PatientFile',
+  'PatientPackage',
+  'PatientSubscription',
+  'Payment',
+  'Prescription',
+  'Tenant',
+  'TreatmentPlan',
+  'User',
+  'VisitNoteVersion',
+  'VisitRecord',
+  'VoiceCall',
+  'VoiceCallEvent',
+])
+
+export class HardDeleteForbiddenError extends Error {
+  statusCode = 409
+  code = 'hard_delete_forbidden'
+  constructor(model: string) {
+    super(`${model} records are retained: cancel or soft-delete instead of deleting`)
+    this.name = 'HardDeleteForbiddenError'
+  }
+}
+
+export function assertDeletePolicy(
+  model: string,
+  operation: string,
+  ctx: TenantContext | undefined,
+  mode = getIsolationMode()
+): void {
+  if (mode === 'off') return
+  if (operation !== 'delete' && operation !== 'deleteMany') return
+  if (!HARD_DELETE_PROTECTED_MODELS.has(model)) return
+  if (ctx?.bypassReason?.startsWith('lifecycle:')) return
+  console.warn(`[delete-policy:VIOLATION] ${model}.${operation} outside a lifecycle scope`)
+  throw new HardDeleteForbiddenError(model)
+}
+
+/**
  * Postgres row-level security (B0.1.3). When TENANT_RLS is on (the default),
  * every query outside an explicit transaction runs as
  *   BEGIN; SELECT set_config(...); <query>; COMMIT
@@ -272,7 +326,9 @@ const extended = basePrisma.$extends({
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query, ...rest }) {
-        assertTenantScope(model, operation, args, getTenantContext())
+        const ctx = getTenantContext()
+        assertTenantScope(model, operation, args, ctx)
+        assertDeletePolicy(model, operation, ctx)
 
         // Inside $transaction (interactive or batch) the variables were set
         // by the transaction's first statement.
@@ -297,7 +353,8 @@ type TxClient = Parameters<Parameters<ExtendedClient['$transaction']>[0]>[0]
  */
 const prisma = new Proxy(extended, {
   get(target, prop, receiver) {
-    if (prop !== '$transaction' || !isRlsEnabled()) return Reflect.get(target, prop, receiver)
+    if (prop !== '$transaction' || !isRlsEnabled())
+      return Reflect.get(target, prop, receiver) as unknown
     return (arg: unknown, options?: unknown) => {
       if (typeof arg === 'function') {
         const fn = arg as (tx: TxClient) => Promise<unknown>
@@ -315,7 +372,7 @@ const prisma = new Proxy(extended, {
         .then((results: unknown[]) => results.slice(1))
     }
   },
-}) as ExtendedClient
+})
 
 /**
  * Boot check for B0.1.3: RLS is only live when the connection role is

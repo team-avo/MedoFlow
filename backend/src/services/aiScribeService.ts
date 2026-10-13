@@ -6,7 +6,7 @@
 
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { AIScribeStatus } from '@prisma/client'
 import * as visitService from './visitService'
 import * as storageService from './storageService'
@@ -109,7 +109,7 @@ Provider: Great. Let's aim for 3 sets of 10 repetitions for the new exercises, t
     data: {
       status: AIScribeStatus.DRAFT_GENERATED,
       transcript: mockTranscript,
-      aiDraft: mockSoap as any,
+      aiDraft: mockSoap as object,
       processingStartedAt: new Date(),
       processingCompletedAt: new Date(),
     },

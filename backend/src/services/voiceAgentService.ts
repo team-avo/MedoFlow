@@ -10,9 +10,8 @@
  */
 
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
-import { VoiceCallChannel, VoiceCallStatus, VoiceCallOutcome, Prisma } from '@prisma/client'
-import * as aiProviderService from './aiProviderService'
+import type { ApiError } from '../types/errors'
+import type { VoiceCallChannel, VoiceCallStatus, VoiceCallOutcome, Prisma } from '@prisma/client'
 import * as availabilityService from './availabilityService'
 import * as appointmentService from './appointmentService'
 import * as groqService from './groqService'
@@ -530,6 +529,18 @@ export const executeTool = async ({
   }
 }
 
+/**
+ * Exactly `String(value ?? '')` for JSON-shaped tool arguments (arrays join
+ * with ",", plain objects become "[object Object]"), without implicit toString.
+ */
+const argToString = (value: unknown): string => {
+  if (value === undefined || value === null) return ''
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.join(',')
+  if (typeof value === 'object') return Object.prototype.toString.call(value)
+  return String(value as number | boolean | bigint | symbol)
+}
+
 const dispatchTool = async (
   clinicId: string,
   toolName: string,
@@ -537,7 +548,7 @@ const dispatchTool = async (
 ): Promise<unknown> => {
   switch (toolName) {
     case 'lookup_patient':
-      return lookupPatient(clinicId, String(args.fullName ?? ''), args.email as string | undefined)
+      return lookupPatient(clinicId, argToString(args.fullName), args.email as string | undefined)
     case 'check_availability':
       return checkAvailability(clinicId, args)
     case 'book_appointment':
@@ -547,9 +558,9 @@ const dispatchTool = async (
     case 'request_refill':
       return requestRefill(clinicId, args)
     case 'transfer_to_human':
-      return { ok: true, action: 'transfer', reason: String(args.reason ?? '') }
+      return { ok: true, action: 'transfer', reason: argToString(args.reason) }
     case 'get_clinic_info':
-      return getClinicInfo(clinicId, String(args.topic ?? ''))
+      return getClinicInfo(clinicId, argToString(args.topic))
     default:
       return { ok: false, error: `Unknown tool: ${toolName}` }
   }
@@ -705,8 +716,8 @@ const checkAvailability = async (clinicId: string, args: Record<string, unknown>
 }
 
 const bookAppointment = async (clinicId: string, args: Record<string, unknown>) => {
-  const patientId = String(args.patientId ?? '')
-  const slotId = String(args.slotId ?? '')
+  const patientId = argToString(args.patientId)
+  const slotId = argToString(args.slotId)
   if (!patientId || !slotId) {
     return { ok: false, error: 'patientId and slotId required' }
   }
@@ -755,7 +766,7 @@ const bookAppointment = async (clinicId: string, args: Record<string, unknown>) 
   }
 }
 
-const takeMessage = async (clinicId: string, args: Record<string, unknown>) => {
+const takeMessage = (clinicId: string, args: Record<string, unknown>) => {
   // Persist as a note on the call event log; staff review via the call list.
   return {
     ok: true,
@@ -771,7 +782,7 @@ const takeMessage = async (clinicId: string, args: Record<string, unknown>) => {
   }
 }
 
-const requestRefill = async (clinicId: string, args: Record<string, unknown>) => {
+const requestRefill = (clinicId: string, args: Record<string, unknown>) => {
   return {
     ok: true,
     queued: true,
@@ -977,10 +988,12 @@ export const runTurnWithText = async (
   const trimmedHistory = historyRaw.slice(-12)
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    ...trimmedHistory.map((m) => ({
-      role: (m.role === 'assistant' ? 'assistant' : 'user') as 'assistant' | 'user',
-      content: m.content,
-    })),
+    ...trimmedHistory.map(
+      (m): ChatMessage => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: m.content,
+      })
+    ),
     { role: 'user', content: userText },
   ]
 
@@ -1012,7 +1025,7 @@ export const runTurnWithText = async (
     for (const tc of response.toolCalls) {
       let parsedArgs: Record<string, unknown> = {}
       try {
-        parsedArgs = JSON.parse(tc.function.arguments || '{}')
+        parsedArgs = JSON.parse(tc.function.arguments || '{}') as Record<string, unknown>
       } catch {
         parsedArgs = {}
       }

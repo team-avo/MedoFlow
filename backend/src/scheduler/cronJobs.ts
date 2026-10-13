@@ -22,7 +22,7 @@ const DAILY_MS = 24 * 60 * 60 * 1000
  */
 export const startCronJobs = (): void => {
   setInterval(() => {
-    withTenantBypass('cron:expiry-sweep', async () => {
+    void withTenantBypass('cron:expiry-sweep', async () => {
       try {
         const [paymentCount, waitlistCount, slotHoldCount, reminderCount] = await Promise.all([
           paymentService.releaseExpiredPendingPayments(),

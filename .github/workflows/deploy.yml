@@ -1,11 +1,14 @@
 # CI/CD for MedoFlow
 #
-#   pull request → main   build gate only (no secrets, no deploy)
-#   push / merge → main   build gate → deploy backend to Render + frontend to Cloudflare Workers
+#   pull request → main   quality gate + build gate (no secrets, no deploy)
+#   push / merge → main   quality gate + build gate → deploy backend to Render + frontend to Cloudflare Workers
 #                         (each app is redeployed only when its files changed) → smoke checks
 #   manual run            Actions › "CI / Deploy" › Run workflow (deploys both apps)
 #
-# Deploys only run in myselfabhi/MedoFlow. Forks run the build gate only.
+# Deploys only run in myselfabhi/MedoFlow. Forks run the gates only.
+#
+# B0.5.1: make "Backend quality gate" and "Build" REQUIRED status checks on main
+# (Settings › Branches › Branch protection) so a failing check blocks the merge.
 #
 # Repository secrets (Settings › Secrets and variables › Actions › Secrets):
 #   RENDER_DEPLOY_HOOK_URL   Render › medoflow-backend › Settings › Deploy Hook
@@ -52,6 +55,71 @@ jobs:
               - 'frontend/**'
               - 'pnpm-lock.yaml'
 
+  # B0.5 — blocking backend quality gate: typecheck, lint (zero warnings),
+  # synthetic-fixture scan, unit tests + coverage ratchet, migrations on a
+  # fresh Postgres, integration suites (tenant isolation, RLS, auth
+  # safeguards, authZ matrix, booking race, invoice states, webhook
+  # idempotency, audit) as the non-owner app role, dependency audit, secret scan.
+  backend-quality:
+    name: Backend quality gate
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: medoflow_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      OWNER_URL: postgresql://postgres:postgres@localhost:5432/medoflow_ci
+      APP_URL: postgresql://medoflow_app:ci_app_password@localhost:5432/medoflow_ci
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - run: pnpm exec prisma generate
+      - name: Typecheck (app + tests)
+        run: pnpm run typecheck
+      - name: Lint (zero warnings)
+        run: pnpm run lint
+      - name: Fixtures are synthetic only (B0.5.5)
+        run: node scripts/check-synthetic-fixtures.js
+      - name: Unit tests + coverage threshold (B0.5.2)
+        run: pnpm run test:coverage
+      - name: Migrations apply cleanly to an empty database
+        env:
+          DATABASE_URL: ${{ env.OWNER_URL }}
+        run: pnpm exec prisma migrate deploy
+      - name: Enable the non-owner app role (RLS applies to it)
+        run: psql "$OWNER_URL" -c "ALTER ROLE medoflow_app WITH LOGIN PASSWORD 'ci_app_password'"
+      - name: Integration suites + coverage threshold (B0.1.5, B0.5.3)
+        env:
+          INTEGRATION_DATABASE_URL: ${{ env.APP_URL }}
+          INTEGRATION_ADMIN_DATABASE_URL: ${{ env.OWNER_URL }}
+        run: pnpm run test:integration:coverage
+      - name: Dependency audit — no high/critical in backend production deps
+        # Frontend advisories are tracked under F0.1; accepted, dated exceptions
+        # live in backend/scripts/audit-exceptions.json.
+        run: node scripts/audit-backend.js
+      - name: Secret scan (git history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -92,7 +160,7 @@ jobs:
           retention-days: 3
 
   deploy-backend:
-    needs: [changes, build]
+    needs: [changes, backend-quality, build]
     if: >-
       github.repository == 'myselfabhi/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
@@ -120,7 +188,7 @@ jobs:
           exit 1
 
   deploy-frontend:
-    needs: [changes, build]
+    needs: [changes, backend-quality, build]
     if: >-
       github.repository == 'myselfabhi/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')

@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import * as fileService from '../services/fileService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -6,7 +6,7 @@ import { assertClinicAccess } from '../middleware/clinicScope'
 import { generateStoragePath } from '../config/multer'
 import { logAudit, logRead } from '../services/auditService'
 import { recordRecordAccess } from '../services/securityMonitorService'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import fs from 'fs'
 
 const parseTags = (val: unknown): unknown => {
@@ -24,8 +24,9 @@ const parseTags = (val: unknown): unknown => {
 export const upload = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const clinicId = req.user!.clinicId!
-    const patientId = req.body.patientId as string
-    const visitRecordId = (req.body.visitRecordId as string) || undefined
+    const body = req.body as { patientId?: string; visitRecordId?: string; tags?: unknown }
+    const patientId = body.patientId as string
+    const visitRecordId = body.visitRecordId || undefined
 
     if (!clinicId || !patientId) {
       const err = new Error('clinicId and patientId are required') as ApiError
@@ -59,7 +60,7 @@ export const upload = asyncHandler(
       storagePath: relativePath.replace(/\\/g, '/'),
       mimeType: file.mimetype,
       size: file.size,
-      tags: parseTags(req.body.tags),
+      tags: parseTags(body.tags),
     })
 
     successResponse(res, 201, 'File uploaded', { id: result.id })

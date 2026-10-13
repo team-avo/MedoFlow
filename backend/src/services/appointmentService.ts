@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
-import { Request } from 'express'
-import { ApiError } from '../types/errors'
+import type { Request } from 'express'
+import type { ApiError } from '../types/errors'
 import {
   AppointmentStatus,
   ApprovalStatus,
@@ -11,14 +11,9 @@ import {
 } from '@prisma/client'
 import * as auditService from './auditService'
 import * as waitlistService from './waitlistService'
-import * as patientMembershipService from './patientMembershipService'
 import * as packageUsageService from './packageUsageService'
 import * as membershipService from './membershipService'
-import {
-  buildSlotFingerprint,
-  MIN_APPOINTMENT_DURATION_MINUTES,
-  resolveAppointmentLifecycle,
-} from './schedulingCore'
+import { MIN_APPOINTMENT_DURATION_MINUTES, resolveAppointmentLifecycle } from './schedulingCore'
 
 import stripe from '../config/stripe'
 import {
@@ -30,7 +25,6 @@ import {
 
 import * as emailService from './emailService'
 
-const CANCELLED_STATUS = 'CANCELLED'
 const ZERO = new Prisma.Decimal(0)
 
 export interface CreateAppointmentData {
@@ -59,100 +53,6 @@ export interface CreateAppointmentContext {
   patientPackageId?: string
   skipPackageSessionConsumption?: boolean
 }
-
-const validateServiceBelongsToClinic = async (serviceId: string, clinicId: string) => {
-  const service = await prisma.service.findFirst({
-    where: { id: serviceId, clinicId, isActive: true },
-  })
-  if (!service) {
-    const err = new Error('Service not found or does not belong to this clinic') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  return service
-}
-
-const validateProviderOffersService = async (
-  providerId: string,
-  serviceId: string,
-  clinicId: string
-) => {
-  const provider = await prisma.provider.findFirst({
-    where: { id: providerId, clinicId, isActive: true },
-    include: {
-      providerServices: {
-        where: { serviceId },
-        include: { service: true },
-      },
-    },
-  })
-  if (!provider) {
-    const err = new Error('Provider not found or does not belong to this clinic') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  const assignment = provider.providerServices[0]
-  if (!assignment) {
-    const err = new Error('Provider does not offer this service') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-  return assignment
-}
-
-const validateLocationBelongsToClinic = async (locationId: string, clinicId: string) => {
-  const location = await prisma.location.findFirst({
-    where: { id: locationId, clinicId, isActive: true },
-  })
-  if (!location) {
-    const err = new Error('Location not found or does not belong to this clinic') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  return location
-}
-
-const validatePatient = async (patientId: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id: patientId },
-  })
-  if (!user) {
-    const err = new Error('Patient not found') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  if (user.role !== 'PATIENT') {
-    const err = new Error('User is not a patient') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-  return user
-}
-
-const checkDoubleBooking = async (
-  providerId: string,
-  startTime: Date,
-  endTime: Date,
-  excludeId: string | null = null
-): Promise<void> => {
-  const conflicting = await prisma.appointment.findFirst({
-    where: {
-      providerId,
-      ...clinicScope(),
-      status: { notIn: [CANCELLED_STATUS, RESCHEDULED_STATUS] },
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-  })
-  if (conflicting) {
-    const err = new Error('Provider has a conflicting appointment in this time slot') as ApiError
-    err.statusCode = 409
-    throw err
-  }
-}
-
-const RESCHEDULED_STATUS = 'RESCHEDULED'
 
 const ACTIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.DRAFT,
@@ -189,45 +89,23 @@ const validateAppointmentWindow = (startTime: Date, endTime: Date) => {
   }
 }
 
-// Using `any` for the tx type: Prisma.TransactionClient doesn't match
-// the shape produced by an extended client's $transaction. The call is
-// purely raw SQL (pg_advisory_xact_lock) so the structural type of the
-// tx doesn't matter beyond having $executeRaw, which any Prisma tx has.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const lockBookingScope = async (tx: any, providerId: string, patientId: string) => {
+// Only $executeRaw is needed (pure raw SQL: pg_advisory_xact_lock), so the
+// tx is typed structurally rather than as the full TransactionClient.
+const lockBookingScope = async (
+  tx: Pick<Prisma.TransactionClient, '$executeRaw'>,
+  providerId: string,
+  patientId: string
+) => {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-provider:${providerId}`}))`
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-patient:${patientId}`}))`
-}
-
-const checkSamePatientOverlap = async (
-  patientId: string,
-  startTime: Date,
-  endTime: Date,
-  excludeId: string | null = null
-): Promise<void> => {
-  const conflicting = await prisma.appointment.findFirst({
-    where: {
-      patientId,
-      ...clinicScope(),
-      status: { notIn: [CANCELLED_STATUS, RESCHEDULED_STATUS] },
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-  })
-  if (conflicting) {
-    const err = new Error('You already have another appointment during this time.') as ApiError
-    err.statusCode = 409
-    throw err
-  }
 }
 
 const checkMinimumNotice = (
   startTime: Date,
   minimumNoticeMinutes: number,
-  clinicId: string,
-  serviceId: string,
-  performedById: string | undefined
+  _clinicId: string,
+  _serviceId: string,
+  _performedById: string | undefined
 ): void => {
   if (minimumNoticeMinutes <= 0) return
   const now = new Date()
@@ -245,9 +123,9 @@ const checkMinimumNotice = (
 const checkMaxFutureBooking = (
   startTime: Date,
   maxFutureBookingDays: number,
-  clinicId: string,
-  serviceId: string,
-  performedById: string | undefined
+  _clinicId: string,
+  _serviceId: string,
+  _performedById: string | undefined
 ): void => {
   const now = new Date()
   const maxDate = new Date(now)
@@ -260,23 +138,6 @@ const checkMaxFutureBooking = (
     err.statusCode = 400
     throw err
   }
-}
-
-const logBookingRejectedPolicy = async (
-  clinicId: string,
-  serviceId: string,
-  reason: string,
-  performedById: string
-): Promise<void> => {
-  await auditService.logAudit({
-    clinicId,
-    entityType: 'Booking',
-    entityId: serviceId,
-    action: 'BOOKING_REJECTED_POLICY',
-    fieldChanged: 'reason',
-    newValue: reason,
-    performedById,
-  })
 }
 
 // A patient booking at a clinic they are not yet a member of: the booking
@@ -594,7 +455,8 @@ export const createAppointment = async (
       let membershipBenefit = null
       if (!usingPackage) {
         try {
-          membershipBenefit = await membershipService.getActiveMembershipBenefit(
+          membershipBenefit = await membershipService.getActiveMembershipBenefitWithExecutor(
+            tx,
             clinicId,
             patientId
           )
@@ -852,7 +714,7 @@ const createRecurringSeriesInScope = async (
   input: CreateRecurringSeriesInput,
   performedById: string
 ): Promise<{
-  appointments: Awaited<ReturnType<typeof createAppointment>>[]
+  appointments: Awaited<ReturnType<typeof createAppointment>>['appointment'][]
   conflicts: RecurringConflict[]
 }> => {
   const firstStart = new Date(input.firstStartTime)
@@ -901,7 +763,7 @@ const createRecurringSeriesInScope = async (
     occurrences.push({ start, end })
   }
 
-  const appointments: any[] = []
+  const appointments: Awaited<ReturnType<typeof createAppointment>>['appointment'][] = []
   const conflicts: RecurringConflict[] = []
 
   for (const { start, end } of occurrences) {

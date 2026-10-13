@@ -1,27 +1,24 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import * as appointmentController from '../controllers/appointmentController';
-import { protect, authorize } from '../middleware/auth';
-import { requireClinic } from '../middleware/requireClinic';
-import { validateRequest } from '../middleware/validateRequest';
-import { Role } from '@prisma/client';
+import type { Request, Response, NextFunction } from 'express'
+import { Router } from 'express'
+import * as appointmentController from '../controllers/appointmentController'
+import { protect, authorize } from '../middleware/auth'
+import { requireClinic } from '../middleware/requireClinic'
+import { validateRequest } from '../middleware/validateRequest'
+import { Role } from '@prisma/client'
 import {
   appointmentCreateSchema,
   appointmentRecurringSchema,
   appointmentRescheduleSchema,
-} from '../validation/module2Schemas';
+} from '../validation/module2Schemas'
 
-const router = Router();
+const router = Router()
 
-router.use(protect);
+router.use(protect)
 
-const setClinicFromUser = (
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): void => {
-  req.clinicId = req.user?.clinicId ?? null;
-  next();
-};
+const setClinicFromUser = (req: Request, _res: Response, next: NextFunction): void => {
+  req.clinicId = req.user?.clinicId ?? null
+  next()
+}
 
 router.post(
   '/',
@@ -29,7 +26,7 @@ router.post(
   setClinicFromUser,
   validateRequest(appointmentCreateSchema),
   appointmentController.create
-);
+)
 
 router.post(
   '/recurring',
@@ -37,63 +34,53 @@ router.post(
   setClinicFromUser,
   validateRequest(appointmentRecurringSchema),
   appointmentController.createRecurring
-);
+)
 
-router.get(
-  '/my',
-  authorize(Role.PATIENT),
-  setClinicFromUser,
-  appointmentController.getMy
-);
+router.get('/my', authorize(Role.PATIENT), setClinicFromUser, appointmentController.getMy)
 
-router.get(
-  '/provider',
-  authorize(Role.PROVIDER),
-  requireClinic,
-  appointmentController.getProvider
-);
+router.get('/provider', authorize(Role.PROVIDER), requireClinic, appointmentController.getProvider)
 
 router.get(
   '/patient/:patientId',
   authorize(Role.PROVIDER, Role.SUPER_ADMIN, Role.FRONT_DESK),
   requireClinic,
   appointmentController.getByPatient
-);
+)
 
 router.get(
   '/clinic',
   authorize(Role.SUPER_ADMIN, Role.FRONT_DESK),
   requireClinic,
   appointmentController.getClinic
-);
+)
 
 router.get(
   '/:id/timeline',
   authorize(Role.PATIENT, Role.PROVIDER, Role.SUPER_ADMIN, Role.FRONT_DESK),
   setClinicFromUser,
   appointmentController.getTimeline
-);
+)
 
 router.get(
   '/:id',
   authorize(Role.PATIENT, Role.PROVIDER, Role.SUPER_ADMIN, Role.FRONT_DESK),
   setClinicFromUser,
   appointmentController.getById
-);
+)
 
 router.put(
   '/:id/status',
   authorize(Role.PATIENT, Role.PROVIDER, Role.SUPER_ADMIN, Role.FRONT_DESK),
   setClinicFromUser,
   appointmentController.updateStatus
-);
+)
 
 router.post(
   '/:id/cancel',
   authorize(Role.PATIENT, Role.PROVIDER, Role.FRONT_DESK),
   setClinicFromUser,
   appointmentController.cancel
-);
+)
 
 router.post(
   '/:id/reschedule',
@@ -101,6 +88,6 @@ router.post(
   setClinicFromUser,
   validateRequest(appointmentRescheduleSchema),
   appointmentController.reschedule
-);
+)
 
-export default router;
+export default router

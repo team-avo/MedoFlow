@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
 import * as aiScribeService from '../services/aiScribeService'
 import * as visitService from '../services/visitService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { logRead } from '../services/auditService'
 import { aiScribeQueue } from '../queues/aiScribeQueue'
 
@@ -87,7 +87,7 @@ export const uploadAudio = asyncHandler(
         where: { id: sessionId, clinicId },
         data: { status: 'FAILED', errorMessage: 'Failed to start processing. Please try again.' },
       })
-      const updated = await aiScribeService.getSessionForProvider(sessionId, providerId, clinicId)
+      await aiScribeService.getSessionForProvider(sessionId, providerId, clinicId)
       const apiErr = new Error('Processing could not be started. Please try again.') as ApiError
       apiErr.statusCode = 503
       apiErr.code = 'integration_failed'

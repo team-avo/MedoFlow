@@ -1,7 +1,7 @@
 import prisma from '../config/prisma'
 import stripe from '../config/stripe'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { PaymentStatus, Prisma, SubscriptionStatus } from '@prisma/client'
 
 const ZERO = new Prisma.Decimal(0)
@@ -39,15 +39,52 @@ export const mapStripeSubscriptionStatus = (status?: string | null): Subscriptio
   }
 }
 
-const getPaymentIntentClientSecret = (subscription: any) => {
-  const latestInvoice = subscription?.latest_invoice as any
-  const paymentIntent = latestInvoice?.payment_intent as any
-  return paymentIntent?.client_secret ?? null
+// A Stripe id reference: either the bare id or the expanded object.
+type StripeRef = string | { id: string }
+
+// The expanded payment intent on an invoice (`expand: ['latest_invoice.payment_intent']`).
+interface ExpandedPaymentIntent {
+  id: string
+  client_secret?: string | null
 }
 
-const getSubscriptionPeriod = (subscription: any) => ({
-  currentPeriodStart: new Date(subscription.current_period_start * 1000),
-  currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+// Current Stripe typings no longer model `Invoice.payment_intent` /
+// `Invoice.subscription`; these are exactly the invoice fields read here.
+interface InvoiceWithPaymentIntent {
+  payment_intent?: string | ExpandedPaymentIntent | null
+}
+
+const hasPaymentIntentField = (value: unknown): value is InvoiceWithPaymentIntent =>
+  typeof value === 'object' && value !== null && 'payment_intent' in value
+
+/**
+ * The subscription fields read when mirroring a Stripe subscription locally.
+ * `Stripe.Subscription` satisfies it; the period fields are optional because
+ * newer Stripe API versions moved them onto subscription items.
+ */
+export interface StripeSubscriptionLike {
+  id: string
+  customer?: StripeRef | null
+  status?: string | null
+  current_period_start?: number
+  current_period_end?: number
+  cancel_at_period_end: boolean
+  metadata?: Record<string, string | undefined> | null
+  latest_invoice?: unknown
+}
+
+const getPaymentIntentClientSecret = (subscription: StripeSubscriptionLike) => {
+  const latestInvoice = subscription.latest_invoice
+  const paymentIntent = hasPaymentIntentField(latestInvoice) ? latestInvoice.payment_intent : null
+  return typeof paymentIntent === 'object' && paymentIntent
+    ? (paymentIntent.client_secret ?? null)
+    : null
+}
+
+// Number() keeps the implicit-coercion semantics of the arithmetic (undefined -> NaN).
+const getSubscriptionPeriod = (subscription: StripeSubscriptionLike) => ({
+  currentPeriodStart: new Date(Number(subscription.current_period_start) * 1000),
+  currentPeriodEnd: new Date(Number(subscription.current_period_end) * 1000),
 })
 
 export const getMemberships = async (clinicId: string) => {
@@ -176,7 +213,8 @@ export const getMembershipOperationalSummary = async (clinicId: string) => {
   }
 }
 
-type PrismaLike = Prisma.TransactionClient | typeof prisma
+// The client or an interactive-transaction handle: only the subscription delegate is used.
+type PrismaLike = Pick<typeof prisma, 'patientSubscription'>
 
 export const getActiveMembershipBenefitWithExecutor = async (
   executor: PrismaLike,
@@ -184,7 +222,7 @@ export const getActiveMembershipBenefitWithExecutor = async (
   patientId: string
 ) => {
   try {
-    const subscriptions = (await (executor as any).patientSubscription.findMany({
+    const subscriptions = await executor.patientSubscription.findMany({
       where: {
         clinicId,
         patientId,
@@ -197,7 +235,7 @@ export const getActiveMembershipBenefitWithExecutor = async (
         },
       },
       orderBy: { createdAt: 'desc' },
-    })) as any[]
+    })
 
     if (!subscriptions || subscriptions.length === 0) return null
 
@@ -312,19 +350,7 @@ const findReusableCustomerId = async (clinicId: string, patientId: string) => {
   return existing?.stripeCustomerId ?? null
 }
 
-const getExistingIncompleteSubscription = async (clinicId: string, patientId: string) => {
-  return prisma.patientSubscription.findFirst({
-    where: {
-      clinicId,
-      patientId,
-      status: SubscriptionStatus.INCOMPLETE,
-    },
-    include: { membership: true },
-    orderBy: { createdAt: 'desc' },
-  })
-}
-
-export const syncSubscriptionFromStripe = async (stripeSubscription: any) => {
+export const syncSubscriptionFromStripe = async (stripeSubscription: StripeSubscriptionLike) => {
   const metadata = stripeSubscription.metadata ?? {}
   const clinicId = metadata.clinicId
   const patientId = metadata.patientId
@@ -546,7 +572,17 @@ export const cancelMembershipAtPeriodEnd = async (
   return syncSubscriptionFromStripe(updatedStripeSubscription)
 }
 
-export const recordPaidSubscriptionInvoice = async (invoiceObject: any) => {
+/** The invoice fields read when recording a paid membership invoice. */
+export interface PaidSubscriptionInvoice extends InvoiceWithPaymentIntent {
+  id: string
+  subscription?: StripeRef | null
+  amount_paid?: number | null
+  period_start?: number | null
+  period_end?: number | null
+  status_transitions?: { paid_at?: number | null } | null
+}
+
+export const recordPaidSubscriptionInvoice = async (invoiceObject: PaidSubscriptionInvoice) => {
   if (!invoiceObject.subscription) return null
 
   const stripeSubscriptionId =
@@ -571,7 +607,7 @@ export const recordPaidSubscriptionInvoice = async (invoiceObject: any) => {
     typeof invoiceObject.payment_intent === 'object' &&
     invoiceObject.payment_intent &&
     'client_secret' in invoiceObject.payment_intent
-      ? (invoiceObject.payment_intent.client_secret as string | null)
+      ? invoiceObject.payment_intent.client_secret
       : null
 
   const periodStart =

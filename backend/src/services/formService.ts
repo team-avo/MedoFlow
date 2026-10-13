@@ -1,8 +1,8 @@
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import { logAudit } from './auditService'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import type { FormScope } from '@prisma/client'
 import * as patientMembershipService from './patientMembershipService'
 

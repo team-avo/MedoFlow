@@ -48,12 +48,12 @@ const verificationSecrets = (): string[] =>
   )
 
 const verifyWithRotation = <T>(token: string): T => {
-  let lastError: unknown
+  let lastError: Error | undefined
   for (const secret of verificationSecrets()) {
     try {
       return jwt.verify(token, secret, { algorithms: ['HS256'] }) as T
     } catch (err) {
-      lastError = err
+      lastError = err instanceof Error ? err : new Error(String(err))
       // An expired token is expired under every secret; don't mask it.
       if ((err as Error).name === 'TokenExpiredError') throw err
     }

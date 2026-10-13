@@ -1,8 +1,9 @@
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
-import { Prisma, TreatmentPlanStatus } from '@prisma/client'
+import type { TreatmentPlanStatus } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 
 export interface CreateTreatmentPlanData {
   patientId: string

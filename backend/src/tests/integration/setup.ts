@@ -24,6 +24,7 @@ process.env.SESSION_IDLE_TIMEOUT_MINUTES = process.env.SESSION_IDLE_TIMEOUT_MINU
 // Suites make many deliberate failed logins; rateLimit.int.test.ts restores the real limits.
 process.env.AUTH_RATE_LIMIT_MAX = '1000'
 process.env.REFRESH_RATE_LIMIT_MAX = '1000'
+process.env.PUBLIC_LOOKUP_RATE_LIMIT_MAX = '1000'
 delete process.env.STRIPE_WEBHOOK_SECRET
 delete process.env.ALERT_WEBHOOK_URL
 delete process.env.REDIS_URL

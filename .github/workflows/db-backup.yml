@@ -1,0 +1,87 @@
+# B0.6.4 — encrypted database backups + automated restore drill.
+#
+#   daily  03:15 UTC  pg_dump → age-encrypt → private R2 bucket (backend/scripts/ops/backup-db.sh)
+#   weekly Sun 04:00  restore the latest backup into a throwaway Postgres and verify it
+#                     (backend/scripts/ops/restore-drill.sh); the run log is the drill record
+#
+# Runs only in myselfabhi/MedoFlow. Repository secrets:
+#   BACKUP_DATABASE_URL     Neon direct URL (owner or a read-only role)
+#   BACKUP_AGE_RECIPIENT    age public key  (age-keygen; keep the private key offline)
+#   BACKUP_AGE_IDENTITY     age private key (AGE-SECRET-KEY-…) — used only by the drill
+#   BACKUP_S3_ENDPOINT      https://<account>.r2.cloudflarestorage.com
+#   BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY   R2 token scoped to the backup bucket
+# Repository variable:
+#   BACKUP_BUCKET           e.g. medoflow-backups (private; lifecycle rule deletes objects after 35 days)
+name: DB backup
+
+on:
+  schedule:
+    - cron: '15 3 * * *'
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      drill:
+        description: 'Also run the restore drill'
+        type: boolean
+        default: true
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.repository == 'myselfabhi/MedoFlow' && github.event.schedule != '0 4 * * 0'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pg_dump 18 and age
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-18 age
+      - name: Encrypted backup to R2
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_AGE_RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+          BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: bash backend/scripts/ops/backup-db.sh
+
+  restore-drill:
+    needs: [backup]
+    if: >-
+      always() && github.repository == 'myselfabhi/MedoFlow' &&
+      (github.event.schedule == '0 4 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.drill))
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: restore_drill
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pg tools 18 and age
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client-18 age
+      - name: Restore latest backup and verify
+        env:
+          RESTORE_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/restore_drill
+          BACKUP_AGE_IDENTITY: ${{ secrets.BACKUP_AGE_IDENTITY }}
+          BACKUP_BUCKET: ${{ vars.BACKUP_BUCKET }}
+          BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.BACKUP_S3_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.BACKUP_S3_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: bash backend/scripts/ops/restore-drill.sh

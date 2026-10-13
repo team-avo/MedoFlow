@@ -38,5 +38,15 @@
     "extends": [
       "@commitlint/config-conventional"
     ]
+  },
+  "pnpm": {
+    "overrides": {
+      "proxy-addr": "^2.0.8",
+      "ws@>=8.0.0 <8.21.0": "^8.21.0",
+      "source-map-js": "^1.2.2",
+      "fast-xml-builder": "^1.3.1",
+      "ip-address": "^10.7.4",
+      "deepmerge-ts": "^8.0.2"
+    }
   }
 }

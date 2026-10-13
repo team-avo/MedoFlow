@@ -1,8 +1,8 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import * as availabilityService from '../services/availabilityService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import prisma from '../config/prisma'
 import { withTenantBypass } from '../config/tenantContext'
 
@@ -62,7 +62,11 @@ export const getProviderAvailability = asyncHandler(
 export const previewAvailabilityUpdate = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const providerId = req.params.id as string
-    const { weekday, startTime, endTime } = req.body
+    const { weekday, startTime, endTime } = req.body as {
+      weekday?: number | string
+      startTime?: string
+      endTime?: string
+    }
     if (weekday === undefined || startTime === undefined || endTime === undefined) {
       const err = new Error('weekday, startTime and endTime are required') as ApiError
       err.statusCode = 400
@@ -88,7 +92,10 @@ export const createAvailability = asyncHandler(
       throw err
     }
     const availability = await availabilityService.createAvailability(
-      { ...req.body, providerId },
+      {
+        ...(req.body as Omit<availabilityService.CreateAvailabilityData, 'providerId'>),
+        providerId,
+      },
       clinicId,
       req.user!.id
     )
@@ -136,7 +143,10 @@ export const createUnavailability = asyncHandler(
       throw err
     }
     const unavailability = await availabilityService.createUnavailability(
-      { ...req.body, providerId },
+      {
+        ...(req.body as Omit<availabilityService.CreateUnavailabilityData, 'providerId'>),
+        providerId,
+      },
       clinicId,
       req.user!.id
     )

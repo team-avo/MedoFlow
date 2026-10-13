@@ -5,7 +5,7 @@ import { successResponse } from '../utils/apiResponse'
 import { protect } from '../middleware/auth'
 import { validateRequest } from '../middleware/validateRequest'
 import * as onboardingService from '../services/onboardingService'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import prisma from '../config/prisma'
 
 const router = Router()
@@ -58,8 +58,9 @@ router.patch(
   validateRequest(stepSchema),
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
-    await onboardingService.setStep(clinicId, req.body.step as number)
-    successResponse(res, 200, 'Step saved', { step: req.body.step })
+    const { step } = req.body as z.infer<typeof stepSchema.body>
+    await onboardingService.setStep(clinicId, step)
+    successResponse(res, 200, 'Step saved', { step })
   })
 )
 
@@ -69,7 +70,7 @@ router.patch(
   validateRequest(brandSchema),
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
-    await onboardingService.updateBrand(clinicId, req.body)
+    await onboardingService.updateBrand(clinicId, req.body as z.infer<typeof brandSchema.body>)
     const status = await onboardingService.getStatus(clinicId)
     successResponse(res, 200, 'Brand updated', status)
   })
@@ -119,14 +120,15 @@ router.post(
       select: { tenant: { select: { name: true } } },
     })
     const expectedName = clinic?.tenant?.name?.trim().toLowerCase() ?? ''
-    const provided = (req.body.confirmClinicName as string).trim().toLowerCase()
+    const body = req.body as z.infer<typeof agreementSchema.body>
+    const provided = body.confirmClinicName.trim().toLowerCase()
     if (!expectedName || expectedName !== provided) {
       const err = new Error('Confirmation name does not match clinic on file') as ApiError
       err.statusCode = 400
       throw err
     }
 
-    const { confirmClinicName: _confirm, ...input } = req.body
+    const { confirmClinicName: _confirm, ...input } = body
     const result = await onboardingService.acceptTerms(clinicId, userId, input)
     successResponse(res, 200, 'Agreement accepted', result)
   })

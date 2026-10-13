@@ -1,21 +1,42 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
 import * as appointmentService from '../services/appointmentService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
-import { getClinicWhere } from '../middleware/clinicScope'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { BookingSource } from '@prisma/client'
+import type { AppointmentStatus } from '@prisma/client'
+
+type CreateAppointmentBody = Omit<appointmentService.CreateAppointmentData, 'patientId'> & {
+  clinicId?: string
+  patientId?: string
+  slotHoldId?: string
+  patientPackageId?: string
+}
+
+interface CreateRecurringBody {
+  clinicId?: string
+  patientId?: string
+  locationId?: string | null
+  providerId?: string
+  serviceId?: string
+  startTime?: string
+  endTime?: string
+  frequency?: string
+  numberOfSessions?: number | string | null
+  endDate?: string | null
+}
 
 export const create = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const clinicId = req.clinicId ?? (req.body?.clinicId as string)
+    const body = req.body as CreateAppointmentBody | undefined
+    const clinicId = req.clinicId ?? (body?.clinicId as string)
     if (!clinicId) {
       const err = new Error('Clinic ID is required') as ApiError
       err.statusCode = 400
       throw err
     }
-    const { patientId, slotHoldId, patientPackageId, ...rest } = req.body
+    const { patientId, slotHoldId, patientPackageId, ...rest } = body as CreateAppointmentBody
     const resolvedPatientId = (patientId as string) || req.user!.id
     const bookingSource =
       req.user!.role === 'FRONT_DESK'
@@ -28,8 +49,8 @@ export const create = asyncHandler(
       clinicId,
       {
         performedById: req.user!.id,
-        slotHoldId: slotHoldId as string | undefined,
-        patientPackageId: patientPackageId as string | undefined,
+        slotHoldId,
+        patientPackageId,
         bookingSource,
       }
     )
@@ -39,13 +60,15 @@ export const create = asyncHandler(
 
 export const createRecurring = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const clinicId = req.clinicId ?? (req.body?.clinicId as string)
+    const body = req.body as CreateRecurringBody | undefined
+    const clinicId = req.clinicId ?? (body?.clinicId as string)
     if (!clinicId) {
       const err = new Error('Clinic ID is required') as ApiError
       err.statusCode = 400
       throw err
     }
-    const resolvedPatientId = (req.body.patientId as string) || req.user!.id
+    const recurringBody = body as CreateRecurringBody
+    const resolvedPatientId = (recurringBody.patientId as string) || req.user!.id
     const {
       locationId,
       providerId,
@@ -55,7 +78,7 @@ export const createRecurring = asyncHandler(
       frequency,
       numberOfSessions,
       endDate,
-    } = req.body
+    } = recurringBody
     if (!providerId || !serviceId || !startTime || !endTime || frequency !== 'WEEKLY') {
       const err = new Error(
         'providerId, serviceId, startTime, endTime, and frequency (WEEKLY) are required'
@@ -211,7 +234,7 @@ export const getClinic = asyncHandler(
 export const updateStatus = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const id = req.params.id as string
-    const { status } = req.body
+    const { status } = req.body as { status?: string }
     if (!status) {
       const err = new Error('Status is required') as ApiError
       err.statusCode = 400
@@ -226,14 +249,14 @@ export const updateStatus = asyncHandler(
       'NO_SHOW',
       'RESCHEDULED',
     ]
-    if (!validStatuses.includes(status as string)) {
+    if (!validStatuses.includes(status)) {
       const err = new Error('Invalid status') as ApiError
       err.statusCode = 400
       throw err
     }
     const appointment = await appointmentService.updateAppointmentStatus(
       id,
-      status as import('@prisma/client').AppointmentStatus,
+      status as AppointmentStatus,
       req
     )
     successResponse(res, 200, 'Appointment status updated', { appointment })
@@ -256,7 +279,7 @@ const getCancelRescheduleWhere = async (
 export const cancel = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const id = req.params.id as string
-    const { reason } = req.body
+    const { reason } = req.body as { reason?: string }
     const reasonStr = (reason as string)?.trim() ?? ''
     const where = await getCancelRescheduleWhere(req)
     const result = await appointmentService.cancelAppointment(id, reasonStr, req.user!.id, where)
@@ -271,7 +294,13 @@ export const cancel = asyncHandler(
 export const reschedule = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const id = req.params.id as string
-    const { newStartTime, newEndTime } = req.body
+    const rescheduleBody = req.body as {
+      newStartTime?: string
+      newEndTime?: string
+      locationId?: string
+      slotHoldId?: string
+    }
+    const { newStartTime, newEndTime } = rescheduleBody
     if (!newStartTime || !newEndTime) {
       const err = new Error('newStartTime and newEndTime are required') as ApiError
       err.statusCode = 400
@@ -283,8 +312,8 @@ export const reschedule = asyncHandler(
       {
         newStartTime,
         newEndTime,
-        locationId: req.body.locationId as string | undefined,
-        slotHoldId: req.body.slotHoldId as string | undefined,
+        locationId: rescheduleBody.locationId,
+        slotHoldId: rescheduleBody.slotHoldId,
       },
       req.user!.id,
       where

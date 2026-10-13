@@ -4,8 +4,14 @@ import prisma from '../config/prisma'
 import * as analyticsService from '../services/analyticsService'
 import * as analyticsController from '../controllers/analyticsController'
 
+// Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
-  object[key] = value
+  Object.defineProperty(object, key, {
+    value,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  })
 }
 
 test('parseAnalyticsDateRange defaults to the last 30 days', () => {
@@ -47,6 +53,7 @@ test('aggregate analytics computes finance, rates, patient value, and utilizatio
   const originalPackageFindMany = prisma.patientPackage.findMany
   const originalWaitlistFindMany = prisma.waitlistEntry.findMany
   const originalAppointmentCount = prisma.appointment.count
+  const originalCartCount = prisma.cart.count
 
   try {
     ;(prisma.appointment.findMany as any) = async ({ where, select }: any) => {
@@ -294,6 +301,7 @@ test('aggregate analytics computes finance, rates, patient value, and utilizatio
       { status: 'BOOKED' },
     ]
     ;(prisma.appointment.count as any) = async () => 1
+    ;(prisma.cart.count as any) = async () => 0
 
     const result = await analyticsService.aggregateAnalytics(
       { clinicId: 'clinic-1', role: Role.PROVIDER, providerId: 'provider-1' },
@@ -314,7 +322,7 @@ test('aggregate analytics computes finance, rates, patient value, and utilizatio
     assert.equal(result.summary.commissionSummary.owed, 10)
     assert.equal(result.summary.membershipSummary.churnRate, 50)
     assert.equal(result.summary.patientSummary.repeatVisitRate, 100)
-    assert.equal(result.summary.providerUtilization[0].availableMinutes, 2700)
+    assert.equal(result.summary.providerUtilization[0]?.availableMinutes, 2700)
   } finally {
     restore(prisma.appointment, 'findMany', originalAppointmentFindMany)
     restore(prisma.provider, 'findMany', originalProviderFindMany)
@@ -324,6 +332,7 @@ test('aggregate analytics computes finance, rates, patient value, and utilizatio
     restore(prisma.patientPackage, 'findMany', originalPackageFindMany)
     restore(prisma.waitlistEntry, 'findMany', originalWaitlistFindMany)
     restore(prisma.appointment, 'count', originalAppointmentCount)
+    restore(prisma.cart, 'count', originalCartCount)
   }
 })
 

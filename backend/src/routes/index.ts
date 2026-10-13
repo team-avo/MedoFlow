@@ -35,6 +35,7 @@ import roleRoutes from './roles'
 import tenantRoutes from './tenants'
 import onboardingRoutes from './onboarding'
 import platformRoutes from './platform'
+import lifecycleRoutes from './lifecycle'
 import sitePagesRoutes from './sitePages'
 import voiceAgentRoutes from './voiceAgent'
 
@@ -75,6 +76,7 @@ router.use('/memberships', membershipRoutes)
 router.use('/carts', cartRoutes)
 router.use('/roles', roleRoutes)
 router.use('/onboarding', onboardingRoutes)
+router.use('/platform/lifecycle', lifecycleRoutes)
 router.use('/platform', platformRoutes)
 router.use('/site-pages', sitePagesRoutes)
 router.use('/voice-agent', voiceAgentRoutes)

@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 import * as emailService from './emailService'
 import { clinicScope } from '../config/tenantContext'

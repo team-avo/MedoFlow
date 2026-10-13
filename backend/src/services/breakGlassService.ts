@@ -15,7 +15,7 @@
 import type { Request } from 'express'
 import prisma from '../config/prisma'
 import { withTenantBypass } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { logAudit, requestMeta } from './auditService'
 import { raiseAlert } from './securityMonitorService'
 

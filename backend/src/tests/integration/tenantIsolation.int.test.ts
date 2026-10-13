@@ -112,8 +112,8 @@ describe('Postgres row-level security is live for the app role (B0.1.3)', () => 
   })
 
   it('a scoped table read without the tenant session variables returns 0 rows', async () => {
-    const [{ n }] = await appDb.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM "Appointment"`
-    expect(Number(n)).toBe(0)
+    const [row] = await appDb.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM "Appointment"`
+    expect(Number(row?.n)).toBe(0)
     // ...while the owner sees them.
     expect(await adminDb.appointment.count()).toBeGreaterThan(0)
   })

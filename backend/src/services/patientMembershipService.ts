@@ -1,20 +1,20 @@
-import prisma from '../config/prisma';
-import { ApiError } from '../types/errors';
+import prisma from '../config/prisma'
+import type { ApiError } from '../types/errors'
 
 export const ensurePatientClinicMembership = async (params: {
-  clinicId: string;
-  patientId: string;
-  primaryLocationId?: string | null;
+  clinicId: string
+  patientId: string
+  primaryLocationId?: string | null
 }) => {
   const patient = await prisma.user.findUnique({
     where: { id: params.patientId },
     select: { id: true, role: true, isActive: true },
-  });
+  })
 
   if (!patient || patient.role !== 'PATIENT' || !patient.isActive) {
-    const err = new Error('Patient not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Patient not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (params.primaryLocationId) {
@@ -25,12 +25,12 @@ export const ensurePatientClinicMembership = async (params: {
         isActive: true,
       },
       select: { id: true },
-    });
+    })
 
     if (!location) {
-      const err = new Error('Location not found for clinic') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Location not found for clinic') as ApiError
+      err.statusCode = 404
+      throw err
     }
   }
 
@@ -53,13 +53,10 @@ export const ensurePatientClinicMembership = async (params: {
         primaryLocationId: params.primaryLocationId,
       }),
     },
-  });
-};
+  })
+}
 
-export const assertPatientBelongsToClinic = async (
-  patientId: string,
-  clinicId: string
-) => {
+export const assertPatientBelongsToClinic = async (patientId: string, clinicId: string) => {
   const membership = await prisma.patientClinicMembership.findFirst({
     where: {
       clinicId,
@@ -67,13 +64,13 @@ export const assertPatientBelongsToClinic = async (
       isActive: true,
     },
     select: { id: true },
-  });
+  })
 
   if (!membership) {
-    const err = new Error('Patient does not belong to clinic') as ApiError;
-    err.statusCode = 403;
-    throw err;
+    const err = new Error('Patient does not belong to clinic') as ApiError
+    err.statusCode = 403
+    throw err
   }
 
-  return membership;
-};
+  return membership
+}

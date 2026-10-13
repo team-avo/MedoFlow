@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express'
-import * as multer from 'multer'
-import { ApiError } from '../types/errors'
+import type { Request, Response, NextFunction } from 'express'
+import type * as multer from 'multer'
+import type { ApiError } from '../types/errors'
 import { logError } from '../utils/errorLogger'
 
 export const errorHandler = (

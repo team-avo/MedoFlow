@@ -1,15 +1,14 @@
 import { DateTime } from 'luxon'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 import { clinicScope } from '../config/tenantContext'
+import type { BlockedInterval, SchedulingSlot } from './schedulingCore'
 import {
-  BlockedInterval,
   buildCandidateSlots,
   DEFAULT_SLOT_STEP_MINUTES,
   getDateWindow,
   MIN_APPOINTMENT_DURATION_MINUTES,
-  SchedulingSlot,
 } from './schedulingCore'
 
 const CANCELLED_STATUS = 'CANCELLED'

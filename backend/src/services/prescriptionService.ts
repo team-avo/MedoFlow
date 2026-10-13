@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 
 export interface CreatePrescriptionData {
   appointmentId: string

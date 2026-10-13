@@ -116,7 +116,7 @@ export function scrubPhi<T>(value: T, depth = 0, seen = new WeakSet<object>()): 
   }
   if (value instanceof Date) return value
   if (Array.isArray(value)) {
-    return value.map((v) => scrubPhi(v, depth + 1, seen)) as unknown as T
+    return (value as unknown[]).map((v) => scrubPhi(v, depth + 1, seen)) as unknown as T
   }
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
@@ -149,8 +149,9 @@ let consoleInstalled = false
 export function installConsoleScrubber(): void {
   if (consoleInstalled) return
   consoleInstalled = true
-  for (const level of ['log', 'info', 'warn', 'error', 'debug'] as const) {
-    const original = console[level].bind(console)
-    console[level] = (...args: unknown[]) => original(...args.map((a) => scrubPhi(a)))
+  const target = console as unknown as Record<string, (...args: unknown[]) => void>
+  for (const level of ['log', 'info', 'warn', 'error', 'debug']) {
+    const original = target[level]!.bind(target)
+    target[level] = (...args: unknown[]) => original(...args.map((a) => scrubPhi(a)))
   }
 }

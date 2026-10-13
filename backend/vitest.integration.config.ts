@@ -23,5 +23,20 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 60_000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'json-summary'],
+      reportsDirectory: 'coverage-integration',
+      include: ['src/**/*.ts'],
+      exclude: ['src/tests/**', 'src/server.ts'],
+      // B0.5.2 ratchet, just below the 2026-10-13 baseline (lines 33.4%,
+      // functions 31.1%, branches 59.9%). Raise as coverage grows.
+      thresholds: {
+        lines: 33,
+        statements: 33,
+        functions: 31,
+        branches: 59,
+      },
+    },
   },
 })

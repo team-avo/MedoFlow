@@ -13,7 +13,7 @@
  *  - refresh-token reuse revokes the session it belongs to.
  */
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 
 const DEFAULT_IDLE_MINUTES = 15
 /** lastActivityAt is only rewritten when older than this (one write per minute per session). */

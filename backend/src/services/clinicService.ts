@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
-import { Clinic } from '@prisma/client'
-import { ApiError } from '../types/errors'
+import type { Clinic } from '@prisma/client'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 
 export interface CreateClinicData {

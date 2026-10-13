@@ -12,8 +12,14 @@ import * as invoiceService from '../services/invoiceService'
 import * as membershipService from '../services/membershipService'
 import * as packageService from '../services/packageService'
 
+// Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
-  object[key] = value
+  Object.defineProperty(object, key, {
+    value,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  })
 }
 
 test('commission rule creation rejects conflicting active rules', async () => {

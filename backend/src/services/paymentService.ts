@@ -1,7 +1,8 @@
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
+import type { AppointmentStatus } from '@prisma/client'
 import { PaymentRequirementType, PaymentStatus, Prisma } from '@prisma/client'
 import stripe from '../config/stripe'
 import { computeInvoiceFinancials, syncInvoiceStatusFromPayments } from './invoiceService'
@@ -202,7 +203,7 @@ export const confirmPayment = async (
 
   const amount = appointment.priceAtBooking
 
-  const nextStatus =
+  const nextStatus: AppointmentStatus =
     appointment.approvalStatus === 'PENDING' ? 'PENDING_PROVIDER_APPROVAL' : 'CONFIRMED'
 
   const invoice = await prisma.invoice.findFirst({
@@ -243,7 +244,7 @@ export const confirmPayment = async (
     prisma.appointment.update({
       where: { id: appointmentId, clinicId: appointment.clinicId },
       data: {
-        status: nextStatus as any,
+        status: nextStatus,
         paymentStatus: PaymentStatus.PAID,
         paymentDueAt: null,
         slotHeldUntil: null,
@@ -306,7 +307,7 @@ export const demoConfirmPayment = async (
       ? appointment.depositAmount
       : appointment.priceAtBooking
 
-  const nextStatus =
+  const nextStatus: AppointmentStatus =
     appointment.approvalStatus === 'PENDING' ? 'PENDING_PROVIDER_APPROVAL' : 'CONFIRMED'
 
   const [payment, updatedAppointment] = await prisma.$transaction([
@@ -328,7 +329,7 @@ export const demoConfirmPayment = async (
       where: { id: appointmentId, clinicId: appointment.clinicId },
       data: {
         paymentStatus: PaymentStatus.PAID,
-        status: nextStatus as any,
+        status: nextStatus,
         slotHeldUntil: null,
         bookingHoldExpiresAt: null,
       },

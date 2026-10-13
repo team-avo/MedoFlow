@@ -7,7 +7,7 @@
 import prisma from '../config/prisma'
 import { clinicScope, withTenantBypass } from '../config/tenantContext'
 import crypto from 'crypto'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { ConsultationStatus, RecordingStatus, ConsentStatus, Role } from '@prisma/client'
 import * as auditService from './auditService'
 import * as storageService from './storageService'

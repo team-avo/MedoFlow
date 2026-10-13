@@ -1,11 +1,11 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
 import { clinicScope, withTenantBypass } from '../config/tenantContext'
 import * as jaasService from '../services/jaasService'
 import * as consultationService from '../services/consultationService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { logRead } from '../services/auditService'
 import { Role } from '@prisma/client'
 
@@ -21,7 +21,9 @@ async function providerScope(req: Request): Promise<{ providerId: string; clinic
     throw err
   }
   const clinicId =
-    (req.body?.clinicId as string) || (req.query?.clinicId as string) || user.clinicId
+    (req.body as { clinicId?: string } | undefined)?.clinicId ||
+    (req.query?.clinicId as string) ||
+    user.clinicId
   if (!clinicId) {
     const err = new Error('Clinic context required') as ApiError
     err.statusCode = 400
@@ -69,7 +71,7 @@ export const getSession = asyncHandler(
     const session = await consultationService.getSessionById(
       sessionId,
       req.user!.id,
-      req.user!.role as Role
+      req.user!.role
     )
     successResponse(res, 200, 'Session retrieved', { session })
   }
@@ -140,7 +142,7 @@ export const getByAppointment = asyncHandler(
     const session = await consultationService.getSessionForAppointment(
       appointmentId,
       req.user!.id,
-      req.user!.role as Role
+      req.user!.role
     )
     successResponse(res, 200, 'Session retrieved', { session })
   }
@@ -221,7 +223,7 @@ export const getTranscript = asyncHandler(
     const transcript = await consultationService.getTranscript(
       sessionId,
       req.user!.id,
-      req.user!.role as Role
+      req.user!.role
     )
     await logRead(req, {
       entityType: 'ConsultationTranscript',

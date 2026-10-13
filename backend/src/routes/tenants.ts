@@ -33,7 +33,7 @@ router.post(
   authRateLimit,
   validateRequest({ body: signupSchema }),
   asyncHandler(async (req, res) => {
-    const result = await tenantService.provisionTenant(req.body)
+    const result = await tenantService.provisionTenant(req.body as tenantService.SignupData)
     successResponse(res, 201, 'Clinic created successfully. Welcome to MedoFlow!', {
       tenantId: result.tenant.id,
       clinicId: result.clinic.id,

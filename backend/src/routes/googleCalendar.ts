@@ -1,21 +1,18 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { protect, authorize } from '../middleware/auth';
-import { requireClinic } from '../middleware/requireClinic';
-import { Role } from '@prisma/client';
-import * as googleCalendarController from '../controllers/googleCalendarController';
+import type { Request, Response, NextFunction } from 'express'
+import { Router } from 'express'
+import { protect, authorize } from '../middleware/auth'
+import { requireClinic } from '../middleware/requireClinic'
+import { Role } from '@prisma/client'
+import * as googleCalendarController from '../controllers/googleCalendarController'
 
-const router = Router();
+const router = Router()
 
-router.use(protect);
+router.use(protect)
 
-const setClinicFromUser = (
-  req: Request,
-  _res: Response,
-  next: NextFunction
-): void => {
-  req.clinicId = req.user?.clinicId ?? null;
-  next();
-};
+const setClinicFromUser = (req: Request, _res: Response, next: NextFunction): void => {
+  req.clinicId = req.user?.clinicId ?? null
+  next()
+}
 
 router.get(
   '/auth-url',
@@ -23,7 +20,7 @@ router.get(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.getAuthUrl
-);
+)
 
 router.post(
   '/connect',
@@ -31,7 +28,7 @@ router.post(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.connect
-);
+)
 
 router.post(
   '/sync',
@@ -39,7 +36,7 @@ router.post(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.syncEvents
-);
+)
 
 router.get(
   '/status',
@@ -47,7 +44,7 @@ router.get(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.status
-);
+)
 
 router.delete(
   '/disconnect',
@@ -55,7 +52,7 @@ router.delete(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.disconnect
-);
+)
 
 router.get(
   '/events',
@@ -63,7 +60,7 @@ router.get(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.listEvents
-);
+)
 
 router.get(
   '/events/:eventId/appointments-candidates',
@@ -71,7 +68,7 @@ router.get(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.listEventAppointmentCandidates
-);
+)
 
 router.post(
   '/events/:eventId/link-appointment',
@@ -79,7 +76,7 @@ router.post(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.linkEventToAppointment
-);
+)
 
 router.post(
   '/events/:eventId/start-scribe',
@@ -87,6 +84,6 @@ router.post(
   setClinicFromUser,
   requireClinic,
   googleCalendarController.startScribeFromMeeting
-);
+)
 
-export default router;
+export default router

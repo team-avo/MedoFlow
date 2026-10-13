@@ -1,4 +1,4 @@
-import { Role, TenantStatus, TenantPlan } from '@prisma/client'
+import type { Role, TenantStatus, TenantPlan } from '@prisma/client'
 
 declare global {
   namespace Express {

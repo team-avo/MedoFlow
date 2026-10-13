@@ -14,8 +14,8 @@
  * falls back to its built-in speech synthesis — the agent stays usable.
  */
 
-import { ApiError } from '../types/errors'
-import { VoicePersona } from '@prisma/client'
+import type { ApiError } from '../types/errors'
+import type { VoicePersona } from '@prisma/client'
 
 // ─────────────────────────── Groq (primary) ──────────────────────────
 

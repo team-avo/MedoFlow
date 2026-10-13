@@ -1,11 +1,22 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
+import type Stripe from 'stripe'
 import stripe from '../config/stripe'
 import prisma from '../config/prisma'
 import * as emailService from '../services/emailService'
 import * as commissionService from '../services/commissionService'
-import { PaymentStatus } from '@prisma/client'
+import { AppointmentStatus, PaymentStatus } from '@prisma/client'
 import * as membershipService from '../services/membershipService'
 import { syncInvoiceStatusFromPayments } from '../services/invoiceService'
+
+/**
+ * The payment-intent fields the success handlers read. `Stripe.PaymentIntent`
+ * satisfies it.
+ */
+export interface WebhookPaymentIntent {
+  id: string
+  client_secret?: string | null
+  metadata?: Record<string, string | undefined> | null
+}
 
 const cancelCommissionRecords = async (invoiceId: string) => {
   await prisma.commissionRecord.updateMany({
@@ -19,8 +30,11 @@ const cancelCommissionRecords = async (invoiceId: string) => {
   })
 }
 
-export const handleAppointmentPaymentIntentSucceeded = async (paymentIntent: any) => {
-  const { appointmentId } = paymentIntent.metadata || {}
+export const handleAppointmentPaymentIntentSucceeded = async (
+  paymentIntent: WebhookPaymentIntent
+) => {
+  const metadata: Record<string, string | undefined> = paymentIntent.metadata || {}
+  const { appointmentId } = metadata
   if (!appointmentId) return
 
   const appt = await prisma.appointment.findUnique({
@@ -49,7 +63,10 @@ export const handleAppointmentPaymentIntentSucceeded = async (paymentIntent: any
     return
   }
 
-  const nextStatus = appt.approvalStatus === 'PENDING' ? 'PENDING_PROVIDER_APPROVAL' : 'CONFIRMED'
+  const nextStatus =
+    appt.approvalStatus === 'PENDING'
+      ? AppointmentStatus.PENDING_PROVIDER_APPROVAL
+      : AppointmentStatus.CONFIRMED
 
   const pendingPayment = await prisma.payment.findFirst({
     where: {
@@ -98,7 +115,7 @@ export const handleAppointmentPaymentIntentSucceeded = async (paymentIntent: any
       where: { id: appointmentId },
       data: {
         paymentStatus: 'PAID',
-        status: nextStatus as any,
+        status: nextStatus,
         slotHeldUntil: null,
         bookingHoldExpiresAt: null,
       },
@@ -149,8 +166,11 @@ export const handleAppointmentPaymentIntentSucceeded = async (paymentIntent: any
   if (inv) await commissionService.calculateCommissions(inv.id)
 }
 
-export const handleCartCheckoutPaymentIntentSucceeded = async (paymentIntent: any) => {
-  const { invoiceId, clinicId, patientId } = paymentIntent.metadata || {}
+export const handleCartCheckoutPaymentIntentSucceeded = async (
+  paymentIntent: WebhookPaymentIntent
+) => {
+  const metadata: Record<string, string | undefined> = paymentIntent.metadata || {}
+  const { invoiceId, clinicId, patientId } = metadata
   if (!invoiceId || !clinicId || !patientId) return
 
   const existingPaidPayment = await prisma.payment.findUnique({
@@ -270,18 +290,23 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'] as string
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET
 
-  let event
+  let event: Stripe.Event
 
   if (endpointSecret) {
     try {
-      event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret)
-    } catch (err: any) {
-      console.error(`Webhook Error: ${err.message}`)
-      res.status(400).send(`Webhook Error: ${err.message}`)
+      // express.raw() hands the route the raw payload (Buffer) for signature checks.
+      event = stripe.webhooks.constructEvent(req.body as string | Buffer, sig, endpointSecret)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(`Webhook Error: ${message}`)
+      res.status(400).send(`Webhook Error: ${message}`)
       return
     }
   } else {
-    event = req.body
+    // No secret (local development only): the body is still the raw Buffer from express.raw().
+    // The unsigned JSON is the untyped boundary; it is typed once as a Stripe event here.
+    const body: unknown = req.body
+    event = (Buffer.isBuffer(body) ? JSON.parse(body.toString('utf8')) : body) as Stripe.Event
   }
 
   // Event-level idempotency: Stripe retries and replays deliver the same
@@ -289,14 +314,13 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
   // delivery is acknowledged without re-running the handler. If processing
   // fails the claim is released so Stripe's retry can run it again.
   if (typeof event?.id === 'string') {
-    try {
-      await prisma.processedStripeEvent.create({ data: { id: event.id, type: String(event.type) } })
-    } catch (err: any) {
-      if (err?.code === 'P2002') {
-        res.json({ received: true, duplicate: true })
-        return
-      }
-      throw err
+    const claim = await prisma.processedStripeEvent.createMany({
+      data: [{ id: event.id, type: String(event.type) }],
+      skipDuplicates: true,
+    })
+    if (claim.count === 0) {
+      res.json({ received: true, duplicate: true })
+      return
     }
   }
 
@@ -312,11 +336,12 @@ export const handleStripeWebhook = async (req: Request, res: Response) => {
   res.json({ received: true })
 }
 
-const dispatchStripeEvent = async (event: any) => {
+const dispatchStripeEvent = async (event: Stripe.Event) => {
   switch (event.type) {
     case 'payment_intent.succeeded': {
-      const paymentIntent = event.data.object as any
-      const { type } = paymentIntent.metadata || {}
+      const paymentIntent = event.data.object
+      const metadata: Record<string, string | undefined> = paymentIntent.metadata || {}
+      const { type } = metadata
 
       if (type === 'APPOINTMENT') {
         await handleAppointmentPaymentIntentSucceeded(paymentIntent)
@@ -329,7 +354,9 @@ const dispatchStripeEvent = async (event: any) => {
     }
 
     case 'invoice.paid': {
-      const invoiceObject = event.data.object as any
+      // Widened to the fields read here: Stripe's typings no longer model
+      // `Invoice.subscription`, which the webhook payload still carries.
+      const invoiceObject: membershipService.PaidSubscriptionInvoice = event.data.object
       if (invoiceObject.subscription) {
         await membershipService.recordPaidSubscriptionInvoice(invoiceObject)
       }
@@ -337,7 +364,9 @@ const dispatchStripeEvent = async (event: any) => {
     }
 
     case 'invoice.payment_failed': {
-      const invoiceObject = event.data.object as any
+      // Widened to the fields read here: Stripe's typings no longer model
+      // `Invoice.subscription`, which the webhook payload still carries.
+      const invoiceObject: membershipService.PaidSubscriptionInvoice = event.data.object
       if (invoiceObject.subscription) {
         const subId =
           typeof invoiceObject.subscription === 'string'
@@ -352,25 +381,25 @@ const dispatchStripeEvent = async (event: any) => {
     }
 
     case 'customer.subscription.deleted': {
-      const deletedSub = event.data.object as any
+      const deletedSub = event.data.object
       await membershipService.syncSubscriptionFromStripe(deletedSub)
       break
     }
 
     case 'customer.subscription.updated': {
-      const updatedSub = event.data.object as any
+      const updatedSub = event.data.object
       await membershipService.syncSubscriptionFromStripe(updatedSub)
       break
     }
 
     case 'customer.subscription.created': {
-      const createdSub = event.data.object as any
+      const createdSub = event.data.object
       await membershipService.syncSubscriptionFromStripe(createdSub)
       break
     }
 
     case 'charge.refunded': {
-      const charge = event.data.object as any
+      const charge = event.data.object
       const paymentIntentId = charge.payment_intent as string | undefined
       if (!paymentIntentId) break
 
@@ -390,8 +419,8 @@ const dispatchStripeEvent = async (event: any) => {
 
       // Sync appointment payment status if one is associated
       if (payment.appointmentId) {
-        const refundedAmount = charge.amount_refunded as number | undefined
-        const originalAmount = charge.amount as number | undefined
+        const refundedAmount: number | undefined = charge.amount_refunded
+        const originalAmount: number | undefined = charge.amount
         const isFullRefund =
           refundedAmount != null && originalAmount != null && refundedAmount >= originalAmount
         await prisma.appointment.update({

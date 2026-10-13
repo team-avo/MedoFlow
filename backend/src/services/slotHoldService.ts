@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as availabilityService from './availabilityService'
 import * as auditService from './auditService'
 import { buildSlotFingerprint } from './schedulingCore'

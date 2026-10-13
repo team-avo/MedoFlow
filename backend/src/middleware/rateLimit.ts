@@ -56,3 +56,19 @@ export const apiRateLimit = rateLimit({
     error: 'Too many requests. Please slow down.',
   },
 })
+
+/**
+ * Public look-ups that reveal whether an account exists (e.g.
+ * /public/patients/check). 30 per 15 minutes per IP slows enumeration
+ * without affecting a real booking flow (B0.1.4).
+ */
+export const publicLookupRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: () => Number(process.env.PUBLIC_LOOKUP_RATE_LIMIT_MAX) || 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many requests. Please try again later.',
+  },
+})

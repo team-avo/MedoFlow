@@ -170,7 +170,7 @@ const loginFailure = async (
 
 export const register = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const user = await authService.registerUser(req.body)
+    const user = await authService.registerUser(req.body as authService.RegisterBody)
     successResponse(res, 201, 'Registration successful', { user })
   }
 )
@@ -685,9 +685,9 @@ export const breakGlassActivate = asyncHandler(
   }
 )
 
-export const breakGlassStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+export const breakGlassStatus = (req: Request, res: Response): void => {
   successResponse(res, 200, 'Break-glass status', { grant: req.breakGlass ?? null })
-})
+}
 
 export const breakGlassEnd = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const grant = await breakGlassService.endBreakGlass(req)

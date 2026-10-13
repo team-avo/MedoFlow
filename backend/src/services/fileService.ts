@@ -1,10 +1,10 @@
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import path from 'path'
 import fs from 'fs'
 import { logAudit } from './auditService'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { UPLOAD_BASE } from '../config/multer'
 import * as patientMembershipService from './patientMembershipService'
 

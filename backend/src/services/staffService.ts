@@ -1,6 +1,7 @@
 import * as argon2 from 'argon2'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { Prisma, Role } from '@prisma/client'
+import type { ApiError } from '../types/errors'
 import * as passwordSetupService from './passwordSetupService'
 import * as emailService from './emailService'
 import * as auditService from './auditService'
@@ -165,14 +166,16 @@ export const updateStaffUser = async (
   }
 
   // Determine the system role to use
-  const systemRole = data.customRoleId ? 'STAFF' : ((data.role as any) ?? user.role)
+  const systemRole = data.customRoleId ? 'STAFF' : ((data.role as Role | undefined) ?? user.role)
 
   const updated = await prisma.user.update({
     where: { id: userId },
     data: {
       role: systemRole,
       ...(data.customRoleId !== undefined ? { customRoleId: data.customRoleId || null } : {}),
-      ...(data.permissions !== undefined ? { permissions: data.permissions as any } : {}),
+      ...(data.permissions !== undefined
+        ? { permissions: data.permissions as Prisma.InputJsonValue }
+        : {}),
     },
     select: {
       id: true,
@@ -286,7 +289,7 @@ export const provisionFrontDeskUser = async (
   }
 
   // Determine role — if customRoleId is provided, use STAFF; otherwise fallback to legacy roles
-  let assignedRole: any
+  let assignedRole: Role
   let customRoleId: string | null = null
   let roleLabelForEmail = 'Staff'
 
@@ -305,7 +308,7 @@ export const provisionFrontDeskUser = async (
   } else {
     const allowedNonProviderRoles = ['FRONT_DESK', 'ACCOUNTING', 'MARKETING']
     assignedRole =
-      data.role && allowedNonProviderRoles.includes(data.role) ? data.role : 'FRONT_DESK'
+      data.role && allowedNonProviderRoles.includes(data.role) ? (data.role as Role) : 'FRONT_DESK'
 
     const roleLabels: Record<string, string> = {
       FRONT_DESK: 'Front Desk',
@@ -329,7 +332,7 @@ export const provisionFrontDeskUser = async (
       role: assignedRole,
       clinicId,
       ...(customRoleId ? { customRoleId } : {}),
-      ...(data.permissions ? { permissions: data.permissions as any } : {}),
+      ...(data.permissions ? { permissions: data.permissions as Prisma.InputJsonValue } : {}),
     },
     select: {
       id: true,

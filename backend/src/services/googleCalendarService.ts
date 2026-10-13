@@ -1,7 +1,7 @@
 import { google } from 'googleapis'
 import crypto from 'crypto'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as aiScribeService from './aiScribeService'
 import * as visitService from './visitService'
 

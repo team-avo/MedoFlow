@@ -14,7 +14,7 @@
 import crypto from 'crypto'
 import type { Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { generateTotpSecret, otpauthUrl, verifyTotp } from '../utils/totp'
 import { openSecret, sealSecret } from '../utils/secretBox'
 

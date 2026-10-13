@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { PaymentStatus, Prisma } from '@prisma/client'
 import * as auditService from './auditService'
 import * as membershipService from './membershipService'
@@ -220,7 +220,7 @@ export const syncInvoiceStatusFromPayments = async (
   if (invoice.status !== nextStatus) {
     return executor.invoice.update({
       where: { id: invoiceId, clinicId: invoice.clinicId },
-      data: { status: nextStatus as any },
+      data: { status: nextStatus },
       include: { payments: true },
     })
   }
@@ -504,7 +504,7 @@ export const updateInvoiceItem = async (
 export const deleteInvoiceItem = async (
   invoiceId: string,
   itemId: string,
-  performedById: string
+  _performedById: string
 ) => {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, ...clinicScope() },
@@ -648,7 +648,11 @@ export interface EnrichedInvoiceFinancials {
 }
 
 const enrichInvoice = <
-  T extends { totalAmount: Prisma.Decimal | number; status: string; payments?: any[] },
+  T extends {
+    totalAmount: Prisma.Decimal | number
+    status: string
+    payments?: Parameters<typeof computeInvoiceFinancials>[0]['payments']
+  },
 >(
   invoice: T
 ): T & EnrichedInvoiceFinancials => {

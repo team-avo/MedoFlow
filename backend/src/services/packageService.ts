@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 
 export const getPackages = async (clinicId: string, includeInactive = false) => {
   return prisma.package.findMany({

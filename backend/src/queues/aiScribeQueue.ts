@@ -5,9 +5,10 @@
  * Visit note versions are only created during explicit provider approval.
  */
 
-import { Queue, Worker, Job } from 'bullmq'
+import type { Job } from 'bullmq'
+import { Queue, Worker } from 'bullmq'
 import prisma from '../config/prisma'
-import * as aiScribeService from '../services/aiScribeService'
+import type * as aiScribeService from '../services/aiScribeService'
 import * as storageService from '../services/storageService'
 import * as aiProviderService from '../services/aiProviderService'
 import { withTenantBypass } from '../config/tenantContext'
@@ -15,7 +16,6 @@ import path from 'path'
 import fs from 'fs'
 import https from 'https'
 import http from 'http'
-import os from 'os'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
 const AI_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b'
@@ -70,8 +70,8 @@ export function getAiScribeQueue(): Queue {
 export const aiScribeQueue = new Proxy({} as Queue, {
   get(_target, prop) {
     const queue = getAiScribeQueue()
-    const value = (queue as any)[prop]
-    return typeof value === 'function' ? value.bind(queue) : value
+    const value: unknown = Reflect.get(queue, prop)
+    return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(queue) : value
   },
 })
 
@@ -86,7 +86,7 @@ function logStructured(event: string, data: Record<string, string | number | und
     .filter(([, v]) => v !== undefined)
     .map(([k, v]) => `${k}=${v}`)
     .join(' ')
-  console.log(`[AI Scribe] ${event} ${parts}`)
+  console.warn(`[AI Scribe] ${event} ${parts}`)
 }
 
 async function fetchAudioBuffer(audioRef: string): Promise<Buffer> {
@@ -104,7 +104,7 @@ async function fetchAudioBuffer(audioRef: string): Promise<Buffer> {
       client
         .get(audioRef, (res) => {
           const chunks: Buffer[] = []
-          res.on('data', (chunk) => chunks.push(chunk))
+          res.on('data', (chunk: Buffer) => chunks.push(chunk))
           res.on('end', () => resolve(Buffer.concat(chunks)))
           res.on('error', reject)
         })
@@ -187,6 +187,17 @@ Return valid JSON only, no markdown or extra text:
   return fallbackPrompt
 }
 
+/**
+ * Exactly `String(value)` for JSON-shaped values (arrays join with ",", plain
+ * objects become "[object Object]"), without relying on implicit toString.
+ */
+function jsonValueToString(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.join(',')
+  if (value !== null && typeof value === 'object') return Object.prototype.toString.call(value)
+  return String(value as number | boolean | bigint | symbol | null | undefined)
+}
+
 async function generateClinicalAnalysis(
   transcript: string,
   providerId: string,
@@ -201,14 +212,15 @@ async function generateClinicalAnalysis(
     jsonMode: true,
   })
 
-  let parsed: any = {}
+  type Json = Record<string, unknown>
+  let parsed: Json = {}
   try {
     // Try to find a JSON object in the text if it contains markdown or extra conversational text
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
-      parsed = JSON.parse(jsonMatch[0])
+      parsed = JSON.parse(jsonMatch[0]) as Json
     } else {
-      parsed = JSON.parse(text)
+      parsed = JSON.parse(text) as Json
     }
   } catch (err) {
     console.error('Failed to parse LLM JSON response:', err)
@@ -216,17 +228,18 @@ async function generateClinicalAnalysis(
   }
 
   // --- Resilient parsing: deep search for keywords if structure is unexpected ---
-  function findKeyAcross(obj: any, keys: string[]): any {
+  function findKeyAcross(obj: unknown, keys: string[]): unknown {
     if (!obj || typeof obj !== 'object') return undefined
+    const record = obj as Json
 
     for (const key of keys) {
       // Direct match (case-insensitive)
-      const exactMatch = Object.keys(obj).find((k) => k.toLowerCase() === key.toLowerCase())
-      if (exactMatch && obj[exactMatch] !== undefined) return obj[exactMatch]
+      const exactMatch = Object.keys(record).find((k) => k.toLowerCase() === key.toLowerCase())
+      if (exactMatch && record[exactMatch] !== undefined) return record[exactMatch]
     }
 
     // Recursive search
-    for (const val of Object.values(obj)) {
+    for (const val of Object.values(record)) {
       if (val && typeof val === 'object') {
         const found = findKeyAcross(val, keys)
         if (found !== undefined) return found
@@ -248,17 +261,19 @@ async function generateClinicalAnalysis(
   }
 
   const soap = {
-    subjective: String(findKeyAcross(soapSource, ['subjective', 's']) || ''),
-    objective: String(findKeyAcross(soapSource, ['objective', 'o']) || ''),
-    assessment: String(findKeyAcross(soapSource, ['assessment', 'a', 'impression']) || ''),
-    plan: String(findKeyAcross(soapSource, ['plan', 'p', 'treatment']) || ''),
+    subjective: jsonValueToString(findKeyAcross(soapSource, ['subjective', 's']) || ''),
+    objective: jsonValueToString(findKeyAcross(soapSource, ['objective', 'o']) || ''),
+    assessment: jsonValueToString(
+      findKeyAcross(soapSource, ['assessment', 'a', 'impression']) || ''
+    ),
+    plan: jsonValueToString(findKeyAcross(soapSource, ['plan', 'p', 'treatment']) || ''),
   }
 
   return {
     timeline: {
       symptoms: Array.isArray(timeline.symptoms) ? timeline.symptoms.map(String) : [],
-      duration: timeline.duration != null ? String(timeline.duration) : null,
-      assessment: timeline.assessment != null ? String(timeline.assessment) : null,
+      duration: timeline.duration != null ? jsonValueToString(timeline.duration) : null,
+      assessment: timeline.assessment != null ? jsonValueToString(timeline.assessment) : null,
       plan: Array.isArray(timeline.plan) ? timeline.plan.map(String) : [],
     },
     soap,

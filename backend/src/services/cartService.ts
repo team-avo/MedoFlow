@@ -1,6 +1,7 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
-import { CartItemType, CartStatus, PaymentStatus, Prisma, SubscriptionStatus } from '@prisma/client'
+import type { ApiError } from '../types/errors'
+import type { CartItemType } from '@prisma/client'
+import { PaymentStatus, Prisma, SubscriptionStatus } from '@prisma/client'
 
 import stripe from '../config/stripe'
 import { recalculateInvoiceTotals } from './invoiceService'

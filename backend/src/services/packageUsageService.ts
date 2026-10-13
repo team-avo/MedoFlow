@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 
 export const getAvailablePatientPackages = async (clinicId: string, patientId: string) => {
   const packages = await prisma.patientPackage.findMany({
@@ -22,7 +22,7 @@ export const getAvailablePatientPackages = async (clinicId: string, patientId: s
 export const findValidPackageForService = async (
   clinicId: string,
   patientId: string,
-  serviceId: string
+  _serviceId: string
 ) => {
   // In a real app, we might check if the package specifically covers this service.
   // For Phase 1, we'll assume clinic packages cover any service in the clinic unless restricted.

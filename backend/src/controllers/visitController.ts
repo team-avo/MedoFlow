@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import * as visitService from '../services/visitService'
 import * as aiScribeService from '../services/aiScribeService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import { sanitizeVisitRecordForPatient } from '../utils/visitSanitize'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { logRead } from '../services/auditService'
 
 export const create = asyncHandler(
@@ -22,7 +22,7 @@ export const create = asyncHandler(
       throw err
     }
     const visitRecord = await visitService.createVisitRecord(
-      req.body,
+      req.body as visitService.CreateVisitRecordData,
       provider.id,
       clinicId,
       req.user!.id
@@ -177,7 +177,7 @@ export const update = asyncHandler(
     }
     const visitRecord = await visitService.updateVisitRecord(
       id,
-      req.body,
+      req.body as visitService.UpdateVisitRecordData,
       provider.id,
       clinicId,
       req.user!.id

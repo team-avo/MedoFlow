@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import * as cartService from '../services/cartService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -25,7 +25,11 @@ export const addItem = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const clinicId = req.user!.clinicId!
     const patientId = req.user!.id
-    const item = await cartService.addToCart(clinicId, patientId, req.body)
+    const item = await cartService.addToCart(
+      clinicId,
+      patientId,
+      req.body as cartService.AddCartItemInput
+    )
     successResponse(res, 201, 'Item added to cart', { item })
   }
 )
@@ -37,7 +41,7 @@ export const updateItem = asyncHandler(
     const cart = await cartService.getOrCreateCart(clinicId, patientId)
 
     const itemId = req.params.itemId as string
-    const { quantity } = req.body
+    const { quantity } = req.body as { quantity: number }
 
     const item = await cartService.updateCartItem(cart.id, itemId, quantity)
     successResponse(res, 200, 'Cart item updated', { item })

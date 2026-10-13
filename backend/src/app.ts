@@ -6,7 +6,7 @@ import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import routes from './routes'
 import { errorHandler } from './middleware/errorHandler'
-import { ApiError } from './types/errors'
+import type { ApiError } from './types/errors'
 import { scrubUrl } from './utils/phiScrubber'
 
 const app = express()

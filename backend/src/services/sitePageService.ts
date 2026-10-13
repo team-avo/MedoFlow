@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import type { SitePageStatus } from '@prisma/client'
 import { chatCompletion } from './aiProviderService'
 
@@ -209,7 +209,7 @@ function validateSections(sections: unknown): SectionInput[] {
       throw err
     }
     return {
-      type: sec['type'] as string,
+      type: sec['type'],
       settings: (sec['settings'] as Record<string, unknown>) ?? {},
       blocks: Array.isArray(sec['blocks'])
         ? (sec['blocks'] as Array<{ type: string; settings?: Record<string, unknown> }>)
