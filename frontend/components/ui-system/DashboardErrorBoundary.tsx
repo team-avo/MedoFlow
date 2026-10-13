@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { AppErrorState } from './AppErrorState'
+import { clientLog } from '@/lib/clientLog'
 
 interface Props {
   children: React.ReactNode
@@ -31,9 +32,9 @@ export class DashboardErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error }
   }
 
-  override componentDidCatch(error: Error, info: React.ErrorInfo): void {
+  override componentDidCatch(error: Error, _info: React.ErrorInfo): void {
     // eslint-disable-next-line no-console
-    console.error('[DashboardErrorBoundary]', error, info)
+    clientLog.error('[DashboardErrorBoundary] render error', error)
   }
 
   reset = (): void => {

@@ -17,6 +17,7 @@ import { Mic, Phone, PhoneOff, Volume2, AlertCircle, Loader2 } from 'lucide-reac
 import { motion, AnimatePresence } from 'framer-motion'
 import { voiceAgentApi, type TranscriptEntry } from '@/lib/voiceAgentApi'
 import { useAppToast } from '@/hooks/useAppToast'
+import { clientLog } from '@/lib/clientLog'
 
 type CallState = 'idle' | 'starting' | 'live' | 'listening' | 'thinking' | 'speaking' | 'ending'
 
@@ -277,7 +278,7 @@ export function VoiceAgentTester() {
         })
         voiceAgentApi.summarizeCall(id).catch(() => {})
       } catch (err) {
-        console.error('[voice-agent] end-call save failed', err)
+        clientLog.error('[voice-agent] end-call save failed', err)
       }
     }
     setCallId(null)

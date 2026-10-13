@@ -180,26 +180,28 @@ export default function ConsultationRoomPage() {
   }, [initSession])
 
   // ----- Refresh session -----
+  const sessionId = session?.id
+  const consentStatus = session?.consentStatus
   const refreshSession = useCallback(async () => {
-    if (!session) return
+    if (!sessionId) return
     try {
-      const s = await consultationApi.getSession(session.id)
+      const s = await consultationApi.getSession(sessionId)
       setSession(s)
     } catch {
       // ignore
     }
-  }, [session?.id])
+  }, [sessionId])
 
   // ----- Poll for session status (like consent) -----
   useEffect(() => {
-    if (!session || session.consentStatus === 'GRANTED') return
+    if (!sessionId || consentStatus === 'GRANTED') return
 
     const poll = setInterval(() => {
       refreshSession()
     }, 3000)
 
     return () => clearInterval(poll)
-  }, [session?.id, session?.consentStatus, refreshSession])
+  }, [sessionId, consentStatus, refreshSession])
 
   // ----- Auto-upload the captured blob when the call ends -----
   // `autoUploadPending` is flipped on by `handleCallEnded`; we wait here
@@ -234,7 +236,7 @@ export default function ConsultationRoomPage() {
         setTranscribing(false)
       }
     })()
-  }, [autoUploadPending, recorder.audioBlob, session])
+  }, [autoUploadPending, recorder.audioBlob, session, toast])
 
   // ----- Poll AI scribe status while processing -----
   useEffect(() => {

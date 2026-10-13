@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import axios from 'axios'
+import api from '@/lib/api'
 import { JitsiVideoCall } from '@/components/consultation/JitsiVideoCall'
 
 // ---------------------------------------------------------------------------
@@ -158,13 +159,9 @@ export default function PatientJoinPage() {
     try {
       setConsenting(true)
       setError(null)
-      // Patient needs to be authenticated for consent
-      // If auth token is available, use it
-      const authToken = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
-      const headers: Record<string, string> = {}
-      if (authToken) headers['Authorization'] = `Bearer ${authToken}`
-
-      await axios.post(`${baseURL}/api/v1/consultations/${session.id}/consent`, {}, { headers })
+      // Consent needs the signed-in patient: the shared client attaches the
+      // in-memory access token and refreshes it when needed.
+      await api.post(`/consultations/${session.id}/consent`)
       setConsentGranted(true)
       setSession((prev) => (prev ? { ...prev, consentStatus: 'GRANTED' } : prev))
     } catch (err: unknown) {

@@ -7,6 +7,7 @@ import { Building2, Users, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSkeleton } from '@/components/ui-system'
 import { cn } from '@/lib/utils'
+import { platformRedirect } from '@/lib/routeGuards'
 
 const NAV = [{ href: '/platform/clinics', label: 'Clinics', icon: Users }] as const
 
@@ -15,25 +16,19 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   const pathname = usePathname()
   const { user, isLoading, isAuthenticated } = useAuth()
 
-  useEffect(() => {
-    if (isLoading) return
-    if (!isAuthenticated) {
-      router.replace('/?auth=login&returnUrl=/platform/clinics')
-      return
-    }
-    if (user && user.role !== 'PLATFORM_ADMIN') {
-      router.replace('/dashboard')
-    }
-  }, [user, isLoading, isAuthenticated, router])
+  const redirectTo = isLoading ? null : platformRedirect(isAuthenticated ? user : null)
 
-  if (isLoading || !user) {
+  useEffect(() => {
+    if (redirectTo) router.replace(redirectTo)
+  }, [redirectTo, router])
+
+  if (isLoading || !user || redirectTo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <LoadingSkeleton variant="avatar" count={1} />
       </div>
     )
   }
-  if (user.role !== 'PLATFORM_ADMIN') return null
 
   return (
     <div className="min-h-screen bg-slate-50">

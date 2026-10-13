@@ -211,6 +211,7 @@ function ProviderBiosSection({
                 className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"
               >
                 {p.headshotUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- clinic-uploaded URL on an arbitrary host; next/image optimisation is not configured for the Workers build
                   <img
                     src={p.headshotUrl}
                     alt={`${p.firstName} ${p.lastName}`}

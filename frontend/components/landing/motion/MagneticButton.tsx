@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useRef } from 'react'
-import { motion, useMotionValue, useSpring } from 'framer-motion'
+import { motion, useMotionValue, useSpring, type HTMLMotionProps } from 'framer-motion'
 
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   strength?: number
@@ -38,7 +38,7 @@ export function MagneticButton({ children, strength = 0.3, className, onClick, .
       onMouseLeave={handleLeave}
       onClick={onClick}
       className={className}
-      {...(rest as React.HTMLAttributes<HTMLButtonElement>)}
+      {...(rest as HTMLMotionProps<'button'>)}
     >
       {children}
     </motion.button>

@@ -33,13 +33,20 @@ router.post(
 router.post(
   '/refresh-token',
   withPublicScope('auth.refresh_token'),
+  authController.requireClientHeader,
   refreshRateLimit,
   authController.refreshToken
 )
-router.post('/logout', withPublicScope('auth.logout'), authController.logout)
+router.post(
+  '/logout',
+  withPublicScope('auth.logout'),
+  authController.requireClientHeader,
+  authController.logout
+)
 
 // Authenticated endpoints: protect sets the ALS context automatically.
 router.get('/me', protect, authController.me)
+router.get('/session', protect, authController.sessionHeartbeat)
 router.patch('/me', protect, authController.updateMe)
 router.post('/patient-tour-seen', protect, authController.markPatientTourSeen)
 router.post('/change-password', protect, authRateLimit, authController.changePassword)

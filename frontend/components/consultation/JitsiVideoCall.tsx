@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react'
+import { clientLog } from '@/lib/clientLog'
 
 interface JitsiVideoCallProps {
   /** Room path — "<appId>/<name>" for JaaS, or "<name>" for meet.jit.si */
@@ -190,15 +191,15 @@ export function JitsiVideoCall({
           const name = evt?.error?.name ?? 'unknown'
           const msg = evt?.error?.message ?? ''
           if (isFatal) {
-            console.error('[Jitsi] Fatal error:', name, msg)
+            clientLog.error('[Jitsi] fatal error', { name, message: msg })
           } else {
-            console.warn('[Jitsi] Non-fatal error (handled internally):', name, msg)
+            clientLog.warn('[Jitsi] non-fatal error (handled internally)', { name, message: msg })
           }
           // We intentionally do NOT show a UI overlay here.
           // Jitsi handles all errors (fatal or not) with its own in-frame UI.
         })
       } catch (err: any) {
-        console.error('[Jitsi] Failed to instantiate API:', err)
+        clientLog.error('[Jitsi] Failed to instantiate API:', err)
       }
     }
 

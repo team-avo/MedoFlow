@@ -406,3 +406,49 @@ describe('B0.3.4 authentication events are audited', () => {
     expect(rows[0]!.performedById).toBe(fx.users.admin.id)
   })
 })
+
+describe('F0.2 client contract: refresh cookie, CSRF header, heartbeat', () => {
+  it('refresh and logout refuse a request without the client header (CSRF guard)', async () => {
+    const s = await login(server.url, C.users.frontDesk.email)
+    const noHeader = { 'x-medoflow-client': '' }
+    const refresh = await api(server.url, '/auth/refresh-token', {
+      method: 'POST',
+      cookie: s.refreshCookie,
+      headers: noHeader,
+    })
+    expect(refresh.status).toBe(403)
+    expect(refresh.body.code).toBe('client_header_required')
+    const out = await api(server.url, '/auth/logout', {
+      method: 'POST',
+      cookie: s.refreshCookie,
+      headers: noHeader,
+    })
+    expect(out.status).toBe(403)
+    // Nothing was revoked: the session still works and refresh still succeeds with the header.
+    expect((await api(server.url, '/auth/me', { token: s.accessToken })).status).toBe(200)
+    expect(
+      (await api(server.url, '/auth/refresh-token', { method: 'POST', cookie: s.refreshCookie }))
+        .status
+    ).toBe(200)
+  })
+
+  it('the refresh cookie is HttpOnly (never readable by page script)', async () => {
+    const res = await api(server.url, '/auth/login', {
+      // patient: never enrols MFA in this suite, so login returns tokens
+      body: { email: C.users.patient.email, password: FIXTURE_PASSWORD },
+    })
+    const cookie = res.setCookie.find((c) => c.startsWith('refreshToken='))
+    expect(cookie).toMatch(/HttpOnly/i)
+    expect(res.body.data.accessToken).toBeTruthy()
+  })
+
+  it('/auth/me and the /auth/session heartbeat report the idle window', async () => {
+    const s = await login(server.url, C.users.patient.email)
+    const me = await api(server.url, '/auth/me', { token: s.accessToken })
+    expect(me.body.data.session.idleTimeoutMinutes).toBe(15)
+    const hb = await api(server.url, '/auth/session', { token: s.accessToken })
+    expect(hb.status).toBe(200)
+    expect(hb.body.data.session.idleTimeoutMinutes).toBe(15)
+    expect((await api(server.url, '/auth/session')).status).toBe(401)
+  })
+})

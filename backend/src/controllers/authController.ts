@@ -23,24 +23,65 @@ import type { ApiError } from '../types/errors'
 const REFRESH_TOKEN_COOKIE = 'refreshToken'
 const MIN_PASSWORD_LENGTH = 8
 
-const setRefreshTokenCookie = (res: Response, token: string): void => {
+/**
+ * Refresh-cookie attributes (F0.2.3). The cookie is HttpOnly, so page script
+ * can never read it. SameSite comes from REFRESH_COOKIE_SAMESITE:
+ *  - 'none' (production default): the app and the API are on different
+ *    sites today (workers.dev vs onrender.com), so a Strict/Lax cookie is
+ *    never sent with the app's XHR and refresh silently fails. 'none' is
+ *    Secure + Partitioned (CHIPS: the cookie only exists under the app's
+ *    top-level site), and CSRF is blocked by requireClientHeader below.
+ *  - 'strict': use once app and API share a registrable domain (B0.6.9).
+ *  - 'lax': local development default (different ports, same site).
+ */
+export const refreshCookieOptions = (): {
+  httpOnly: true
+  secure: boolean
+  sameSite: 'strict' | 'lax' | 'none'
+  path: string
+  partitioned?: boolean
+} => {
   const isProduction = process.env.NODE_ENV === 'production'
-  res.cookie(REFRESH_TOKEN_COOKIE, token, {
+  const configured = process.env.REFRESH_COOKIE_SAMESITE?.trim().toLowerCase()
+  const sameSite =
+    configured === 'strict' || configured === 'lax' || configured === 'none'
+      ? configured
+      : isProduction
+        ? 'none'
+        : 'lax'
+  return {
     httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'strict' : 'lax', // Use lax for local dev to allow cross-port requests
+    secure: isProduction || sameSite === 'none',
+    sameSite,
+    path: '/',
+    ...(sameSite === 'none' ? { partitioned: true } : {}),
+  }
+}
+
+const setRefreshTokenCookie = (res: Response, token: string): void => {
+  res.cookie(REFRESH_TOKEN_COOKIE, token, {
+    ...refreshCookieOptions(),
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: '/', // Ensure it's sent for all requests
   })
 }
 
 const clearRefreshTokenCookie = (res: Response): void => {
-  res.clearCookie(REFRESH_TOKEN_COOKIE, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    path: '/',
-  })
+  res.clearCookie(REFRESH_TOKEN_COOKIE, refreshCookieOptions())
+}
+
+/**
+ * CSRF guard for the cookie-authenticated endpoints (refresh, logout). A
+ * cross-site form or image request cannot set a custom header, and a
+ * cross-site fetch that sets one needs a CORS preflight, which only allowed
+ * origins pass. So requiring the header means only the app can drive them.
+ */
+export const CLIENT_HEADER = 'x-medoflow-client'
+export const requireClientHeader = (req: Request, _res: Response, next: NextFunction): void => {
+  if (!req.get(CLIENT_HEADER)) {
+    next(httpError('Missing client header', 403, 'client_header_required'))
+    return
+  }
+  next()
 }
 
 const httpError = (message: string, statusCode: number, code?: string): ApiError => {
@@ -456,6 +497,21 @@ export const logout = asyncHandler(
   }
 )
 
+/** Session settings the client needs to mirror (F0.2.1 idle-logoff UX). */
+const sessionInfo = (): { idleTimeoutMinutes: number } => ({
+  idleTimeoutMinutes: Math.round(sessionService.getIdleTimeoutMs() / 60_000),
+})
+
+/**
+ * GET /auth/session — heartbeat. The client calls it while the user is
+ * actively working (typing a long note makes no API calls), which records
+ * activity on the server session; an idle screen sends nothing, so the
+ * server-side idle timeout still fires.
+ */
+export const sessionHeartbeat = (_req: Request, res: Response): void => {
+  successResponse(res, 200, 'Session active', { session: sessionInfo() })
+}
+
 export const me = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     if (!req.user?.id) throw httpError('Not authenticated', 401)
@@ -494,6 +550,7 @@ export const me = asyncHandler(
     })
     successResponse(res, 200, 'User retrieved', {
       user: { ...user, breakGlass: req.breakGlass ?? null },
+      session: sessionInfo(),
     })
   }
 )

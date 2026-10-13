@@ -7,7 +7,8 @@
 #
 # Deploys only run in myselfabhi/MedoFlow. Forks run the gates only.
 #
-# B0.5.1: make "Backend quality gate" and "Build" REQUIRED status checks on main
+# B0.5.1 / F0.1.2: make "Backend quality gate", "Frontend quality gate" and "Build"
+# REQUIRED status checks on main
 # (Settings › Branches › Branch protection) so a failing check blocks the merge.
 #
 # Repository secrets (Settings › Secrets and variables › Actions › Secrets):
@@ -54,6 +55,7 @@ jobs:
             frontend:
               - 'frontend/**'
               - 'pnpm-lock.yaml'
+              - 'package.json'
 
   # B0.5 — blocking backend quality gate: typecheck, lint (zero warnings),
   # synthetic-fixture scan, unit tests + coverage ratchet, migrations on a
@@ -120,6 +122,58 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # F0.1 / F0.4 — blocking frontend quality gate: typecheck, lint (zero
+  # warnings, no-console), unit + component tests with coverage ratchet
+  # (refresh interceptor, role guards, PHI boundary, no-PHI-in-URL / telemetry
+  # guards), dependency audit, production build (type errors fail it), and
+  # browser e2e (idle logoff, MFA enrol + challenge, axe a11y scan).
+  frontend-quality:
+    name: Frontend quality gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        working-directory: .
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Lint (zero warnings)
+        run: pnpm run lint
+      - name: Unit + component tests + coverage threshold (F0.4)
+        run: pnpm run test:coverage
+      - name: Dependency audit — no high/critical in frontend production deps
+        run: node scripts/audit-frontend.js
+      - name: Production build (a type error fails it — F0.1.1)
+        env:
+          # e2e build: the API is simulated in the browser (e2e/mockApi.ts).
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3999
+        run: pnpm exec next build
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Browser e2e (F0.2.1 idle logoff, F0.2.2 MFA)
+        env:
+          E2E_SKIP_BUILD: '1'
+        run: pnpm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          retention-days: 7
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -160,7 +214,7 @@ jobs:
           retention-days: 3
 
   deploy-backend:
-    needs: [changes, backend-quality, build]
+    needs: [changes, backend-quality, frontend-quality, build]
     if: >-
       github.repository == 'myselfabhi/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
@@ -188,7 +242,7 @@ jobs:
           exit 1
 
   deploy-frontend:
-    needs: [changes, backend-quality, build]
+    needs: [changes, backend-quality, frontend-quality, build]
     if: >-
       github.repository == 'myselfabhi/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')

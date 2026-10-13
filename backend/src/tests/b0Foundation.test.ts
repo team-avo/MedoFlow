@@ -184,3 +184,34 @@ describe('B0.2.2 TOTP (RFC 6238 vector)', () => {
     expect(verifyTotp(secret, '12ab56', now)).toBeNull()
   })
 })
+
+describe('F0.2.3 refresh-cookie policy', () => {
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('production default is SameSite=None + Secure + Partitioned (app and API are cross-site today)', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('REFRESH_COOKIE_SAMESITE', '')
+    const { refreshCookieOptions } = await import('../controllers/authController')
+    expect(refreshCookieOptions()).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      partitioned: true,
+    })
+  })
+
+  it('REFRESH_COOKIE_SAMESITE=strict once app and API share a domain; lax in development', async () => {
+    const { refreshCookieOptions } = await import('../controllers/authController')
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('REFRESH_COOKIE_SAMESITE', 'strict')
+    expect(refreshCookieOptions()).toEqual({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'strict',
+      path: '/',
+    })
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('REFRESH_COOKIE_SAMESITE', '')
+    expect(refreshCookieOptions()).toMatchObject({ httpOnly: true, secure: false, sameSite: 'lax' })
+  })
+})

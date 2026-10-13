@@ -151,6 +151,21 @@ describe('public routes stay inside the clinic named in the URL (B0.1.4)', () =>
   })
 })
 
+describe('no PHI in URLs (F0.3.1)', () => {
+  it('the patient-exists check takes the email in a POST body; the old GET query form is gone', async () => {
+    const post = await api(server.url, '/public/patients/check', {
+      body: { email: A.users.patient.email },
+    })
+    expect(post.status).toBe(200)
+    expect(post.body.data.exists).toBe(true)
+    const get = await api(
+      server.url,
+      `/public/patients/check?email=${encodeURIComponent(A.users.patient.email)}`
+    )
+    expect(get.status).toBe(404)
+  })
+})
+
 describe('security headers (B0.6.2)', () => {
   it('helmet headers and HSTS are present on API responses', async () => {
     const res = await api(server.url, '/health')

@@ -50,6 +50,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
+import { clientLog } from '@/lib/clientLog'
 
 const ONLINE_LOCATION_NAMES = ['online', 'virtual']
 
@@ -188,7 +189,7 @@ function BookingPageContent() {
         await releaseSlotHold(slotHoldId, clinicId)
         setSlotHoldId(null)
       } catch (err) {
-        console.error('Failed to release hold', err)
+        clientLog.error('Failed to release hold', err)
       }
     }
   }
@@ -228,7 +229,14 @@ function BookingPageContent() {
   const handlePatientFormSubmit = async (data: PatientFormData) => {
     if (patientExists === true) {
       try {
-        await login(data.email, data.password)
+        const result = await login(data.email, data.password)
+        if (result.mfaRequired) {
+          // Two-step verification is a staff feature; finish it in the sign-in dialog.
+          toast.error(
+            'This account uses two-step verification. Please sign in from the main sign-in page.'
+          )
+          return
+        }
         setStep(3)
       } catch (err) {
         toast.error('Invalid password. Please try again.')
@@ -260,7 +268,7 @@ function BookingPageContent() {
       })
 
       if (clientSecret) {
-        router.push(`/payment/${appointment.id}?clientSecret=${clientSecret}`)
+        router.push(`/payment/${appointment.id}`) // the page loads its own PaymentIntent; no secret in the URL
       } else {
         setConfirmedAppointmentId(appointment.id)
         setStep(4)
@@ -293,11 +301,7 @@ function BookingPageContent() {
 
   // Build a "Back to clinic" target that lands on /clinic/[slug or id]
   // rather than the Medoflow root.
-  const backHref = clinic?.slug
-    ? `/clinic/${clinic.slug}`
-    : clinicId
-      ? `/clinic/${clinicId}`
-      : '/'
+  const backHref = clinic?.slug ? `/clinic/${clinic.slug}` : clinicId ? `/clinic/${clinicId}` : '/'
 
   return (
     <div className="bg-slate-50 min-h-screen" style={themeStyle}>
@@ -382,9 +386,7 @@ function BookingPageContent() {
                           }}
                           className={cn(
                             'flex items-center justify-between p-6 rounded-2xl border-2 transition-all text-left',
-                            !providerId
-                              ? ''
-                              : 'border-slate-100 hover:border-slate-200'
+                            !providerId ? '' : 'border-slate-100 hover:border-slate-200'
                           )}
                           style={
                             !providerId
@@ -422,9 +424,7 @@ function BookingPageContent() {
                             }}
                             className={cn(
                               'flex items-center justify-between p-6 rounded-2xl border-2 transition-all text-left',
-                              providerId === p.id
-                                ? ''
-                                : 'border-slate-100 hover:border-slate-200'
+                              providerId === p.id ? '' : 'border-slate-100 hover:border-slate-200'
                             )}
                             style={
                               providerId === p.id
@@ -502,7 +502,8 @@ function BookingPageContent() {
                                         onClick={() => handleSlotSelect(slot)}
                                         className={cn(
                                           'flex-1 h-14 rounded-2xl border-2 font-bold transition-all duration-200',
-                                          isPending && 'border-slate-400 bg-slate-600 text-white w-1/2'
+                                          isPending &&
+                                            'border-slate-400 bg-slate-600 text-white w-1/2'
                                         )}
                                         style={
                                           isPending
@@ -903,9 +904,7 @@ function BookingConfirmation({
         <CheckCircle2 className="h-10 w-10" />
       </div>
       <div>
-        <h2 className="text-3xl font-black text-slate-900">
-          You're booked, {patientFirstName}.
-        </h2>
+        <h2 className="text-3xl font-black text-slate-900">You're booked, {patientFirstName}.</h2>
         <p className="mx-auto mt-3 max-w-md text-slate-500">
           We've sent a confirmation to your email. The clinic team will be ready for you.
         </p>

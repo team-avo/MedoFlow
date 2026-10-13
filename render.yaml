@@ -29,6 +29,11 @@ services:
       # B0.2.3: server-side idle logoff window.
       - key: SESSION_IDLE_TIMEOUT_MINUTES
         value: '15'
+      # F0.2.3: refresh cookie SameSite. 'none' (Secure + Partitioned, CSRF header
+      # required) while app and API are on different sites; switch to 'strict'
+      # once both share a domain (B0.6.9).
+      - key: REFRESH_COOKIE_SAMESITE
+        value: none
       # B0.3.6: audit rows are kept at least 6 years.
       - key: AUDIT_RETENTION_YEARS
         value: '6'

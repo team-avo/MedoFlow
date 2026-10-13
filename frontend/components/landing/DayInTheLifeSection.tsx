@@ -11,12 +11,13 @@
 import React, { useRef } from 'react'
 import { motion, useScroll, useTransform, MotionValue } from 'framer-motion'
 import { Calendar, Mic, CreditCard, BarChart3, Sun, Sunrise, Coffee, Moon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { MeshGradient } from './motion/MeshGradient'
 
 type Moment = {
   time: string
   ampm: string
-  icon: React.ElementType
+  icon: LucideIcon
   title: string
   body: string
   who: string
