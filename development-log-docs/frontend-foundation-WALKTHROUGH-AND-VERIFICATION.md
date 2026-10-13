@@ -202,7 +202,7 @@ Result: see §4.6. CI's `build` job runs the same `cf:build` on Ubuntu.
 
 ### 4.6 Linux worker smoke result (2026-10-14)
 
-LINUX_SMOKE_RESULT
+`cf:build` OK on Next 15.5.27 / OpenNext 1.20.7; `wrangler dev` served **12/12 routes 200** with 0 errors: `/`, `/login`, `/dashboard`, `/dashboard/settings`, `/account`, `/account/appointments`, `/store`, `/checkout`, `/clinic/demo`, `/platform/clinics`, `/consultation/abc`, `/welcome`.
 
 ### 4.7 Manual browser checks (5 minutes, after deploy)
 
