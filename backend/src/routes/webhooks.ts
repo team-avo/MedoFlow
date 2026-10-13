@@ -2,6 +2,7 @@ import { Router } from 'express'
 import express from 'express'
 import * as webhookController from '../controllers/webhookController'
 import { withPublicScope } from '../middleware/auth'
+import { asyncHandler } from '../utils/asyncHandler'
 
 const router = Router()
 
@@ -14,7 +15,7 @@ router.use(withPublicScope('stripe_webhook'))
 router.post(
   '/stripe',
   express.raw({ type: 'application/json' }),
-  webhookController.handleStripeWebhook
+  asyncHandler(webhookController.handleStripeWebhook)
 )
 
 export default router

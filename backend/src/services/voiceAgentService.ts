@@ -354,7 +354,7 @@ export const endCall = async (
     throw err
   }
   return prisma.voiceCall.update({
-    where: { id: callId },
+    where: { id: callId, clinicId },
     data: {
       status: patch.status ?? 'COMPLETED',
       outcome: patch.outcome,
@@ -420,7 +420,7 @@ export const summarizeCall = async (callId: string, clinicId: string) => {
   const summary = (groqResp.content ?? '').trim()
 
   return prisma.voiceCall.update({
-    where: { id: callId },
+    where: { id: callId, clinicId },
     data: { summary },
   })
 }
@@ -1052,7 +1052,7 @@ export const runTurnWithText = async (
     { role: 'assistant' as const, content: assistantText, ts: now + 1 },
   ]
   await prisma.voiceCall.update({
-    where: { id: callId },
+    where: { id: callId, clinicId },
     data: { transcript: newTranscript as unknown as Prisma.InputJsonValue },
   })
 

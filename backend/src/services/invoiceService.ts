@@ -1,12 +1,13 @@
-import prisma from '../config/prisma';
-import { ApiError } from '../types/errors';
-import { PaymentStatus, Prisma } from '@prisma/client';
-import * as auditService from './auditService';
-import * as membershipService from './membershipService';
+import prisma from '../config/prisma'
+import { clinicScope } from '../config/tenantContext'
+import { ApiError } from '../types/errors'
+import { PaymentStatus, Prisma } from '@prisma/client'
+import * as auditService from './auditService'
+import * as membershipService from './membershipService'
 
-const DEFAULT_TAX_RATE = 0.13; // 13% - configurable via env if needed
+const DEFAULT_TAX_RATE = 0.13 // 13% - configurable via env if needed
 
-const ZERO = new Prisma.Decimal(0);
+const ZERO = new Prisma.Decimal(0)
 
 export const createInvoice = async (
   appointmentId: string | undefined | null,
@@ -16,60 +17,60 @@ export const createInvoice = async (
   patientId?: string,
   locationId?: string
 ) => {
-  let finalPatientId = patientId;
-  let finalLocationId = locationId;
+  let finalPatientId = patientId
+  let finalLocationId = locationId
 
   if (appointmentId) {
     const appointment = await prisma.appointment.findFirst({
       where: { id: appointmentId, clinicId, providerId: providerId ?? undefined },
       select: { patientId: true, locationId: true },
-    });
+    })
 
     if (!appointment) {
       const err = new Error(
         'Appointment not found or does not belong to this clinic/provider'
-      ) as ApiError;
-      err.statusCode = 404;
-      throw err;
+      ) as ApiError
+      err.statusCode = 404
+      throw err
     }
 
     const existing = await prisma.invoice.findFirst({
       where: { appointmentId, clinicId, status: { not: 'CANCELLED' } },
-    });
+    })
 
     if (existing) {
-      const err = new Error(
-        'An active invoice already exists for this appointment'
-      ) as ApiError;
-      err.statusCode = 409;
-      throw err;
+      const err = new Error('An active invoice already exists for this appointment') as ApiError
+      err.statusCode = 409
+      throw err
     }
 
-    finalPatientId = appointment.patientId;
-    finalLocationId = appointment.locationId ?? undefined;
+    finalPatientId = appointment.patientId
+    finalLocationId = appointment.locationId ?? undefined
   }
 
   if (!finalPatientId) {
-    const err = new Error('patientId is required when creating an invoice without an appointment') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error(
+      'patientId is required when creating an invoice without an appointment'
+    ) as ApiError
+    err.statusCode = 400
+    throw err
   }
 
-  let finalProviderId = providerId;
+  let finalProviderId = providerId
   if (!finalProviderId) {
     const fallbackProvider = await prisma.provider.findFirst({
       where: { clinicId, isActive: true },
-      select: { id: true }
-    });
+      select: { id: true },
+    })
     if (fallbackProvider) {
-      finalProviderId = fallbackProvider.id;
+      finalProviderId = fallbackProvider.id
     }
   }
 
   if (!finalProviderId) {
-    const err = new Error('A provider is required for billing operations') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('A provider is required for billing operations') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   const invoice = await prisma.invoice.create({
@@ -90,24 +91,25 @@ export const createInvoice = async (
       patient: true,
       provider: true,
     },
-  });
+  })
 
   await auditService.logAudit({
     clinicId,
     entityType: 'Invoice',
     entityId: invoice.id,
     action: 'INVOICE_CREATED',
-    newValue: { appointmentId: appointmentId ?? null, providerId: providerId ?? null, patientId: finalPatientId },
+    newValue: {
+      appointmentId: appointmentId ?? null,
+      providerId: providerId ?? null,
+      patientId: finalPatientId,
+    },
     performedById,
-  });
+  })
 
-  return invoice;
-};
+  return invoice
+}
 
-export const getInvoicesByPatient = async (
-  patientId: string,
-  clinicId: string
-) => {
+export const getInvoicesByPatient = async (patientId: string, clinicId: string) => {
   const invoices = await prisma.invoice.findMany({
     where: { patientId, clinicId, status: { not: 'CANCELLED' } },
     include: {
@@ -117,15 +119,15 @@ export const getInvoicesByPatient = async (
       payments: true,
     },
     orderBy: { createdAt: 'desc' },
-  });
-  return invoices.map((invoice) => enrichInvoice(invoice));
-};
+  })
+  return invoices.map((invoice) => enrichInvoice(invoice))
+}
 
 const FINANCIAL_PAYMENT_STATUSES: PaymentStatus[] = [
   PaymentStatus.PAID,
   PaymentStatus.REFUNDED,
   PaymentStatus.PARTIALLY_REFUNDED,
-];
+]
 
 export type InvoiceFinancialStatus =
   | 'DRAFT'
@@ -134,59 +136,56 @@ export type InvoiceFinancialStatus =
   | 'PARTIALLY_PAID'
   | 'PAID'
   | 'PARTIALLY_REFUNDED'
-  | 'REFUNDED';
+  | 'REFUNDED'
 
 const sumPaymentAmounts = (payments: Array<{ amount: Prisma.Decimal | number }>) =>
-  payments.reduce((sum, payment) => sum.plus(payment.amount), ZERO);
+  payments.reduce((sum, payment) => sum.plus(payment.amount), ZERO)
 
 export const computeInvoiceFinancials = (invoice: {
-  status: string;
-  totalAmount: Prisma.Decimal | number;
+  status: string
+  totalAmount: Prisma.Decimal | number
   payments?: Array<{
-    amount: Prisma.Decimal | number;
-    status: PaymentStatus;
-    refundForPaymentId?: string | null;
-  }>;
+    amount: Prisma.Decimal | number
+    status: PaymentStatus
+    refundForPaymentId?: string | null
+  }>
 }) => {
-  const totalAmount = new Prisma.Decimal(invoice.totalAmount);
+  const totalAmount = new Prisma.Decimal(invoice.totalAmount)
   const payments = (invoice.payments ?? []).filter((payment) =>
     FINANCIAL_PAYMENT_STATUSES.includes(payment.status)
-  );
+  )
 
   const totalPaid = sumPaymentAmounts(
     payments.filter((payment) => new Prisma.Decimal(payment.amount).gte(ZERO))
-  );
+  )
   const totalRefunded = sumPaymentAmounts(
     payments
       .filter((payment) => new Prisma.Decimal(payment.amount).lt(ZERO))
       .map((payment) => ({ amount: new Prisma.Decimal(payment.amount).abs() }))
-  );
-  const netCollected = payments.reduce(
-    (sum, payment) => sum.plus(payment.amount),
-    ZERO
-  );
-  const outstandingRaw = totalAmount.minus(netCollected);
-  let outstandingAmount = (outstandingRaw.lt(ZERO) ? ZERO : outstandingRaw).toDecimalPlaces(2);
+  )
+  const netCollected = payments.reduce((sum, payment) => sum.plus(payment.amount), ZERO)
+  const outstandingRaw = totalAmount.minus(netCollected)
+  let outstandingAmount = (outstandingRaw.lt(ZERO) ? ZERO : outstandingRaw).toDecimalPlaces(2)
 
-  let financialStatus: InvoiceFinancialStatus;
+  let financialStatus: InvoiceFinancialStatus
   if (invoice.status === 'DRAFT') {
-    financialStatus = 'DRAFT';
+    financialStatus = 'DRAFT'
   } else if (invoice.status === 'CANCELLED' && netCollected.lte(ZERO)) {
-    financialStatus = totalRefunded.gt(ZERO) ? 'REFUNDED' : 'CANCELLED';
+    financialStatus = totalRefunded.gt(ZERO) ? 'REFUNDED' : 'CANCELLED'
   } else if (totalRefunded.gte(totalAmount) && netCollected.lte(ZERO)) {
-    financialStatus = 'REFUNDED';
+    financialStatus = 'REFUNDED'
   } else if (totalRefunded.gt(ZERO)) {
-    financialStatus = outstandingAmount.gt(ZERO) ? 'PARTIALLY_REFUNDED' : 'PAID';
+    financialStatus = outstandingAmount.gt(ZERO) ? 'PARTIALLY_REFUNDED' : 'PAID'
   } else if (netCollected.lte(ZERO)) {
-    financialStatus = 'UNPAID';
+    financialStatus = 'UNPAID'
   } else if (outstandingAmount.gt(ZERO)) {
-    financialStatus = 'PARTIALLY_PAID';
+    financialStatus = 'PARTIALLY_PAID'
   } else {
-    financialStatus = 'PAID';
+    financialStatus = 'PAID'
   }
 
   if (financialStatus === 'REFUNDED' || financialStatus === 'CANCELLED') {
-    outstandingAmount = ZERO;
+    outstandingAmount = ZERO
   }
 
   return {
@@ -195,49 +194,46 @@ export const computeInvoiceFinancials = (invoice: {
     netCollected: netCollected.toDecimalPlaces(2),
     outstandingAmount,
     financialStatus,
-  };
-};
+  }
+}
 
 export const syncInvoiceStatusFromPayments = async (
   invoiceId: string,
-  txClient?: Omit<
-    typeof prisma,
-    '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
-  >
+  txClient?: Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>
 ) => {
-  const executor = txClient || prisma;
+  const executor = txClient || prisma
   const invoice = await executor.invoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, ...clinicScope() },
     include: { payments: true },
-  });
+  })
 
-  if (!invoice || invoice.status === 'DRAFT') return invoice;
+  if (!invoice || invoice.status === 'DRAFT') return invoice
 
-  const financials = computeInvoiceFinancials(invoice);
+  const financials = computeInvoiceFinancials(invoice)
   const nextStatus =
     financials.totalRefunded.gte(invoice.totalAmount) && financials.netCollected.lte(ZERO)
       ? 'CANCELLED'
       : financials.outstandingAmount.lte(ZERO)
         ? 'PAID'
-        : 'FINALIZED';
+        : 'FINALIZED'
 
   if (invoice.status !== nextStatus) {
     return executor.invoice.update({
-      where: { id: invoiceId },
+      where: { id: invoiceId, clinicId: invoice.clinicId },
       data: { status: nextStatus as any },
       include: { payments: true },
-    });
+    })
   }
 
-  return invoice;
-};
+  return invoice
+}
 
 export interface CatalogInvoiceItemInput {
-  itemType: 'SERVICE' | 'PRODUCT' | 'PACKAGE';
-  itemId: string;
-  description?: string;
-  unitPrice?: number | string | Prisma.Decimal;
-  quantity?: number;
+  itemType: 'SERVICE' | 'PRODUCT' | 'PACKAGE'
+  itemId: string
+  description?: string
+  unitPrice?: number | string | Prisma.Decimal
+  quantity?: number
 }
 
 export const addCatalogInvoiceItem = async (
@@ -245,11 +241,11 @@ export const addCatalogInvoiceItem = async (
   input: CatalogInvoiceItemInput,
   performedById: string
 ) => {
-  const { itemType, itemId, quantity = 1 } = input;
-  const qty = Math.max(1, Math.floor(quantity));
+  const { itemType, itemId, quantity = 1 } = input
+  const qty = Math.max(1, Math.floor(quantity))
 
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId },
+    where: { id: invoiceId, ...clinicScope() },
     include: {
       provider: {
         include: {
@@ -260,85 +256,85 @@ export const addCatalogInvoiceItem = async (
         },
       },
     },
-  });
+  })
 
   if (!invoice) {
-    const err = new Error('Invoice not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (invoice.status !== 'DRAFT') {
-    const err = new Error('Cannot add items to a finalized or paid invoice') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Cannot add items to a finalized or paid invoice') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
-  let expectedPrice = ZERO;
-  let finalDescription = input.description?.trim() || '';
+  let expectedPrice = ZERO
+  let finalDescription = input.description?.trim() || ''
   let createData: Record<string, unknown> = {
     invoiceId,
     quantity: qty,
-    providerId: itemType === 'SERVICE' ? invoice.providerId ?? null : null,
-  };
+    providerId: itemType === 'SERVICE' ? (invoice.providerId ?? null) : null,
+  }
 
   if (itemType === 'SERVICE') {
     const service = await prisma.service.findFirst({
       where: { id: itemId, clinicId: invoice.clinicId },
-    });
+    })
     if (!service) {
-      const err = new Error('Service not found or does not belong to this clinic') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Service not found or does not belong to this clinic') as ApiError
+      err.statusCode = 404
+      throw err
     }
-    expectedPrice = invoice.provider?.providerServices[0]?.priceOverride ?? service.defaultPrice;
+    expectedPrice = invoice.provider?.providerServices[0]?.priceOverride ?? service.defaultPrice
     const membershipBenefit = await membershipService.getActiveMembershipBenefit(
       invoice.clinicId,
       invoice.patientId
-    );
+    )
     if (membershipBenefit) {
       const discountPercent = new Prisma.Decimal(
         membershipBenefit.membership.serviceDiscountPercent
-      );
-      const discountAmount = expectedPrice.mul(discountPercent).div(100);
-      expectedPrice = expectedPrice.minus(discountAmount).toDecimalPlaces(2);
+      )
+      const discountAmount = expectedPrice.mul(discountPercent).div(100)
+      expectedPrice = expectedPrice.minus(discountAmount).toDecimalPlaces(2)
     }
-    finalDescription ||= service.name;
+    finalDescription ||= service.name
     createData = {
       ...createData,
       serviceId: service.id,
       disciplineId: service.disciplineId ?? null,
-    };
+    }
   } else if (itemType === 'PRODUCT') {
     const product = await prisma.product.findFirst({
       where: { id: itemId, clinicId: invoice.clinicId, isActive: true },
-    });
+    })
     if (!product) {
-      const err = new Error('Product not found or does not belong to this clinic') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Product not found or does not belong to this clinic') as ApiError
+      err.statusCode = 404
+      throw err
     }
-    expectedPrice = product.price;
-    finalDescription ||= product.name;
+    expectedPrice = product.price
+    finalDescription ||= product.name
     createData = {
       ...createData,
       productId: product.id,
-    };
+    }
   } else {
     const pkg = await prisma.package.findFirst({
       where: { id: itemId, clinicId: invoice.clinicId, isActive: true },
-    });
+    })
     if (!pkg) {
-      const err = new Error('Package not found or does not belong to this clinic') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Package not found or does not belong to this clinic') as ApiError
+      err.statusCode = 404
+      throw err
     }
-    expectedPrice = pkg.price;
-    finalDescription ||= pkg.name;
+    expectedPrice = pkg.price
+    finalDescription ||= pkg.name
     createData = {
       ...createData,
       packageId: pkg.id,
-    };
+    }
   }
 
   const unitPrice =
@@ -346,11 +342,11 @@ export const addCatalogInvoiceItem = async (
       ? typeof input.unitPrice === 'object' && 'toNumber' in input.unitPrice
         ? input.unitPrice
         : new Prisma.Decimal(input.unitPrice)
-      : expectedPrice;
+      : expectedPrice
 
   const priceDiffers =
     new Prisma.Decimal(unitPrice).toDecimalPlaces(2).toString() !==
-    new Prisma.Decimal(expectedPrice).toDecimalPlaces(2).toString();
+    new Prisma.Decimal(expectedPrice).toDecimalPlaces(2).toString()
 
   if (priceDiffers) {
     await auditService.logAudit({
@@ -362,10 +358,10 @@ export const addCatalogInvoiceItem = async (
       oldValue: Number(expectedPrice),
       newValue: Number(unitPrice),
       performedById,
-    });
+    })
   }
 
-  const totalPrice = new Prisma.Decimal(unitPrice).times(qty);
+  const totalPrice = new Prisma.Decimal(unitPrice).times(qty)
 
   const item = await prisma.$transaction(async (tx) => {
     const created = await tx.invoiceItem.create({
@@ -375,20 +371,20 @@ export const addCatalogInvoiceItem = async (
         unitPrice: new Prisma.Decimal(unitPrice),
         totalPrice,
       } as Prisma.InvoiceItemUncheckedCreateInput,
-    });
+    })
 
-    await recalculateInvoiceTotals(invoiceId, tx);
-    return created;
-  });
+    await recalculateInvoiceTotals(invoiceId, tx)
+    return created
+  })
 
-  return item;
-};
+  return item
+}
 
 export interface AddInvoiceItemInput {
-  serviceId: string;
-  description: string;
-  unitPrice: number | string | Prisma.Decimal;
-  quantity?: number;
+  serviceId: string
+  description: string
+  unitPrice: number | string | Prisma.Decimal
+  quantity?: number
 }
 
 export const addInvoiceItem = async (
@@ -406,12 +402,12 @@ export const addInvoiceItem = async (
       quantity: input.quantity,
     },
     performedById
-  );
-};
+  )
+}
 
 export interface UpdateInvoiceItemInput {
-  unitPrice?: number | string | Prisma.Decimal;
-  quantity?: number;
+  unitPrice?: number | string | Prisma.Decimal
+  quantity?: number
 }
 
 export const updateInvoiceItem = async (
@@ -421,7 +417,7 @@ export const updateInvoiceItem = async (
   performedById: string
 ) => {
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId },
+    where: { id: invoiceId, ...clinicScope() },
     include: {
       items: { where: { id: itemId }, include: { service: true } },
       provider: {
@@ -432,46 +428,43 @@ export const updateInvoiceItem = async (
         },
       },
     },
-  });
+  })
 
   if (!invoice) {
-    const err = new Error('Invoice not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (invoice.status !== 'DRAFT') {
-    const err = new Error(
-      'Cannot edit items on a finalized or paid invoice'
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Cannot edit items on a finalized or paid invoice') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
-  const item = invoice.items[0];
+  const item = invoice.items[0]
   if (!item) {
-    const err = new Error('Invoice item not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice item not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   const providerService = invoice.provider?.providerServices.find(
     (ps) => ps.serviceId === item.serviceId
-  );
-  const expectedPrice =
-    providerService?.priceOverride ?? item.service?.defaultPrice ?? ZERO;
+  )
+  const expectedPrice = providerService?.priceOverride ?? item.service?.defaultPrice ?? ZERO
 
-  let unitPrice = item.unitPrice;
-  let quantity = item.quantity;
+  let unitPrice = item.unitPrice
+  let quantity = item.quantity
 
   if (input.unitPrice !== undefined) {
     unitPrice =
       typeof input.unitPrice === 'object' && 'toNumber' in input.unitPrice
         ? input.unitPrice
-        : new Prisma.Decimal(input.unitPrice);
+        : new Prisma.Decimal(input.unitPrice)
     const priceDiffers =
       unitPrice.toDecimalPlaces(2).toString() !==
-      new Prisma.Decimal(expectedPrice).toDecimalPlaces(2).toString();
+      new Prisma.Decimal(expectedPrice).toDecimalPlaces(2).toString()
     if (priceDiffers) {
       await auditService.logAudit({
         clinicId: invoice.clinicId,
@@ -482,31 +475,31 @@ export const updateInvoiceItem = async (
         oldValue: Number(expectedPrice),
         newValue: Number(unitPrice),
         performedById,
-      });
+      })
     }
   }
 
   if (input.quantity !== undefined) {
-    quantity = Math.max(1, Math.floor(input.quantity));
+    quantity = Math.max(1, Math.floor(input.quantity))
   }
 
   const totalPrice =
     typeof unitPrice === 'object' && 'times' in unitPrice
       ? unitPrice.times(quantity)
-      : new Prisma.Decimal(unitPrice).times(quantity);
+      : new Prisma.Decimal(unitPrice).times(quantity)
 
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.invoiceItem.update({
       where: { id: itemId },
       data: { unitPrice, quantity, totalPrice },
       include: { service: true },
-    });
-    await recalculateInvoiceTotals(invoiceId, tx);
-    return result;
-  });
+    })
+    await recalculateInvoiceTotals(invoiceId, tx)
+    return result
+  })
 
-  return updated;
-};
+  return updated
+}
 
 export const deleteInvoiceItem = async (
   invoiceId: string,
@@ -514,89 +507,82 @@ export const deleteInvoiceItem = async (
   performedById: string
 ) => {
   const invoice = await prisma.invoice.findFirst({
-    where: { id: invoiceId },
+    where: { id: invoiceId, ...clinicScope() },
     include: { items: { where: { id: itemId } } },
-  });
+  })
 
   if (!invoice) {
-    const err = new Error('Invoice not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (invoice.status !== 'DRAFT') {
-    const err = new Error(
-      'Cannot delete items from a finalized or paid invoice'
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Cannot delete items from a finalized or paid invoice') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
-  const item = invoice.items[0];
+  const item = invoice.items[0]
   if (!item) {
-    const err = new Error('Invoice item not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice item not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   await prisma.$transaction(async (tx) => {
-    await tx.invoiceItem.delete({ where: { id: itemId } });
-    await recalculateInvoiceTotals(invoiceId, tx);
-  });
+    await tx.invoiceItem.delete({ where: { id: itemId } })
+    await recalculateInvoiceTotals(invoiceId, tx)
+  })
 
-  return null;
-};
+  return null
+}
 
 export async function recalculateInvoiceTotals(
   invoiceId: string,
-  txClient?: Omit<
-    typeof prisma,
-    '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'
-  >
+  txClient?: Omit<typeof prisma, '$connect' | '$disconnect' | '$on' | '$transaction' | '$extends'>
 ) {
-  const executor = txClient || prisma;
+  const executor = txClient || prisma
   const invoice = await executor.invoice.findUnique({
-    where: { id: invoiceId },
-    include: { 
-      items: { 
-        include: { 
+    where: { id: invoiceId, ...clinicScope() },
+    include: {
+      items: {
+        include: {
           service: true,
           product: true,
-          package: true
-        } 
-      } 
+          package: true,
+        },
+      },
     },
-  });
+  })
 
-  if (!invoice) return;
+  if (!invoice) return
 
-  let subtotal = new Prisma.Decimal(0);
-  let taxableAmount = new Prisma.Decimal(0);
+  let subtotal = new Prisma.Decimal(0)
+  let taxableAmount = new Prisma.Decimal(0)
 
   for (const item of invoice.items) {
-    subtotal = subtotal.plus(item.totalPrice);
-    
-    const isTaxable = 
-      item.service?.taxApplicable || 
-      item.product?.taxApplicable || 
-      item.package?.taxApplicable;
+    subtotal = subtotal.plus(item.totalPrice)
+
+    const isTaxable =
+      item.service?.taxApplicable || item.product?.taxApplicable || item.package?.taxApplicable
 
     if (isTaxable) {
-      taxableAmount = taxableAmount.plus(item.totalPrice);
+      taxableAmount = taxableAmount.plus(item.totalPrice)
     }
   }
 
-  const taxAmount = taxableAmount.times(DEFAULT_TAX_RATE).toDecimalPlaces(2);
-  const totalAmount = subtotal.plus(taxAmount).toDecimalPlaces(2);
+  const taxAmount = taxableAmount.times(DEFAULT_TAX_RATE).toDecimalPlaces(2)
+  const totalAmount = subtotal.plus(taxAmount).toDecimalPlaces(2)
 
   await executor.invoice.update({
-    where: { id: invoiceId },
+    where: { id: invoiceId, clinicId: invoice.clinicId },
     data: {
       subtotal: subtotal.toDecimalPlaces(2),
       taxAmount,
       totalAmount,
     },
-  });
+  })
 }
 
 export const finalizeInvoice = async (
@@ -607,32 +593,30 @@ export const finalizeInvoice = async (
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, clinicId },
     include: { items: true },
-  });
+  })
 
   if (!invoice) {
-    const err = new Error('Invoice not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (invoice.status !== 'DRAFT') {
     const err = new Error(
       `Invoice cannot be finalized (current status: ${invoice.status})`
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+    ) as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   if (invoice.items.length === 0) {
-    const err = new Error(
-      'Cannot finalize invoice with no items'
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Cannot finalize invoice with no items') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   const updated = await prisma.invoice.update({
-    where: { id: invoiceId },
+    where: { id: invoiceId, clinicId },
     data: { status: 'FINALIZED' },
     include: {
       items: { include: { service: true } },
@@ -640,7 +624,7 @@ export const finalizeInvoice = async (
       patient: true,
       provider: true,
     },
-  });
+  })
 
   await auditService.logAudit({
     clinicId,
@@ -650,23 +634,25 @@ export const finalizeInvoice = async (
     oldValue: { status: 'DRAFT' },
     newValue: { status: 'FINALIZED', totalAmount: Number(updated.totalAmount) },
     performedById,
-  });
+  })
 
-  return updated;
-};
-
-export interface EnrichedInvoiceFinancials {
-  totalPaid: string;
-  totalRefunded: string;
-  outstandingAmount: string;
-  netCollected: string;
-  financialStatus: InvoiceFinancialStatus;
+  return updated
 }
 
-const enrichInvoice = <T extends { totalAmount: Prisma.Decimal | number; status: string; payments?: any[] }>(
+export interface EnrichedInvoiceFinancials {
+  totalPaid: string
+  totalRefunded: string
+  outstandingAmount: string
+  netCollected: string
+  financialStatus: InvoiceFinancialStatus
+}
+
+const enrichInvoice = <
+  T extends { totalAmount: Prisma.Decimal | number; status: string; payments?: any[] },
+>(
   invoice: T
 ): T & EnrichedInvoiceFinancials => {
-  const financials = computeInvoiceFinancials(invoice);
+  const financials = computeInvoiceFinancials(invoice)
   return {
     ...invoice,
     totalPaid: financials.totalPaid.toFixed(2),
@@ -674,90 +660,86 @@ const enrichInvoice = <T extends { totalAmount: Prisma.Decimal | number; status:
     outstandingAmount: financials.outstandingAmount.toFixed(2),
     netCollected: financials.netCollected.toFixed(2),
     financialStatus: financials.financialStatus,
-  };
-};
+  }
+}
 
-export const payInvoice = async (
-  invoiceId: string,
-  clinicId: string,
-  performedById: string
-) => {
+export const payInvoice = async (invoiceId: string, clinicId: string, performedById: string) => {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, clinicId },
     include: { payments: true },
-  });
+  })
 
   if (!invoice) {
-    const err = new Error('Invoice not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (invoice.status !== 'FINALIZED' && invoice.status !== 'PAID') {
     const err = new Error(
       `Invoice must be finalized before payment (current status: ${invoice.status})`
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+    ) as ApiError
+    err.statusCode = 400
+    throw err
   }
 
-  const financials = computeInvoiceFinancials(invoice);
+  const financials = computeInvoiceFinancials(invoice)
   if (financials.outstandingAmount.lte(ZERO)) {
-    const refreshed = await getInvoiceById(invoiceId, clinicId);
-    return refreshed!;
+    const refreshed = await getInvoiceById(invoiceId, clinicId)
+    return refreshed!
   }
 
   const result = await recordInvoiceManualPayment(invoiceId, clinicId, performedById, {
     amount: financials.outstandingAmount,
     paymentMethod: 'OTHER',
     notes: 'Legacy invoice pay action',
-  });
+  })
 
-  return result.invoice!;
-};
+  return result.invoice!
+}
 
 export const recordInvoiceManualPayment = async (
   invoiceId: string,
   clinicId: string,
   performedById: string,
   input: {
-    amount: number | string | Prisma.Decimal;
-    paymentMethod: string;
-    notes?: string;
+    amount: number | string | Prisma.Decimal
+    paymentMethod: string
+    notes?: string
   }
 ) => {
   const invoice = await prisma.invoice.findFirst({
     where: { id: invoiceId, clinicId },
     include: { payments: true },
-  });
+  })
 
   if (!invoice) {
-    const err = new Error('Invoice not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Invoice not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (invoice.status === 'DRAFT' || invoice.status === 'CANCELLED') {
-    const err = new Error('Invoice is not ready for manual payment collection') as ApiError;
-    err.statusCode = 400;
-    err.code = 'invalid_state';
-    throw err;
+    const err = new Error('Invoice is not ready for manual payment collection') as ApiError
+    err.statusCode = 400
+    err.code = 'invalid_state'
+    throw err
   }
 
-  const amount = new Prisma.Decimal(input.amount);
+  const amount = new Prisma.Decimal(input.amount)
   if (amount.lte(ZERO)) {
-    const err = new Error('Manual payment amount must be greater than zero') as ApiError;
-    err.statusCode = 400;
-    err.code = 'invalid_amount';
-    throw err;
+    const err = new Error('Manual payment amount must be greater than zero') as ApiError
+    err.statusCode = 400
+    err.code = 'invalid_amount'
+    throw err
   }
 
-  const financials = computeInvoiceFinancials(invoice);
+  const financials = computeInvoiceFinancials(invoice)
   if (amount.gt(financials.outstandingAmount)) {
-    const err = new Error('Manual payment exceeds outstanding balance') as ApiError;
-    err.statusCode = 400;
-    err.code = 'overpayment';
-    throw err;
+    const err = new Error('Manual payment exceeds outstanding balance') as ApiError
+    err.statusCode = 400
+    err.code = 'overpayment'
+    throw err
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -776,18 +758,18 @@ export const recordInvoiceManualPayment = async (
         recordedAt: new Date(),
         notes: input.notes?.trim() || null,
       },
-    });
+    })
 
-    const syncedInvoice = await syncInvoiceStatusFromPayments(invoice.id, tx);
+    const syncedInvoice = await syncInvoiceStatusFromPayments(invoice.id, tx)
 
     if (invoice.appointmentId) {
       const refreshed = await tx.invoice.findUnique({
-        where: { id: invoice.id },
+        where: { id: invoice.id, clinicId: invoice.clinicId },
         include: { payments: true },
-      });
-      const refreshedFinancials = refreshed ? computeInvoiceFinancials(refreshed) : null;
+      })
+      const refreshedFinancials = refreshed ? computeInvoiceFinancials(refreshed) : null
       await tx.appointment.update({
-        where: { id: invoice.appointmentId },
+        where: { id: invoice.appointmentId, clinicId: invoice.clinicId },
         data: {
           paymentStatus:
             refreshedFinancials && refreshedFinancials.outstandingAmount.lte(ZERO)
@@ -795,11 +777,11 @@ export const recordInvoiceManualPayment = async (
               : PaymentStatus.PENDING,
           updatedById: performedById,
         },
-      });
+      })
     }
 
-    return { payment, invoice: syncedInvoice };
-  });
+    return { payment, invoice: syncedInvoice }
+  })
 
   await auditService.logAudit({
     clinicId,
@@ -813,10 +795,10 @@ export const recordInvoiceManualPayment = async (
       notes: input.notes?.trim() || null,
     },
     performedById,
-  });
+  })
 
   const invoiceWithPayments = await prisma.invoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, clinicId },
     include: {
       items: { include: { service: true, product: true, package: true } },
       appointment: true,
@@ -824,41 +806,40 @@ export const recordInvoiceManualPayment = async (
       provider: true,
       payments: true,
     },
-  });
+  })
 
   return {
     payment: result.payment,
     invoice: invoiceWithPayments ? enrichInvoice(invoiceWithPayments) : null,
-  };
-};
+  }
+}
 
-export const getInvoiceById = async (
-  id: string,
-  clinicId?: string
-) => {
-  const where: { id: string; clinicId?: string } = { id };
-  if (clinicId) where.clinicId = clinicId;
+export const getInvoiceById = async (id: string, clinicId?: string) => {
+  const where: { id: string; clinicId?: string | { in: string[] } } = { id, ...clinicScope() }
+  if (clinicId) where.clinicId = clinicId
 
-  return prisma.invoice.findFirst({
-    where,
-    include: {
-      items: { include: { service: true, product: true, package: true } },
-      appointment: true,
-      patient: true,
-      provider: true,
-      payments: true,
-    },
-  }).then((invoice) => (invoice ? enrichInvoice(invoice) : invoice));
-};
+  return prisma.invoice
+    .findFirst({
+      where,
+      include: {
+        items: { include: { service: true, product: true, package: true } },
+        appointment: true,
+        patient: true,
+        provider: true,
+        payments: true,
+      },
+    })
+    .then((invoice) => (invoice ? enrichInvoice(invoice) : invoice))
+}
 
 export const getInvoicesByClinic = async (
   clinicId: string,
   status?: string,
   financialStatus?: string,
   filters?: {
-    providerId?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
+    providerId?: string
+    dateFrom?: Date
+    dateTo?: Date
   }
 ) => {
   const where: Prisma.InvoiceWhereInput = {
@@ -872,8 +853,9 @@ export const getInvoicesByClinic = async (
           },
         }
       : {}),
-  };
-  if (status && status !== 'ALL') where.status = status as 'DRAFT' | 'FINALIZED' | 'PAID' | 'CANCELLED';
+  }
+  if (status && status !== 'ALL')
+    where.status = status as 'DRAFT' | 'FINALIZED' | 'PAID' | 'CANCELLED'
 
   const invoices = await prisma.invoice.findMany({
     where,
@@ -885,17 +867,14 @@ export const getInvoicesByClinic = async (
       payments: true,
     },
     orderBy: { createdAt: 'desc' },
-  });
+  })
 
-  const enriched = invoices.map((invoice) => enrichInvoice(invoice));
-  if (!financialStatus || financialStatus === 'ALL') return enriched;
-  return enriched.filter((invoice) => invoice.financialStatus === financialStatus);
-};
+  const enriched = invoices.map((invoice) => enrichInvoice(invoice))
+  if (!financialStatus || financialStatus === 'ALL') return enriched
+  return enriched.filter((invoice) => invoice.financialStatus === financialStatus)
+}
 
-export const getInvoicesByAppointment = async (
-  appointmentId: string,
-  clinicId: string
-) => {
+export const getInvoicesByAppointment = async (appointmentId: string, clinicId: string) => {
   const invoices = await prisma.invoice.findMany({
     where: { appointmentId, clinicId },
     include: {
@@ -905,9 +884,9 @@ export const getInvoicesByAppointment = async (
       payments: true,
     },
     orderBy: { createdAt: 'desc' },
-  });
-  return invoices.map((invoice) => enrichInvoice(invoice));
-};
+  })
+  return invoices.map((invoice) => enrichInvoice(invoice))
+}
 
 export const getClinicReceivablesSummary = async (clinicId: string) => {
   const invoices = await prisma.invoice.findMany({
@@ -916,46 +895,49 @@ export const getClinicReceivablesSummary = async (clinicId: string) => {
       status: { not: 'DRAFT' },
     },
     include: { payments: true },
-  });
+  })
 
-  const enriched = invoices.map((invoice) => enrichInvoice(invoice));
+  const enriched = invoices.map((invoice) => enrichInvoice(invoice))
   const outstandingInvoices = enriched.filter((invoice) =>
     new Prisma.Decimal(invoice.outstandingAmount).gt(ZERO)
-  );
+  )
 
   return {
     totalOutstandingAmount: outstandingInvoices
       .reduce((sum, invoice) => sum + Number(invoice.outstandingAmount), 0)
       .toFixed(2),
     outstandingInvoiceCount: outstandingInvoices.length,
-    partiallyPaidCount: enriched.filter((invoice) => invoice.financialStatus === 'PARTIALLY_PAID').length,
-    partiallyRefundedCount: enriched.filter((invoice) => invoice.financialStatus === 'PARTIALLY_REFUNDED').length,
+    partiallyPaidCount: enriched.filter((invoice) => invoice.financialStatus === 'PARTIALLY_PAID')
+      .length,
+    partiallyRefundedCount: enriched.filter(
+      (invoice) => invoice.financialStatus === 'PARTIALLY_REFUNDED'
+    ).length,
     unpaidCount: enriched.filter((invoice) => invoice.financialStatus === 'UNPAID').length,
     paidCount: enriched.filter((invoice) => invoice.financialStatus === 'PAID').length,
     refundedCount: enriched.filter((invoice) => invoice.financialStatus === 'REFUNDED').length,
-  };
-};
+  }
+}
 
 export const getClinicFinanceSummary = async (
   clinicId: string,
   filters?: {
-    providerId?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
+    providerId?: string
+    dateFrom?: Date
+    dateTo?: Date
   }
 ) => {
-  const invoices = await getInvoicesByClinic(clinicId, undefined, undefined, filters);
+  const invoices = await getInvoicesByClinic(clinicId, undefined, undefined, filters)
 
   const summary = invoices.reduce(
     (acc, invoice) => {
-      acc.totalInvoiced += Number(invoice.totalAmount);
-      acc.totalCollected += Number(invoice.totalPaid);
-      acc.totalRefunded += Number(invoice.totalRefunded);
-      acc.totalOutstanding += Number(invoice.outstandingAmount);
-      acc.invoiceCount += 1;
+      acc.totalInvoiced += Number(invoice.totalAmount)
+      acc.totalCollected += Number(invoice.totalPaid)
+      acc.totalRefunded += Number(invoice.totalRefunded)
+      acc.totalOutstanding += Number(invoice.outstandingAmount)
+      acc.invoiceCount += 1
       acc.byFinancialStatus[invoice.financialStatus] =
-        (acc.byFinancialStatus[invoice.financialStatus] ?? 0) + 1;
-      return acc;
+        (acc.byFinancialStatus[invoice.financialStatus] ?? 0) + 1
+      return acc
     },
     {
       totalInvoiced: 0,
@@ -973,7 +955,7 @@ export const getClinicFinanceSummary = async (
         CANCELLED: 0,
       } as Record<InvoiceFinancialStatus, number>,
     }
-  );
+  )
 
   return {
     totalInvoiced: summary.totalInvoiced.toFixed(2),
@@ -988,5 +970,5 @@ export const getClinicFinanceSummary = async (
     refundedCount: summary.byFinancialStatus.REFUNDED,
     draftCount: summary.byFinancialStatus.DRAFT,
     cancelledCount: summary.byFinancialStatus.CANCELLED,
-  };
-};
+  }
+}

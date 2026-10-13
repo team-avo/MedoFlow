@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
+import { clinicScope, withTenantBypass } from '../config/tenantContext'
 import * as jaasService from '../services/jaasService'
 import * as consultationService from '../services/consultationService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import { ApiError } from '../types/errors'
+import { logRead } from '../services/auditService'
 import { Role } from '@prisma/client'
 
 // ---------------------------------------------------------------------------
@@ -91,12 +93,15 @@ export const getVideoTokenByJoinToken = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const joinToken = req.params.token as string
 
-    const session = await prisma.consultationSession.findFirst({
-      where: { joinToken },
-      include: {
-        patient: { select: { id: true, name: true, email: true } },
-      },
-    })
+    // Join token is the capability (works without login), so resolve it cross-clinic.
+    const session = await withTenantBypass('consultation.join_by_token', () =>
+      prisma.consultationSession.findFirst({
+        where: { joinToken },
+        include: {
+          patient: { select: { id: true, name: true, email: true } },
+        },
+      })
+    )
     if (!session) {
       const err = new Error('Invalid or expired consultation link') as ApiError
       err.statusCode = 404
@@ -218,6 +223,11 @@ export const getTranscript = asyncHandler(
       req.user!.id,
       req.user!.role as Role
     )
+    await logRead(req, {
+      entityType: 'ConsultationTranscript',
+      entityId: transcript.sessionId,
+      clinicId: req.user!.clinicId,
+    })
     successResponse(res, 200, 'Transcript retrieved', transcript)
   }
 )
@@ -247,11 +257,11 @@ export const convertToTemplate = asyncHandler(
  */
 export const createVideoRoom = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    await providerScope(req)
+    const { clinicId } = await providerScope(req)
     const sessionId = req.params.id as string
 
     const session = await prisma.consultationSession.findUnique({
-      where: { id: sessionId },
+      where: { id: sessionId, clinicId },
       include: {
         provider: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -296,7 +306,7 @@ export const createVideoRoom = asyncHandler(
 
     if (needsRoom) {
       await prisma.consultationSession.update({
-        where: { id: sessionId },
+        where: { id: sessionId, clinicId },
         data: {
           meetingRoomUrl: room.roomUrl,
           meetingRoomName: room.roomName,
@@ -329,7 +339,7 @@ export const getVideoToken = asyncHandler(
     const sessionId = req.params.id as string
 
     const session = await prisma.consultationSession.findUnique({
-      where: { id: sessionId },
+      where: { id: sessionId, ...clinicScope() },
     })
     if (!session) {
       const err = new Error('Consultation session not found') as ApiError

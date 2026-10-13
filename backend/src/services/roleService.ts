@@ -46,7 +46,7 @@ export const listRoles = async (clinicId: string) => {
 
 export const getRole = async (id: string, clinicId: string) => {
   const role = await prisma.customRole.findUnique({
-    where: { id },
+    where: { id, clinicId },
     include: {
       _count: { select: { users: true } },
       users: {
@@ -131,7 +131,7 @@ export const updateRole = async (
   data: { name?: string; description?: string; permissions?: unknown },
   clinicId: string
 ) => {
-  const existing = await prisma.customRole.findUnique({ where: { id } })
+  const existing = await prisma.customRole.findUnique({ where: { id, clinicId } })
   if (!existing || existing.clinicId !== clinicId) {
     const err = new Error('Role not found') as ApiError
     err.statusCode = 404
@@ -156,7 +156,7 @@ export const updateRole = async (
   }
 
   const role = await prisma.customRole.update({
-    where: { id },
+    where: { id, clinicId },
     data: {
       ...(data.name ? { name: data.name.trim() } : {}),
       ...(data.description !== undefined ? { description: data.description?.trim() || null } : {}),
@@ -181,7 +181,7 @@ export const updateRole = async (
 
 export const deleteRole = async (id: string, clinicId: string) => {
   const role = await prisma.customRole.findUnique({
-    where: { id },
+    where: { id, clinicId },
     include: { _count: { select: { users: true } } },
   })
 
@@ -200,7 +200,7 @@ export const deleteRole = async (id: string, clinicId: string) => {
   }
 
   await prisma.customRole.update({
-    where: { id },
+    where: { id, clinicId },
     data: { isActive: false },
   })
 

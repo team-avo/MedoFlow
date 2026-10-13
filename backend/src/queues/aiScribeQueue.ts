@@ -32,7 +32,10 @@ function parseRedisUrl(url: string) {
     return {
       host: u.hostname,
       port: parseInt(u.port || '6379', 10),
-      password: u.password || undefined,
+      username: u.username || undefined,
+      password: u.password ? decodeURIComponent(u.password) : undefined,
+      // rediss:// → TLS in transit (B0.6.2)
+      ...(u.protocol === 'rediss:' ? { tls: { servername: u.hostname } } : {}),
     }
   } catch {
     return connection

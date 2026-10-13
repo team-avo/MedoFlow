@@ -1,44 +1,42 @@
-import prisma from '../config/prisma';
-import { ApiError } from '../types/errors';
-import * as auditService from './auditService';
-import * as emailService from './emailService';
-import { createAppointment } from './appointmentService';
-import { BookingSource, WaitlistStatus } from '@prisma/client';
+import prisma from '../config/prisma'
+import { ApiError } from '../types/errors'
+import * as auditService from './auditService'
+import * as emailService from './emailService'
+import { clinicScope } from '../config/tenantContext'
+import { createAppointment } from './appointmentService'
+import { BookingSource, WaitlistStatus } from '@prisma/client'
 
-const WAITING = WaitlistStatus.WAITING;
-const OFFERED = WaitlistStatus.OFFERED;
-const BOOKED = WaitlistStatus.BOOKED;
-const EXPIRED = WaitlistStatus.EXPIRED;
-const OFFER_EXPIRY_MINUTES = 30;
+const WAITING = WaitlistStatus.WAITING
+const OFFERED = WaitlistStatus.OFFERED
+const BOOKED = WaitlistStatus.BOOKED
+const EXPIRED = WaitlistStatus.EXPIRED
+const OFFER_EXPIRY_MINUTES = 30
 
 function startOfDay(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(0, 0, 0, 0);
-  return out;
+  const out = new Date(d)
+  out.setUTCHours(0, 0, 0, 0)
+  return out
 }
 
 function endOfDay(d: Date): Date {
-  const out = new Date(d);
-  out.setUTCHours(23, 59, 59, 999);
-  return out;
+  const out = new Date(d)
+  out.setUTCHours(23, 59, 59, 999)
+  return out
 }
 
 export interface AddToWaitlistInput {
-  clinicId: string;
-  providerId: string;
-  serviceId: string;
-  patientId: string;
-  preferredLocationId?: string | null;
-  timezone: string;
-  preferredDate: Date;
-  preferredStartTime: string;
-  preferredEndTime: string;
+  clinicId: string
+  providerId: string
+  serviceId: string
+  patientId: string
+  preferredLocationId?: string | null
+  timezone: string
+  preferredDate: Date
+  preferredStartTime: string
+  preferredEndTime: string
 }
 
-export const addToWaitlist = async (
-  input: AddToWaitlistInput,
-  performedById: string
-) => {
+export const addToWaitlist = async (input: AddToWaitlistInput, performedById: string) => {
   const existing = await prisma.waitlistEntry.findFirst({
     where: {
       clinicId: input.clinicId,
@@ -47,58 +45,60 @@ export const addToWaitlist = async (
       patientId: input.patientId,
       status: WAITING,
     },
-  });
+  })
   if (existing) {
-    const err = new Error('You are already on the waitlist for this provider and service') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error(
+      'You are already on the waitlist for this provider and service'
+    ) as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   const clinic = await prisma.clinic.findUnique({
     where: { id: input.clinicId },
-  });
+  })
   if (!clinic) {
-    const err = new Error('Clinic not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Clinic not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   const provider = await prisma.provider.findFirst({
     where: { id: input.providerId, clinicId: input.clinicId, isActive: true },
-  });
+  })
   if (!provider) {
-    const err = new Error('Provider not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Provider not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   const service = await prisma.service.findFirst({
     where: { id: input.serviceId, clinicId: input.clinicId, isActive: true },
-  });
+  })
   if (!service) {
-    const err = new Error('Service not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Service not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   const providerService = await prisma.providerService.findUnique({
     where: {
       providerId_serviceId: { providerId: input.providerId, serviceId: input.serviceId },
     },
-  });
+  })
   if (!providerService) {
-    const err = new Error('Provider does not offer this service') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Provider does not offer this service') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   const user = await prisma.user.findUnique({
     where: { id: input.patientId },
-  });
+  })
   if (!user || user.role !== 'PATIENT') {
-    const err = new Error('Patient not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Patient not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   const entry = await prisma.waitlistEntry.create({
@@ -125,7 +125,7 @@ export const addToWaitlist = async (
       service: { select: { id: true, name: true, duration: true } },
       patient: { select: { id: true, name: true, email: true } },
     },
-  });
+  })
 
   await auditService.logAudit({
     clinicId: input.clinicId,
@@ -139,40 +139,33 @@ export const addToWaitlist = async (
       preferredDate: input.preferredDate,
     },
     performedById,
-  });
+  })
 
-  return entry;
-};
-
-export interface OfferSlotToWaitlistInput {
-  clinicId: string;
-  providerId: string;
-  serviceId: string;
-  slotStartTime: Date;
-  slotEndTime: Date;
-  locationId?: string | null;
+  return entry
 }
 
-export const offerSlotToWaitlist = async (
-  input: OfferSlotToWaitlistInput
-) => {
+export interface OfferSlotToWaitlistInput {
+  clinicId: string
+  providerId: string
+  serviceId: string
+  slotStartTime: Date
+  slotEndTime: Date
+  locationId?: string | null
+}
+
+export const offerSlotToWaitlist = async (input: OfferSlotToWaitlistInput) => {
   // PRD: Skip waitlist offer if service is archived, inactive, or discipline is archived
   const service = await prisma.service.findFirst({
     where: { id: input.serviceId, clinicId: input.clinicId },
     include: { discipline: { select: { isArchived: true } } },
-  });
-  if (
-    !service ||
-    service.isArchived ||
-    !service.isActive ||
-    service.discipline?.isArchived
-  ) {
-    return null;
+  })
+  if (!service || service.isArchived || !service.isActive || service.discipline?.isArchived) {
+    return null
   }
 
-  const slotDate = input.slotStartTime;
-  const dayStart = startOfDay(slotDate);
-  const dayEnd = endOfDay(slotDate);
+  const slotDate = input.slotStartTime
+  const dayStart = startOfDay(slotDate)
+  const dayEnd = endOfDay(slotDate)
 
   const first = await prisma.waitlistEntry.findFirst({
     where: {
@@ -187,15 +180,15 @@ export const offerSlotToWaitlist = async (
     include: {
       patient: { select: { id: true } },
     },
-  });
+  })
 
-  if (!first) return null;
+  if (!first) return null
 
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + OFFER_EXPIRY_MINUTES * 60 * 1000);
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + OFFER_EXPIRY_MINUTES * 60 * 1000)
 
   const offered = await prisma.waitlistEntry.update({
-    where: { id: first.id },
+    where: { id: first.id, clinicId: input.clinicId },
     data: {
       status: OFFERED,
       offeredAt: now,
@@ -215,7 +208,7 @@ export const offerSlotToWaitlist = async (
       service: { select: { id: true, name: true, duration: true } },
       patient: { select: { id: true, name: true, email: true } },
     },
-  });
+  })
 
   await auditService.logAudit({
     clinicId: input.clinicId,
@@ -228,7 +221,7 @@ export const offerSlotToWaitlist = async (
       offeredEndTime: input.slotEndTime.toISOString(),
     },
     performedById: first.patient.id,
-  });
+  })
 
   // Send waitlist offer email
   await emailService.sendWaitlistOffer({
@@ -237,37 +230,37 @@ export const offerSlotToWaitlist = async (
     appointmentDate: offered.offeredStartTime!.toLocaleString(),
     serviceName: offered.service.name,
     bookingUrl: `${process.env.FRONTEND_URL}/book/${offered.serviceId}?waitlistEntryId=${offered.id}`,
-  });
+  })
 
-  return offered;
-};
+  return offered
+}
 
 export const expireWaitlistOffers = async (): Promise<number> => {
-  const now = new Date();
+  const now = new Date()
   const toExpire = await prisma.waitlistEntry.findMany({
     where: {
       status: OFFERED,
       expiresAt: { lt: now },
     },
-    select: { 
-      id: true, 
-      clinicId: true, 
+    select: {
+      id: true,
+      clinicId: true,
       patientId: true,
       providerId: true,
       serviceId: true,
       offeredStartTime: true,
       offeredEndTime: true,
-      offeredLocationId: true
+      offeredLocationId: true,
     },
-  });
+  })
 
-  if (toExpire.length === 0) return 0;
+  if (toExpire.length === 0) return 0
 
   for (const entry of toExpire) {
     await prisma.waitlistEntry.update({
-      where: { id: entry.id },
+      where: { id: entry.id, clinicId: entry.clinicId },
       data: { status: EXPIRED },
-    });
+    })
 
     await auditService.logAudit({
       clinicId: entry.clinicId,
@@ -275,7 +268,7 @@ export const expireWaitlistOffers = async (): Promise<number> => {
       entityId: entry.id,
       action: 'WAITLIST_EXPIRED',
       performedById: entry.patientId,
-    });
+    })
 
     // Cascade: Offer the same slot to the next person on the list
     if (entry.offeredStartTime && entry.offeredEndTime) {
@@ -286,19 +279,19 @@ export const expireWaitlistOffers = async (): Promise<number> => {
         slotStartTime: entry.offeredStartTime,
         slotEndTime: entry.offeredEndTime,
         locationId: entry.offeredLocationId,
-      });
+      })
     }
   }
 
-  return toExpire.length;
-};
+  return toExpire.length
+}
 
-export const getMyWaitlistEntries = async (
-  patientId: string,
-  clinicId?: string | null
-) => {
-  const where: { patientId: string; clinicId?: string } = { patientId };
-  if (clinicId) where.clinicId = clinicId;
+export const getMyWaitlistEntries = async (patientId: string, clinicId?: string | null) => {
+  const where: { patientId: string; clinicId?: string | { in: string[] } } = {
+    patientId,
+    ...clinicScope(),
+  }
+  if (clinicId) where.clinicId = clinicId
 
   return prisma.waitlistEntry.findMany({
     where,
@@ -313,8 +306,8 @@ export const getMyWaitlistEntries = async (
       },
       service: { select: { id: true, name: true, duration: true } },
     },
-  });
-};
+  })
+}
 
 export const claimWaitlistOffer = async (
   entryId: string,
@@ -322,44 +315,42 @@ export const claimWaitlistOffer = async (
   performedById: string
 ) => {
   const entry = await prisma.waitlistEntry.findFirst({
-    where: { id: entryId, patientId },
+    where: { id: entryId, patientId, ...clinicScope() },
     include: {
       clinic: true,
       service: true,
       provider: true,
     },
-  });
+  })
 
   if (!entry) {
-    const err = new Error('Waitlist entry not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Waitlist entry not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
 
   if (entry.status !== OFFERED) {
     const err = new Error(
-      entry.status === EXPIRED
-        ? 'This offer has expired'
-        : 'This entry is not available to claim'
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+      entry.status === EXPIRED ? 'This offer has expired' : 'This entry is not available to claim'
+    ) as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   if (!entry.expiresAt || entry.expiresAt < new Date()) {
     await prisma.waitlistEntry.update({
-      where: { id: entryId },
+      where: { id: entryId, clinicId: entry.clinicId },
       data: { status: EXPIRED },
-    });
-    const err = new Error('This offer has expired') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    })
+    const err = new Error('This offer has expired') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   if (!entry.offeredStartTime || !entry.offeredEndTime || !entry.offeredLocationId) {
-    const err = new Error('Offer slot details are missing') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Offer slot details are missing') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   const { appointment } = await createAppointment(
@@ -373,12 +364,12 @@ export const claimWaitlistOffer = async (
     },
     entry.clinicId,
     { performedById, bookingSource: BookingSource.WAITLIST }
-  );
+  )
 
   await prisma.waitlistEntry.update({
-    where: { id: entryId },
+    where: { id: entryId, clinicId: entry.clinicId },
     data: { status: BOOKED },
-  });
+  })
 
   await auditService.logAudit({
     clinicId: entry.clinicId,
@@ -387,10 +378,10 @@ export const claimWaitlistOffer = async (
     action: 'WAITLIST_BOOKED',
     newValue: { appointmentId: appointment.id },
     performedById,
-  });
+  })
 
   const updatedEntry = await prisma.waitlistEntry.findUnique({
-    where: { id: entryId },
+    where: { id: entryId, clinicId: entry.clinicId },
     include: {
       clinic: { select: { id: true, name: true } },
       provider: {
@@ -402,7 +393,7 @@ export const claimWaitlistOffer = async (
       service: { select: { id: true, name: true, duration: true } },
       patient: { select: { id: true, name: true, email: true } },
     },
-  });
+  })
 
-  return { entry: updatedEntry, appointment };
+  return { entry: updatedEntry, appointment }
 }

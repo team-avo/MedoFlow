@@ -19,6 +19,12 @@ router.post(
 )
 router.post('/login', withPublicScope('auth.login'), authRateLimit, authController.login)
 router.post(
+  '/mfa/verify',
+  withPublicScope('auth.mfa_verify'),
+  authRateLimit,
+  authController.verifyMfaLogin
+)
+router.post(
   '/set-password',
   withPublicScope('auth.set_password'),
   authRateLimit,
@@ -36,5 +42,14 @@ router.post('/logout', withPublicScope('auth.logout'), authController.logout)
 router.get('/me', protect, authController.me)
 router.patch('/me', protect, authController.updateMe)
 router.post('/patient-tour-seen', protect, authController.markPatientTourSeen)
+router.post('/change-password', protect, authRateLimit, authController.changePassword)
+
+router.post('/mfa/setup', protect, authController.mfaSetup)
+router.post('/mfa/enable', protect, authRateLimit, authController.mfaEnable)
+router.post('/mfa/disable', protect, authRateLimit, authController.mfaDisable)
+
+router.get('/break-glass', protect, authController.breakGlassStatus)
+router.post('/break-glass', protect, authController.breakGlassActivate)
+router.delete('/break-glass', protect, authController.breakGlassEnd)
 
 export default router

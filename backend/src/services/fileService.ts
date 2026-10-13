@@ -1,27 +1,25 @@
-import { Prisma } from '@prisma/client';
-import prisma from '../config/prisma';
-import path from 'path';
-import fs from 'fs';
-import { logAudit } from './auditService';
-import { ApiError } from '../types/errors';
-import { UPLOAD_BASE } from '../config/multer';
-import * as patientMembershipService from './patientMembershipService';
+import { Prisma } from '@prisma/client'
+import prisma from '../config/prisma'
+import { clinicScope } from '../config/tenantContext'
+import path from 'path'
+import fs from 'fs'
+import { logAudit } from './auditService'
+import { ApiError } from '../types/errors'
+import { UPLOAD_BASE } from '../config/multer'
+import * as patientMembershipService from './patientMembershipService'
 
 export const uploadFile = async (params: {
-  clinicId: string;
-  patientId: string;
-  visitRecordId?: string | null;
-  uploadedById: string;
-  originalName: string;
-  storagePath: string;
-  mimeType: string;
-  size: number;
-  tags?: unknown;
+  clinicId: string
+  patientId: string
+  visitRecordId?: string | null
+  uploadedById: string
+  originalName: string
+  storagePath: string
+  mimeType: string
+  size: number
+  tags?: unknown
 }): Promise<{ id: string }> => {
-  await patientMembershipService.assertPatientBelongsToClinic(
-    params.patientId,
-    params.clinicId
-  );
+  await patientMembershipService.assertPatientBelongsToClinic(params.patientId, params.clinicId)
 
   if (params.visitRecordId) {
     const visit = await prisma.visitRecord.findFirst({
@@ -30,11 +28,11 @@ export const uploadFile = async (params: {
         clinicId: params.clinicId,
         patientId: params.patientId,
       },
-    });
+    })
     if (!visit) {
-      const err = new Error('Visit record not found or does not belong to patient') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Visit record not found or does not belong to patient') as ApiError
+      err.statusCode = 404
+      throw err
     }
   }
 
@@ -50,7 +48,7 @@ export const uploadFile = async (params: {
       size: params.size,
       tags: params.tags != null ? (params.tags as Prisma.InputJsonValue) : undefined,
     },
-  });
+  })
 
   await logAudit({
     clinicId: params.clinicId,
@@ -59,15 +57,12 @@ export const uploadFile = async (params: {
     action: 'FILE_UPLOADED',
     newValue: { originalName: params.originalName, storagePath: params.storagePath },
     performedById: params.uploadedById,
-  });
+  })
 
-  return { id: file.id };
-};
+  return { id: file.id }
+}
 
-export const getFilesByPatient = async (
-  clinicId: string,
-  patientId: string
-) => {
+export const getFilesByPatient = async (clinicId: string, patientId: string) => {
   return prisma.patientFile.findMany({
     where: {
       clinicId,
@@ -79,8 +74,8 @@ export const getFilesByPatient = async (
       visitRecord: { select: { id: true } },
     },
     orderBy: { createdAt: 'desc' },
-  });
-};
+  })
+}
 
 export const softDeleteFile = async (
   fileId: string,
@@ -89,22 +84,22 @@ export const softDeleteFile = async (
 ): Promise<void> => {
   const file = await prisma.patientFile.findFirst({
     where: { id: fileId, clinicId },
-  });
+  })
   if (!file) {
-    const err = new Error('File not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('File not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
   if (file.isDeleted) {
-    const err = new Error('File already deleted') as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('File already deleted') as ApiError
+    err.statusCode = 400
+    throw err
   }
 
   await prisma.patientFile.update({
-    where: { id: fileId },
+    where: { id: fileId, clinicId },
     data: { isDeleted: true },
-  });
+  })
 
   await logAudit({
     clinicId,
@@ -113,8 +108,8 @@ export const softDeleteFile = async (
     action: 'FILE_DELETED',
     oldValue: { originalName: file.originalName, storagePath: file.storagePath },
     performedById,
-  });
-};
+  })
+}
 
 export const getFileForDownload = async (
   fileId: string,
@@ -122,20 +117,20 @@ export const getFileForDownload = async (
 ): Promise<{ filePath: string; originalName: string; mimeType: string } | null> => {
   const file = await prisma.patientFile.findFirst({
     where: { id: fileId, clinicId, isDeleted: false },
-  });
-  if (!file) return null;
-  const safePath = path.join(UPLOAD_BASE, file.storagePath);
-  const resolved = path.resolve(safePath);
+  })
+  if (!file) return null
+  const safePath = path.join(UPLOAD_BASE, file.storagePath)
+  const resolved = path.resolve(safePath)
   if (!resolved.startsWith(path.resolve(UPLOAD_BASE))) {
-    return null;
+    return null
   }
-  if (!fs.existsSync(resolved)) return null;
+  if (!fs.existsSync(resolved)) return null
   return {
     filePath: resolved,
     originalName: file.originalName,
     mimeType: file.mimeType,
-  };
-};
+  }
+}
 
 export const validatePatientBelongsToClinic = async (
   patientId: string,
@@ -147,25 +142,25 @@ export const validatePatientBelongsToClinic = async (
       clinicId,
       isActive: true,
     },
-  });
-  return !!membership;
-};
+  })
+  return !!membership
+}
 
 export const getPatientPrimaryClinicId = async (patientId: string): Promise<string | null> => {
   const membership = await prisma.patientClinicMembership.findFirst({
-    where: { patientId, isActive: true },
+    where: { patientId, isActive: true, ...clinicScope() },
     select: { clinicId: true },
     orderBy: { updatedAt: 'desc' },
-  });
-  return membership?.clinicId ?? null;
-};
+  })
+  return membership?.clinicId ?? null
+}
 
 export const assertPatientCanAccessClinicFiles = async (
   patientId: string,
   clinicId: string
 ): Promise<void> => {
-  await patientMembershipService.assertPatientBelongsToClinic(patientId, clinicId);
-};
+  await patientMembershipService.assertPatientBelongsToClinic(patientId, clinicId)
+}
 
 export const getFileForPatientDownload = async (
   fileId: string,
@@ -173,7 +168,7 @@ export const getFileForPatientDownload = async (
   clinicId: string,
   performedById: string
 ): Promise<{ filePath: string; originalName: string; mimeType: string } | null> => {
-  await patientMembershipService.assertPatientBelongsToClinic(patientId, clinicId);
+  await patientMembershipService.assertPatientBelongsToClinic(patientId, clinicId)
   const file = await prisma.patientFile.findFirst({
     where: {
       id: fileId,
@@ -181,10 +176,10 @@ export const getFileForPatientDownload = async (
       patientId,
       isDeleted: false,
     },
-  });
-  if (!file) return null;
-  const downloadInfo = await getFileForDownload(fileId, clinicId);
-  if (!downloadInfo) return null;
+  })
+  if (!file) return null
+  const downloadInfo = await getFileForDownload(fileId, clinicId)
+  if (!downloadInfo) return null
   await logAudit({
     clinicId,
     entityType: 'PatientFile',
@@ -192,18 +187,15 @@ export const getFileForPatientDownload = async (
     action: 'FILE_DOWNLOADED',
     newValue: { originalName: file.originalName },
     performedById,
-  });
-  return downloadInfo;
-};
+  })
+  return downloadInfo
+}
 
-export const getFileById = async (
-  fileId: string,
-  clinicId: string
-) => {
+export const getFileById = async (fileId: string, clinicId: string) => {
   return prisma.patientFile.findFirst({
     where: { id: fileId, clinicId, isDeleted: false },
     include: {
       uploadedBy: { select: { id: true, name: true } },
     },
-  });
-};
+  })
+}

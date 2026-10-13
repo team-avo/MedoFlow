@@ -1,23 +1,42 @@
-import { Request, Response, NextFunction } from 'express'
+import type { Request, Response, NextFunction } from 'express'
 import { verifyAccessToken } from '../utils/tokenUtils'
 import prisma from '../config/prisma'
-import { Role } from '@prisma/client'
-import { ApiError } from '../types/errors'
+import type { Role } from '@prisma/client'
+import type { ApiError } from '../types/errors'
 import { hasPermission } from '../config/permissions'
 import { withTenantBypass, withTenantContext } from '../config/tenantContext'
+import { assertSessionActive } from '../services/sessionService'
+import { getActiveGrant, logBreakGlassAccess } from '../services/breakGlassService'
+import { logAuthEvent } from '../services/auditService'
 
-export const protect = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
-  try {
-    const authHeader = req.headers.authorization
+interface AuthenticatedCaller {
+  allowedClinicIds: string[]
+}
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      const err = new Error('Access token required') as ApiError
-      err.statusCode = 401
+/**
+ * Verifies the bearer token, its server-side session (revocation, idle
+ * timeout, MFA) and the user, then populates req.user / req.clinicId /
+ * req.tenantId / req.breakGlass. All look-ups run in a named bypass because
+ * no tenant context exists yet; the caller's own context is entered after.
+ */
+async function authenticate(req: Request, token: string): Promise<AuthenticatedCaller> {
+  const decoded = verifyAccessToken(token)
+
+  return withTenantBypass('auth.protect', async () => {
+    let session
+    try {
+      session = await assertSessionActive(decoded.sid, decoded.userId, { touch: true })
+    } catch (err) {
+      if ((err as ApiError).code === 'session_idle_timeout') {
+        await logAuthEvent({
+          action: 'SESSION_IDLE_TIMEOUT',
+          userId: decoded.userId,
+          clinicId: decoded.clinicId ?? null,
+          req,
+        })
+      }
       throw err
     }
-
-    const token = authHeader.split(' ')[1]!
-    const decoded = verifyAccessToken(token)
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -30,6 +49,7 @@ export const protect = async (req: Request, _res: Response, next: NextFunction):
         isActive: true,
         customRoleId: true,
         hasSeenPatientTour: true,
+        mfaEnabled: true,
         // Pull tenant info in the same round-trip — this is the canonical
         // source of req.tenantId. PLATFORM_ADMIN has clinicId=null so this
         // include just yields null.
@@ -61,6 +81,13 @@ export const protect = async (req: Request, _res: Response, next: NextFunction):
       throw err
     }
 
+    if (user.mfaEnabled && !session.mfaVerifiedAt) {
+      const err = new Error('Multi-factor verification required') as ApiError
+      err.statusCode = 401
+      err.code = 'mfa_required'
+      throw err
+    }
+
     // Resolve effective permissions
     let effectivePermissions: string[] = []
     if (user.role === 'PLATFORM_ADMIN' || user.role === 'SUPER_ADMIN') {
@@ -69,16 +96,40 @@ export const protect = async (req: Request, _res: Response, next: NextFunction):
       effectivePermissions = user.customRole.permissions as string[]
     }
 
+    // Clinics this caller may touch: staff → their clinic; patients → home
+    // clinic + every clinic they're a member of.
+    const allowedClinicIds = user.clinicId ? [user.clinicId] : []
+    if (user.role === 'PATIENT') {
+      const memberships = await prisma.patientClinicMembership.findMany({
+        where: { patientId: user.id },
+        select: { clinicId: true },
+      })
+      for (const m of memberships) {
+        if (!allowedClinicIds.includes(m.clinicId)) allowedClinicIds.push(m.clinicId)
+      }
+    }
+
+    // Break-glass: elevated permissions within the caller's own clinic.
+    if (user.clinicId && user.role !== 'PATIENT' && user.role !== 'PLATFORM_ADMIN') {
+      const grant = await getActiveGrant(user.id, user.clinicId)
+      if (grant) {
+        effectivePermissions = ['*']
+        req.breakGlass = { id: grant.id, expiresAt: grant.expiresAt }
+        await logBreakGlassAccess(req, grant)
+      }
+    }
+
     req.user = {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role as Role,
+      role: user.role,
       clinicId: user.clinicId,
       customRoleId: user.customRoleId,
       customRoleName: user.customRole?.name ?? null,
       permissions: effectivePermissions,
       hasSeenPatientTour: user.hasSeenPatientTour,
+      sessionId: session.id,
     }
     req.clinicId = user.clinicId
     // Canonical tenantId from clinic.tenantId. Null for PLATFORM_ADMIN or
@@ -87,38 +138,75 @@ export const protect = async (req: Request, _res: Response, next: NextFunction):
     req.tenantId = user.clinic?.tenantId ?? null
     req.tenantContext = user.clinic?.tenant ?? null
 
-    // Run the rest of the request chain inside an ALS scope so the Prisma
-    // tenant guard can assert that every clinic-scoped query carries this
-    // user's clinicId. PLATFORM_ADMIN gets a bypass (they work across
-    // tenants by design).
-    if (user.role === 'PLATFORM_ADMIN') {
-      withTenantBypass('platform_admin', () => next())
-      return
-    }
-    withTenantContext(
-      {
-        clinicId: user.clinicId,
-        tenantId: user.clinic?.tenantId ?? null,
-        userId: user.id,
-        role: user.role,
-        bypassReason: null,
-      },
-      () => next()
-    )
-  } catch (err) {
-    const error = err as ApiError
-    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
-      error.statusCode = 401
-      error.message =
-        error.name === 'TokenExpiredError' ? 'Access token expired' : 'Invalid access token'
-    }
-    next(err)
-  }
+    return { allowedClinicIds }
+  })
 }
 
 /**
+ * Runs the rest of the request chain inside an ALS scope so the Prisma
+ * tenant guard (and Postgres RLS) can assert that every clinic-scoped query
+ * carries one of this caller's clinics. PLATFORM_ADMIN gets a bypass (they
+ * work across tenants by design).
+ */
+function continueInCallerScope(
+  req: Request,
+  caller: AuthenticatedCaller,
+  next: NextFunction,
+  label: string
+) {
+  const user = req.user!
+  if (user.role === 'PLATFORM_ADMIN') {
+    withTenantBypass(label, () => next())
+    return
+  }
+  withTenantContext(
+    {
+      clinicId: user.clinicId,
+      tenantId: req.tenantId ?? null,
+      userId: user.id,
+      role: user.role,
+      allowedClinicIds: caller.allowedClinicIds,
+      bypassReason: null,
+    },
+    () => next()
+  )
+}
+
+function normalizeAuthError(err: unknown): unknown {
+  const error = err as ApiError
+  if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+    error.statusCode = 401
+    error.message =
+      error.name === 'TokenExpiredError' ? 'Access token expired' : 'Invalid access token'
+  }
+  return error
+}
+
+export const protect = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      const err = new Error('Access token required') as ApiError
+      err.statusCode = 401
+      throw err
+    }
+
+    const caller = await authenticate(req, authHeader.split(' ')[1]!)
+    continueInCallerScope(req, caller, next, 'platform_admin')
+  } catch (err) {
+    next(normalizeAuthError(err))
+  }
+}
+
+/** Staff (non-patient) callers holding an active break-glass grant. */
+const hasBreakGlass = (req: Request): boolean =>
+  Boolean(req.breakGlass) && req.user?.role !== 'PATIENT'
+
+/**
  * System-level role check (enum-based).
- * SUPER_ADMIN always passes. Other roles must be in the allowlist.
+ * SUPER_ADMIN always passes. Other roles must be in the allowlist, unless
+ * a staff member is operating under an active break-glass grant.
  */
 export const authorize = (...roles: Role[]) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
@@ -135,7 +223,7 @@ export const authorize = (...roles: Role[]) => {
       return
     }
 
-    if (!roles.includes(req.user.role)) {
+    if (!roles.includes(req.user.role) && !(hasBreakGlass(req) && !onlyPatientRoles(roles))) {
       const err = new Error('Insufficient permissions') as ApiError
       err.statusCode = 403
       next(err)
@@ -145,6 +233,10 @@ export const authorize = (...roles: Role[]) => {
     next()
   }
 }
+
+/** Patient-only routes stay patient-only even under break-glass. */
+const onlyPatientRoles = (roles: Role[]): boolean =>
+  roles.length > 0 && roles.every((r) => r === 'PATIENT')
 
 /**
  * Granular permission check — works with custom roles.
@@ -208,95 +300,31 @@ export const requireClinicScope = (req: Request, _res: Response, next: NextFunct
   next()
 }
 
+/**
+ * Like `protect`, but an absent or invalid token is not an error: the request
+ * continues unauthenticated in a public bypass scope. Route handlers on these
+ * paths must scope their queries explicitly (see docs/PUBLIC_ROUTE_SCOPING.md).
+ */
 export const optionalProtect = async (
   req: Request,
   _res: Response,
   next: NextFunction
 ): Promise<void> => {
-  try {
-    const authHeader = req.headers.authorization
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      next()
-      return
-    }
-
-    const token = authHeader.split(' ')[1]!
-    const decoded = verifyAccessToken(token)
-
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        clinicId: true,
-        isActive: true,
-        customRoleId: true,
-        hasSeenPatientTour: true,
-        clinic: {
-          select: {
-            tenantId: true,
-            tenant: { select: { status: true, plan: true } },
-          },
-        },
-        customRole: {
-          select: {
-            id: true,
-            name: true,
-            permissions: true,
-          },
-        },
-      },
-    })
-
-    if (user && user.isActive) {
-      let effectivePermissions: string[] = []
-      if (user.role === 'PLATFORM_ADMIN' || user.role === 'SUPER_ADMIN') {
-        effectivePermissions = ['*']
-      } else if (user.customRole?.permissions) {
-        effectivePermissions = user.customRole.permissions as string[]
-      }
-
-      req.user = {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role as Role,
-        clinicId: user.clinicId,
-        customRoleId: user.customRoleId,
-        customRoleName: user.customRole?.name ?? null,
-        permissions: effectivePermissions,
-        hasSeenPatientTour: user.hasSeenPatientTour,
-      }
-      req.clinicId = user.clinicId
-      req.tenantId = user.clinic?.tenantId ?? null
-      req.tenantContext = user.clinic?.tenant ?? null
-
-      if (user.role === 'PLATFORM_ADMIN') {
-        withTenantBypass('platform_admin:optional', () => next())
-        return
-      }
-      withTenantContext(
-        {
-          clinicId: user.clinicId,
-          tenantId: user.clinic?.tenantId ?? null,
-          userId: user.id,
-          role: user.role,
-          bypassReason: null,
-        },
-        () => next()
-      )
-      return
-    }
-    // No authenticated user — bypass the guard so public routes (e.g. the
-    // storefront, which hits Product/Package/Membership) can run. These
-    // endpoints still scope their queries by a clinic lookup from the
-    // subdomain/host, so data exposure is bounded at the route layer.
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     withTenantBypass('optional_protect:unauthenticated', () => next())
-  } catch {
-    withTenantBypass('optional_protect:error', () => next())
+    return
   }
+  let caller: AuthenticatedCaller
+  try {
+    caller = await authenticate(req, authHeader.split(' ')[1]!)
+  } catch {
+    req.user = undefined
+    req.breakGlass = undefined
+    withTenantBypass('optional_protect:invalid_token', () => next())
+    return
+  }
+  continueInCallerScope(req, caller, next, 'platform_admin:optional')
 }
 
 /**

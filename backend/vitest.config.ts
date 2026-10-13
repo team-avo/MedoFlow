@@ -7,6 +7,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['src/tests/**/*.test.ts'],
+    // DB-backed suites have their own config: vitest.integration.config.ts
+    exclude: ['src/tests/integration/**', 'node_modules/**'],
     // Tests that hit Prisma/DB are skipped unless INTEGRATION=1 is set
     // Run integration suite: INTEGRATION=1 pnpm test
     coverage: {

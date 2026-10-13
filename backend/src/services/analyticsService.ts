@@ -97,7 +97,7 @@ export const resolveAnalyticsScope = async ({
 }): Promise<AnalyticsScope> => {
   if (role === Role.PROVIDER) {
     const provider = await prisma.provider.findUnique({
-      where: { userId },
+      where: { userId, clinicId },
       select: { id: true },
     })
     if (!provider) {

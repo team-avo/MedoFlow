@@ -1,55 +1,56 @@
-import prisma from '../config/prisma';
-import { ApiError } from '../types/errors';
-import { CommissionItemType, CommissionStatus, CommissionType, Prisma } from '@prisma/client';
+import prisma from '../config/prisma'
+import { clinicScope } from '../config/tenantContext'
+import { ApiError } from '../types/errors'
+import { CommissionItemType, CommissionStatus, CommissionType, Prisma } from '@prisma/client'
 
-const ZERO = new Prisma.Decimal(0);
+const ZERO = new Prisma.Decimal(0)
 
 const createApiError = (message: string, statusCode: number, code: string) => {
-  const err = new Error(message) as ApiError;
-  err.statusCode = statusCode;
-  err.code = code;
-  return err;
-};
+  const err = new Error(message) as ApiError
+  err.statusCode = statusCode
+  err.code = code
+  return err
+}
 
 export interface CreateRuleInput {
-  providerId?: string;
-  itemType: CommissionItemType;
-  serviceId?: string;
-  productId?: string;
-  packageId?: string;
-  commissionType: CommissionType;
-  commissionValue: number;
-  isActive?: boolean;
+  providerId?: string
+  itemType: CommissionItemType
+  serviceId?: string
+  productId?: string
+  packageId?: string
+  commissionType: CommissionType
+  commissionValue: number
+  isActive?: boolean
 }
 
 export interface CommissionRuleFilters {
-  includeInactive?: boolean;
+  includeInactive?: boolean
 }
 
 export interface CommissionRecordFilters {
-  providerId?: string;
-  status?: CommissionStatus;
-  dateFrom?: Date;
-  dateTo?: Date;
+  providerId?: string
+  status?: CommissionStatus
+  dateFrom?: Date
+  dateTo?: Date
 }
 
 const normalizeOptionalId = (value?: string | null) => {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-};
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : undefined
+}
 
 const validateRuleShape = (input: CreateRuleInput) => {
-  const serviceId = normalizeOptionalId(input.serviceId);
-  const productId = normalizeOptionalId(input.productId);
-  const packageId = normalizeOptionalId(input.packageId);
-  const targetIds = [serviceId, productId, packageId].filter(Boolean);
+  const serviceId = normalizeOptionalId(input.serviceId)
+  const productId = normalizeOptionalId(input.productId)
+  const packageId = normalizeOptionalId(input.packageId)
+  const targetIds = [serviceId, productId, packageId].filter(Boolean)
 
   if (targetIds.length > 1) {
     throw createApiError(
       'A commission rule can target only one of service, product, or package',
       400,
       'commission_rule_multiple_targets'
-    );
+    )
   }
 
   if (input.itemType === CommissionItemType.ALL && targetIds.length > 0) {
@@ -57,31 +58,19 @@ const validateRuleShape = (input: CreateRuleInput) => {
       'ALL rules cannot target a specific service, product, or package',
       400,
       'commission_rule_invalid_target'
-    );
+    )
   }
 
   if (input.itemType === CommissionItemType.SERVICE && !serviceId) {
-    throw createApiError(
-      'SERVICE rules require serviceId',
-      400,
-      'commission_rule_missing_target'
-    );
+    throw createApiError('SERVICE rules require serviceId', 400, 'commission_rule_missing_target')
   }
 
   if (input.itemType === CommissionItemType.PRODUCT && !productId) {
-    throw createApiError(
-      'PRODUCT rules require productId',
-      400,
-      'commission_rule_missing_target'
-    );
+    throw createApiError('PRODUCT rules require productId', 400, 'commission_rule_missing_target')
   }
 
   if (input.itemType === CommissionItemType.PACKAGE && !packageId) {
-    throw createApiError(
-      'PACKAGE rules require packageId',
-      400,
-      'commission_rule_missing_target'
-    );
+    throw createApiError('PACKAGE rules require packageId', 400, 'commission_rule_missing_target')
   }
 
   if (input.itemType !== CommissionItemType.ALL && targetIds.length === 0) {
@@ -89,27 +78,24 @@ const validateRuleShape = (input: CreateRuleInput) => {
       'A commission rule target is required for the selected item type',
       400,
       'commission_rule_missing_target'
-    );
+    )
   }
 
-  const value = new Prisma.Decimal(input.commissionValue);
+  const value = new Prisma.Decimal(input.commissionValue)
   if (value.lte(ZERO)) {
     throw createApiError(
       'Commission value must be greater than zero',
       400,
       'commission_rule_invalid_value'
-    );
+    )
   }
 
-  if (
-    input.commissionType === CommissionType.PERCENTAGE &&
-    (value.gt(100) || value.lte(ZERO))
-  ) {
+  if (input.commissionType === CommissionType.PERCENTAGE && (value.gt(100) || value.lte(ZERO))) {
     throw createApiError(
       'Percentage commission must be greater than 0 and no more than 100',
       400,
       'commission_rule_invalid_percentage'
-    );
+    )
   }
 
   return {
@@ -121,8 +107,8 @@ const validateRuleShape = (input: CreateRuleInput) => {
     commissionType: input.commissionType,
     commissionValue: value.toDecimalPlaces(2),
     isActive: input.isActive ?? true,
-  };
-};
+  }
+}
 
 const assertMatchingCatalogTarget = async (
   clinicId: string,
@@ -132,9 +118,9 @@ const assertMatchingCatalogTarget = async (
     const provider = await prisma.provider.findFirst({
       where: { id: normalized.providerId, clinicId },
       select: { id: true },
-    });
+    })
     if (!provider) {
-      throw createApiError('Provider not found', 404, 'commission_rule_provider_not_found');
+      throw createApiError('Provider not found', 404, 'commission_rule_provider_not_found')
     }
   }
 
@@ -142,9 +128,9 @@ const assertMatchingCatalogTarget = async (
     const service = await prisma.service.findFirst({
       where: { id: normalized.serviceId, clinicId },
       select: { id: true },
-    });
+    })
     if (!service) {
-      throw createApiError('Service not found', 404, 'commission_rule_service_not_found');
+      throw createApiError('Service not found', 404, 'commission_rule_service_not_found')
     }
   }
 
@@ -152,9 +138,9 @@ const assertMatchingCatalogTarget = async (
     const product = await prisma.product.findFirst({
       where: { id: normalized.productId, clinicId },
       select: { id: true },
-    });
+    })
     if (!product) {
-      throw createApiError('Product not found', 404, 'commission_rule_product_not_found');
+      throw createApiError('Product not found', 404, 'commission_rule_product_not_found')
     }
   }
 
@@ -162,19 +148,19 @@ const assertMatchingCatalogTarget = async (
     const pkg = await prisma.package.findFirst({
       where: { id: normalized.packageId, clinicId },
       select: { id: true },
-    });
+    })
     if (!pkg) {
-      throw createApiError('Package not found', 404, 'commission_rule_package_not_found');
+      throw createApiError('Package not found', 404, 'commission_rule_package_not_found')
     }
   }
-};
+}
 
 const assertNoConflictingActiveRule = async (
   clinicId: string,
   normalized: ReturnType<typeof validateRuleShape>,
   excludeRuleId?: string
 ) => {
-  if (!normalized.isActive) return;
+  if (!normalized.isActive) return
 
   const existing = await prisma.commissionRule.findFirst({
     where: {
@@ -188,21 +174,18 @@ const assertNoConflictingActiveRule = async (
       ...(excludeRuleId ? { id: { not: excludeRuleId } } : {}),
     },
     select: { id: true },
-  });
+  })
 
   if (existing) {
     throw createApiError(
       'An active commission rule already exists for this provider/item target',
       409,
       'commission_rule_conflict'
-    );
+    )
   }
-};
+}
 
-export const getRules = async (
-  clinicId: string,
-  filters: CommissionRuleFilters = {}
-) => {
+export const getRules = async (clinicId: string, filters: CommissionRuleFilters = {}) => {
   return prisma.commissionRule.findMany({
     where: {
       clinicId,
@@ -210,13 +193,13 @@ export const getRules = async (
     },
     include: { provider: true, service: true, product: true, package: true },
     orderBy: [{ isActive: 'desc' }, { createdAt: 'desc' }],
-  });
-};
+  })
+}
 
 export const createRule = async (clinicId: string, input: CreateRuleInput) => {
-  const normalized = validateRuleShape(input);
-  await assertMatchingCatalogTarget(clinicId, normalized);
-  await assertNoConflictingActiveRule(clinicId, normalized);
+  const normalized = validateRuleShape(input)
+  await assertMatchingCatalogTarget(clinicId, normalized)
+  await assertNoConflictingActiveRule(clinicId, normalized)
 
   return prisma.commissionRule.create({
     data: {
@@ -231,20 +214,16 @@ export const createRule = async (clinicId: string, input: CreateRuleInput) => {
       isActive: normalized.isActive,
     },
     include: { provider: true, service: true, product: true, package: true },
-  });
-};
+  })
+}
 
-export const updateRule = async (
-  id: string,
-  clinicId: string,
-  input: Partial<CreateRuleInput>
-) => {
+export const updateRule = async (id: string, clinicId: string, input: Partial<CreateRuleInput>) => {
   const existing = await prisma.commissionRule.findFirst({
     where: { id, clinicId },
-  });
+  })
 
   if (!existing) {
-    throw createApiError('Commission rule not found', 404, 'commission_rule_not_found');
+    throw createApiError('Commission rule not found', 404, 'commission_rule_not_found')
   }
 
   const normalized = validateRuleShape({
@@ -259,13 +238,13 @@ export const updateRule = async (
         ? input.commissionValue
         : Number(existing.commissionValue),
     isActive: input.isActive ?? existing.isActive,
-  });
+  })
 
-  await assertMatchingCatalogTarget(clinicId, normalized);
-  await assertNoConflictingActiveRule(clinicId, normalized, id);
+  await assertMatchingCatalogTarget(clinicId, normalized)
+  await assertNoConflictingActiveRule(clinicId, normalized, id)
 
   return prisma.commissionRule.update({
-    where: { id },
+    where: { id, clinicId },
     data: {
       providerId: normalized.providerId,
       itemType: normalized.itemType,
@@ -277,8 +256,8 @@ export const updateRule = async (
       isActive: normalized.isActive,
     },
     include: { provider: true, service: true, product: true, package: true },
-  });
-};
+  })
+}
 
 const buildRecordWhere = (
   clinicId: string,
@@ -295,13 +274,10 @@ const buildRecordWhere = (
         },
       }
     : {}),
-});
+})
 
-export const getRecords = async (
-  clinicId: string,
-  filters: CommissionRecordFilters = {}
-) => {
-  const where = buildRecordWhere(clinicId, filters);
+export const getRecords = async (clinicId: string, filters: CommissionRecordFilters = {}) => {
+  const where = buildRecordWhere(clinicId, filters)
   const records = await prisma.commissionRecord.findMany({
     where,
     include: {
@@ -313,7 +289,7 @@ export const getRecords = async (
       rule: true,
     },
     orderBy: [{ earnedAt: 'desc' }, { createdAt: 'desc' }],
-  });
+  })
 
   const summary = {
     totalRecords: records.length,
@@ -334,10 +310,10 @@ export const getRecords = async (
       .reduce((sum, record) => sum.plus(record.amount), ZERO)
       .toDecimalPlaces(2)
       .toFixed(2),
-  };
+  }
 
-  return { records, summary };
-};
+  return { records, summary }
+}
 
 export const markPaid = async (clinicId: string, recordIds: string[]) => {
   return prisma.commissionRecord.updateMany({
@@ -350,29 +326,29 @@ export const markPaid = async (clinicId: string, recordIds: string[]) => {
       status: CommissionStatus.PAID,
       paidOutAt: new Date(),
     },
-  });
-};
+  })
+}
 
 export const calculateCommissions = async (invoiceId: string) => {
   const invoice = await prisma.invoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, ...clinicScope() },
     include: { items: true, clinic: true },
-  });
+  })
 
-  if (!invoice || invoice.status !== 'PAID') return;
+  if (!invoice || invoice.status !== 'PAID') return
 
   const rules = await prisma.commissionRule.findMany({
     where: { clinicId: invoice.clinicId, isActive: true },
-  });
+  })
 
   for (const item of invoice.items) {
-    if (!item.providerId) continue;
+    if (!item.providerId) continue
 
     const existingRecord = await prisma.commissionRecord.findFirst({
-      where: { invoiceItemId: item.id },
+      where: { invoiceItemId: item.id, clinicId: invoice.clinicId },
       select: { id: true },
-    });
-    if (existingRecord) continue;
+    })
+    if (existingRecord) continue
 
     const matchingRule =
       rules.find(
@@ -390,15 +366,15 @@ export const calculateCommissions = async (invoiceId: string) => {
             (item.productId && r.productId === item.productId) ||
             (item.packageId && r.packageId === item.packageId))
       ) ||
-      rules.find((r) => !r.providerId && r.itemType === 'ALL');
+      rules.find((r) => !r.providerId && r.itemType === 'ALL')
 
-    if (!matchingRule) continue;
+    if (!matchingRule) continue
 
-    const basis = new Prisma.Decimal(item.totalPrice);
+    const basis = new Prisma.Decimal(item.totalPrice)
     const amount =
       matchingRule.commissionType === CommissionType.PERCENTAGE
         ? basis.mul(matchingRule.commissionValue).div(100).toDecimalPlaces(2)
-        : new Prisma.Decimal(matchingRule.commissionValue).toDecimalPlaces(2);
+        : new Prisma.Decimal(matchingRule.commissionValue).toDecimalPlaces(2)
 
     await prisma.commissionRecord.create({
       data: {
@@ -412,6 +388,6 @@ export const calculateCommissions = async (invoiceId: string) => {
         status: CommissionStatus.PENDING,
         earnedAt: new Date(),
       },
-    });
+    })
   }
-};
+}

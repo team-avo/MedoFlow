@@ -10,7 +10,10 @@ import rateLimit from 'express-rate-limit'
  */
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  // Shared by /login, /mfa/verify, /mfa/enable|disable, /change-password,
+  // /register, /set-password and tenant signup: one failure budget per IP.
+  // AUTH_RATE_LIMIT_MAX overrides the default of 5 (read per request).
+  max: () => Number(process.env.AUTH_RATE_LIMIT_MAX) || 5,
   standardHeaders: true, // Return rate-limit headers (RateLimit-*)
   legacyHeaders: false,
   message: {
@@ -31,7 +34,7 @@ export const authRateLimit = rateLimit({
  */
 export const refreshRateLimit = rateLimit({
   windowMs: 60 * 1000, // 1 minute
-  max: 60,
+  max: () => Number(process.env.REFRESH_RATE_LIMIT_MAX) || 60,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

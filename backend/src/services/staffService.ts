@@ -155,7 +155,7 @@ export const updateStaffUser = async (
   // If a customRoleId is provided, validate it belongs to this clinic
   if (data.customRoleId) {
     const customRole = await prisma.customRole.findUnique({
-      where: { id: data.customRoleId },
+      where: { id: data.customRoleId, clinicId },
     })
     if (!customRole || customRole.clinicId !== clinicId) {
       const err = new Error('Invalid custom role') as ApiError
@@ -191,11 +191,16 @@ export const updateStaffUser = async (
     clinicId,
     entityType: 'User',
     entityId: userId,
-    action: 'UPDATE',
+    action: 'PERMISSION_CHANGED',
     fieldChanged: 'role/permissions',
-    oldValue: user.role,
-    newValue: data.customRoleId ?? data.role ?? user.role,
+    oldValue: { role: user.role },
+    newValue: {
+      role: updated.role,
+      customRoleId: updated.customRoleId,
+      permissions: updated.customRole?.permissions ?? updated.permissions ?? null,
+    },
     performedById,
+    severity: 'warning',
   })
 
   return updated
@@ -287,7 +292,7 @@ export const provisionFrontDeskUser = async (
 
   if (data.customRoleId) {
     const customRole = await prisma.customRole.findUnique({
-      where: { id: data.customRoleId },
+      where: { id: data.customRoleId, clinicId },
     })
     if (!customRole || customRole.clinicId !== clinicId) {
       const err = new Error('Invalid custom role') as ApiError

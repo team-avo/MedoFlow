@@ -315,7 +315,7 @@ export const upsertLaunchLocation = async (
   }
 
   const updated = await prisma.location.update({
-    where: { id: existingLocation.id },
+    where: { id: existingLocation.id, clinicId },
     data: {
       name: data.name.trim(),
       address: data.address?.trim() || null,

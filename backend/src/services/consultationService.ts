@@ -5,6 +5,7 @@
  */
 
 import prisma from '../config/prisma'
+import { clinicScope, withTenantBypass } from '../config/tenantContext'
 import crypto from 'crypto'
 import { ApiError } from '../types/errors'
 import { ConsultationStatus, RecordingStatus, ConsentStatus, Role } from '@prisma/client'
@@ -66,9 +67,9 @@ export function isJoinTokenExpired(expiresAt: Date, now = new Date()): boolean {
   return expiresAt.getTime() <= now.getTime()
 }
 
-const rotateJoinToken = async (sessionId: string) => {
+const rotateJoinToken = async (sessionId: string, clinicId: string) => {
   return prisma.consultationSession.update({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId },
     data: {
       joinToken: generateJoinToken(),
       joinTokenExpiresAt: getJoinTokenExpiry(),
@@ -138,7 +139,7 @@ export const createOrGetSession = async (
   })
   if (existing) {
     if (isJoinTokenExpired(existing.joinTokenExpiresAt)) {
-      return rotateJoinToken(existing.id)
+      return rotateJoinToken(existing.id, clinicId)
     }
     return existing
   }
@@ -182,7 +183,7 @@ export const createOrGetSession = async (
 
 export const getSessionById = async (sessionId: string, userId: string, role: Role) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, ...clinicScope() },
     include: {
       appointment: {
         select: {
@@ -231,16 +232,20 @@ export const getSessionById = async (sessionId: string, userId: string, role: Ro
 }
 
 export const getSessionByToken = async (joinToken: string) => {
-  const session = await prisma.consultationSession.findUnique({
-    where: { joinToken },
-    include: {
-      appointment: {
-        select: { id: true, startTime: true, endTime: true, status: true, meetLink: true },
+  // The join token is the capability (anonymous patients join with it alone),
+  // so the lookup is cross-clinic by design — also for logged-in callers.
+  const session = await withTenantBypass('consultation.join_by_token', () =>
+    prisma.consultationSession.findUnique({
+      where: { joinToken },
+      include: {
+        appointment: {
+          select: { id: true, startTime: true, endTime: true, status: true, meetLink: true },
+        },
+        provider: { select: { firstName: true, lastName: true } },
+        patient: { select: { id: true, name: true } },
       },
-      provider: { select: { firstName: true, lastName: true } },
-      patient: { select: { id: true, name: true } },
-    },
-  })
+    })
+  )
   if (!session) throwApi('Invalid or expired consultation link', 404)
   if (isJoinTokenExpired(session.joinTokenExpiresAt)) {
     throwApi('Consultation link has expired', 410, 'token_expired')
@@ -254,7 +259,7 @@ export const getSessionForAppointment = async (
   role: Role
 ) => {
   const session = await prisma.consultationSession.findFirst({
-    where: { appointmentId },
+    where: { appointmentId, ...clinicScope() },
     orderBy: { createdAt: 'desc' },
     include: {
       appointment: {
@@ -289,7 +294,7 @@ export const getSessionForAppointment = async (
 
 export const grantConsent = async (sessionId: string, userId: string, performedById: string) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, ...clinicScope() },
   })
   if (!session) throwApi('Session not found', 404)
 
@@ -305,7 +310,7 @@ export const grantConsent = async (sessionId: string, userId: string, performedB
   }
 
   const updated = await prisma.consultationSession.update({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId: session.clinicId },
     data: {
       consentStatus: ConsentStatus.GRANTED,
       consentGrantedAt: new Date(),
@@ -333,7 +338,7 @@ export const startRecording = async (
   performedById: string
 ) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, ...clinicScope() },
   })
   if (!session) throwApi('Session not found', 404)
   if (session.providerId !== providerId) throwApi('Access denied', 403, 'forbidden')
@@ -360,7 +365,7 @@ export const startRecording = async (
   }
 
   const updated = await prisma.consultationSession.update({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId: session.clinicId },
     data: {
       status: ConsultationStatus.RECORDING,
       recordingStatus: RecordingStatus.RECORDING,
@@ -385,7 +390,7 @@ export const stopRecording = async (
   performedById: string
 ) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, ...clinicScope() },
   })
   if (!session) throwApi('Session not found', 404)
   if (session.providerId !== providerId) throwApi('Access denied', 403, 'forbidden')
@@ -395,7 +400,7 @@ export const stopRecording = async (
   }
 
   const updated = await prisma.consultationSession.update({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId: session.clinicId },
     data: {
       status: ConsultationStatus.ENDED,
       recordingStatus: RecordingStatus.STOPPED,
@@ -428,7 +433,7 @@ export const uploadRecording = async (
   performedById?: string
 ) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId },
   })
   if (!session) throwApi('Session not found', 404)
   if (session.providerId !== providerId) throwApi('Access denied', 403, 'forbidden')
@@ -442,7 +447,7 @@ export const uploadRecording = async (
   // If still in RECORDING state (e.g. screen-share ended natively), auto-stop first
   if (recStatus === 'RECORDING') {
     await prisma.consultationSession.update({
-      where: { id: sessionId },
+      where: { id: sessionId, clinicId },
       data: {
         status: ConsultationStatus.ENDED,
         recordingStatus: RecordingStatus.STOPPED,
@@ -453,7 +458,7 @@ export const uploadRecording = async (
 
   // Transition to UPLOADING
   await prisma.consultationSession.update({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId },
     data: { recordingStatus: RecordingStatus.UPLOADING },
   })
 
@@ -466,7 +471,7 @@ export const uploadRecording = async (
     })
 
     const updated = await prisma.consultationSession.update({
-      where: { id: sessionId },
+      where: { id: sessionId, clinicId },
       data: {
         recordingUrl: audioUrl,
         recordingStatus: RecordingStatus.STORED,
@@ -484,7 +489,7 @@ export const uploadRecording = async (
     return updated
   } catch (err) {
     await prisma.consultationSession.update({
-      where: { id: sessionId },
+      where: { id: sessionId, clinicId },
       data: {
         recordingStatus: RecordingStatus.FAILED,
         errorMessage: err instanceof Error ? err.message : 'Upload failed',
@@ -505,7 +510,7 @@ export const startTranscription = async (
   performedById: string
 ) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId },
     include: {
       appointment: { select: { id: true, patientId: true, serviceId: true } },
     },
@@ -550,7 +555,7 @@ export const startTranscription = async (
 
   // Link consultation session to AI scribe session
   const updated = await prisma.consultationSession.update({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId },
     data: {
       aiScribeSessionId: aiSession.id,
       status: ConsultationStatus.PROCESSING,
@@ -579,7 +584,7 @@ export const startTranscription = async (
 
 export const getTranscript = async (sessionId: string, userId: string, role: Role) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, ...clinicScope() },
     include: {
       aiScribeSession: {
         select: {
@@ -629,7 +634,7 @@ export const convertToTemplate = async (
   clinicId: string
 ) => {
   const session = await prisma.consultationSession.findUnique({
-    where: { id: sessionId },
+    where: { id: sessionId, clinicId },
     include: {
       aiScribeSession: { select: { id: true, status: true } },
     },

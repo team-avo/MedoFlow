@@ -145,6 +145,7 @@ const getConnectionForUser = async (userId: string, clinicId: string) => {
 const createAuthedCalendarClient = async (
   connection: {
     id: string
+    clinicId: string
     accessToken: string
     refreshToken: string | null
     expiryDate: Date | null
@@ -166,7 +167,7 @@ const createAuthedCalendarClient = async (
     const creds = oauth2Client.credentials
     if (creds.access_token) {
       await prisma.googleCalendarConnection.update({
-        where: { id: connection.id },
+        where: { id: connection.id, clinicId: connection.clinicId },
         data: {
           accessToken: encryptToken(creds.access_token)!,
           refreshToken:
@@ -241,6 +242,7 @@ export const syncUpcomingMeetEvents = async (
           connectionId: connection.id,
           googleEventId,
         },
+        clinicId,
       },
       create: {
         connectionId: connection.id,
@@ -295,7 +297,7 @@ export const getConnectionStatus = async (userId: string, clinicId: string) => {
   })
   if (!connection) return { connected: false as const }
   const lastEvent = await prisma.googleCalendarEvent.findFirst({
-    where: { connectionId: connection.id },
+    where: { connectionId: connection.id, clinicId },
     orderBy: { updatedAt: 'desc' },
     select: { updatedAt: true },
   })
@@ -313,7 +315,7 @@ export const disconnectGoogleCalendar = async (userId: string, clinicId: string)
     select: { id: true },
   })
   if (!connection) return { disconnected: false }
-  await prisma.googleCalendarConnection.delete({ where: { id: connection.id } })
+  await prisma.googleCalendarConnection.delete({ where: { id: connection.id, clinicId } })
   return { disconnected: true }
 }
 
@@ -406,7 +408,7 @@ export const linkEventToAppointment = async (
     throw err
   }
   return prisma.googleCalendarEvent.update({
-    where: { id: eventId },
+    where: { id: eventId, clinicId },
     data: { appointmentId: appointment.id },
   })
 }
@@ -447,7 +449,7 @@ export const startScribeFromMeeting = async (userId: string, clinicId: string, e
 
   if (!event.appointmentId) {
     await prisma.googleCalendarEvent.update({
-      where: { id: event.id },
+      where: { id: event.id, clinicId: event.clinicId },
       data: { appointmentId },
     })
   }
