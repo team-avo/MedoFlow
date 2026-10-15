@@ -4,6 +4,8 @@
 # Deploys are driven by GitHub Actions (.github/workflows/deploy.yml): CI builds and
 # typechecks first, then calls this service's Deploy Hook with the exact commit SHA.
 # Auto-deploy is therefore OFF so a failing build can never reach production.
+# The service must be connected to team-avo/MedoFlow, branch `development`, so the
+# hook's ?ref=<sha> resolves to a commit in that repo.
 #
 # The frontend is NOT on Render — it is deployed to Cloudflare Workers by the same workflow.
 

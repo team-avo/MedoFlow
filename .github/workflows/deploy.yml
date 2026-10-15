@@ -1,14 +1,14 @@
 # CI/CD for MedoFlow
 #
-#   pull request → main   quality gate + build gate (no secrets, no deploy)
-#   push / merge → main   quality gate + build gate → deploy backend to Render + frontend to Cloudflare Workers
-#                         (each app is redeployed only when its files changed) → smoke checks
-#   manual run            Actions › "CI / Deploy" › Run workflow (deploys both apps)
+#   pull request → development   quality gate + build gate (no secrets, no deploy)
+#   push / merge → development   quality gate + build gate → deploy backend to Render + frontend to Cloudflare Workers
+#                                (each app is redeployed only when its files changed) → smoke checks
+#   manual run                   Actions › "CI / Deploy" › Run workflow (deploys both apps)
 #
-# Deploys only run in myselfabhi/MedoFlow. Forks run the gates only.
+# Deploys only run in team-avo/MedoFlow (default branch `development`). Forks run the gates only.
 #
 # B0.5.1 / F0.1.2: make "Backend quality gate", "Frontend quality gate" and "Build"
-# REQUIRED status checks on main
+# REQUIRED status checks on development
 # (Settings › Branches › Branch protection) so a failing check blocks the merge.
 #
 # Repository secrets (Settings › Secrets and variables › Actions › Secrets):
@@ -23,19 +23,19 @@ name: CI / Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [development]
   pull_request:
-    branches: [main]
+    branches: [development]
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'deploy-main' }}
+  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'deploy-development' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_VERSION: '22'
   PNPM_VERSION: '10.33.0'
-  DEPLOY_REPO: myselfabhi/MedoFlow
+  DEPLOY_REPO: team-avo/MedoFlow
 
 jobs:
   changes:
@@ -218,7 +218,7 @@ jobs:
   deploy-backend:
     needs: [changes, backend-quality, frontend-quality, build]
     if: >-
-      github.repository == 'myselfabhi/MedoFlow' && github.event_name != 'pull_request' &&
+      github.repository == 'team-avo/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: production
@@ -246,7 +246,7 @@ jobs:
   deploy-frontend:
     needs: [changes, backend-quality, frontend-quality, build]
     if: >-
-      github.repository == 'myselfabhi/MedoFlow' && github.event_name != 'pull_request' &&
+      github.repository == 'team-avo/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: production

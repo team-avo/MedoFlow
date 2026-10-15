@@ -233,8 +233,8 @@ Result: see §4.6. CI's `build` job runs the same `cf:build` on Ubuntu.
    - Merge `feat/b0-backend-foundation` first, or include it in the same PR.
    - In Render, set **`REFRESH_COOKIE_SAMESITE=none`**. This is already in `render.yaml`; it is also the production default.
    - Complete the B0 manual steps from `backend-foundation-B0-WALKTHROUGH-AND-VERIFICATION.md` §6.
-2. **Push, open the PR** to `myselfabhi/MedoFlow`, and wait for these checks to pass: **Frontend quality gate**, **Backend quality gate** and **Build**.
-3. **Branch protection** (Settings › Branches › `main`): mark **"Frontend quality gate"** as required, alongside the backend gate and Build. Then **demonstrate**:
+2. **Push, open the PR** to `team-avo/MedoFlow` `development` (opened: team-avo PR #2, stacked on #1), and wait for these checks to pass: **Frontend quality gate**, **Backend quality gate** and **Build**.
+3. **Branch protection** (team-avo/MedoFlow › Settings › Branches › `development`): mark **"Frontend quality gate"** as required, alongside the backend gate and Build. Then **demonstrate**:
    - Open a throwaway PR that adds `const x: number = 'a'` to a frontend file. CI fails, and Merge is blocked.
    - Open another that adds `console.log(1)`. Lint fails with `no-console`, and Merge is blocked.
    - Screenshot both for the F0.1.2 evidence, then close both PRs.

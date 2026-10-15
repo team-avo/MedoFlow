@@ -4,7 +4,7 @@
 #   weekly Sun 04:00  restore the latest backup into a throwaway Postgres and verify it
 #                     (backend/scripts/ops/restore-drill.sh); the run log is the drill record
 #
-# Runs only in myselfabhi/MedoFlow. Repository secrets:
+# Runs only in team-avo/MedoFlow (scheduled runs use the copy on the default branch, `development`). Repository secrets:
 #   BACKUP_DATABASE_URL     Neon direct URL (owner or a read-only role)
 #   BACKUP_AGE_RECIPIENT    age public key  (age-keygen; keep the private key offline)
 #   BACKUP_AGE_IDENTITY     age private key (AGE-SECRET-KEY-…) — used only by the drill
@@ -31,7 +31,7 @@ concurrency:
 
 jobs:
   backup:
-    if: github.repository == 'myselfabhi/MedoFlow' && github.event.schedule != '0 4 * * 0'
+    if: github.repository == 'team-avo/MedoFlow' && github.event.schedule != '0 4 * * 0'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
   restore-drill:
     needs: [backup]
     if: >-
-      always() && github.repository == 'myselfabhi/MedoFlow' &&
+      always() && github.repository == 'team-avo/MedoFlow' &&
       (github.event.schedule == '0 4 * * 0' || (github.event_name == 'workflow_dispatch' && inputs.drill))
     runs-on: ubuntu-latest
     services:
