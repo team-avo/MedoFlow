@@ -37,6 +37,8 @@ export interface User {
   preferences?: Record<string, unknown> | null
   clinic?: UserClinicSummary | null
   hasSeenPatientTour?: boolean
+  /** Two-step verification (TOTP) is on for this account (B0.2.2 / F0.2.2). */
+  mfaEnabled?: boolean
 }
 
 export interface ApiResponse<T> {

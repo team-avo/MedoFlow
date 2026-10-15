@@ -12,6 +12,7 @@ import React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LoadingSkeleton } from '@/components/ui-system'
 import { useAuth } from '@/contexts/AuthContext'
+import { loginRedirect } from '@/lib/routeGuards'
 import { PublicNav } from '@/components/layout/PublicNav'
 import { PublicFooter } from '@/components/layout/PublicFooter'
 import { AuthModalProvider } from '@/components/auth/AuthModal'
@@ -53,8 +54,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
   React.useEffect(() => {
     if (isLoading) return
     if (!isAuthenticated && isGatedPath(pathname)) {
-      const target = `/?auth=login&returnUrl=${encodeURIComponent(pathname ?? '/')}`
-      router.replace(target)
+      router.replace(loginRedirect(pathname, '/'))
     }
   }, [isLoading, isAuthenticated, pathname, router])
 
@@ -69,21 +69,21 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <CartModalProvider>
           <ProductDetailProvider>
             <BookingModalProvider>
-            <div className="min-h-screen bg-canvas">
-              {/* Hide Medoflow chrome on clinic-owned URLs — patient never
+              <div className="min-h-screen bg-canvas">
+                {/* Hide Medoflow chrome on clinic-owned URLs — patient never
                   sees the marketing brand. The clinic page renders its
                   own themed header + footer. */}
-              {!onClinicSite && <PublicNav />}
-              <main className={isLanding || onClinicSite ? '' : 'pt-16 md:pt-18'}>
-                {needsAuthRedirect ? (
-                  <div className="mx-auto max-w-md px-4 py-20">
-                    <LoadingSkeleton variant="card" />
-                  </div>
-                ) : (
-                  children
-                )}
-              </main>
-              {!onClinicSite && <PublicFooter />}
+                {!onClinicSite && <PublicNav />}
+                <main className={isLanding || onClinicSite ? '' : 'pt-16 md:pt-18'}>
+                  {needsAuthRedirect ? (
+                    <div className="mx-auto max-w-md px-4 py-20">
+                      <LoadingSkeleton variant="card" />
+                    </div>
+                  ) : (
+                    children
+                  )}
+                </main>
+                {!onClinicSite && <PublicFooter />}
               </div>
             </BookingModalProvider>
           </ProductDetailProvider>

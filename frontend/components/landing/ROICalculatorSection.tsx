@@ -11,6 +11,7 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { Calculator, Clock, DollarSign, Sparkles } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { SectionHeader } from './primitives'
 
 function Slider({
@@ -82,7 +83,7 @@ function ResultTile({
   highlight,
   delay,
 }: {
-  icon: React.ElementType
+  icon: LucideIcon
   label: string
   value: string
   sub: string

@@ -7,8 +7,13 @@
 
 import { redirect } from 'next/navigation'
 
-export default function LoginPage({ searchParams }: { searchParams: { returnUrl?: string } }) {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnUrl?: string }>
+}) {
+  const { returnUrl } = await searchParams
   const qs = new URLSearchParams({ auth: 'login' })
-  if (searchParams?.returnUrl) qs.set('returnUrl', searchParams.returnUrl)
+  if (returnUrl) qs.set('returnUrl', returnUrl)
   redirect(`/?${qs.toString()}`)
 }

@@ -101,6 +101,16 @@ describe('invoice state machine (B0.5.3)', () => {
     expect(early.body.code).toBe('invalid_state')
   })
 
+  it('minimum necessary (F0.3.4): the invoice carries only id/name/email of the patient — never credentials', async () => {
+    const res = await api(server.url, `/invoices/${invoiceId}`, { token: frontDesk })
+    expect(res.status).toBe(200)
+    expect(Object.keys(res.body.data.invoice.patient).sort()).toEqual(['email', 'id', 'name'])
+    const raw = JSON.stringify(res.body)
+    for (const secret of ['password', 'mfaSecret', 'mfaRecoveryCodes', 'mfaPendingSecret']) {
+      expect(raw).not.toContain(secret)
+    }
+  })
+
   it('finalized → unpaid → partially paid → paid; overpayment is refused', async () => {
     expect(
       (

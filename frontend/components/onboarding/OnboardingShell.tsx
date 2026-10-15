@@ -8,6 +8,7 @@ import { Building2 } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import { clientLog } from '@/lib/clientLog'
 
 export const STEPS = [
   { key: 'welcome', path: '/welcome', title: 'Welcome' },
@@ -68,7 +69,7 @@ export function OnboardingShell({
       await refetchUser()
       router.replace('/dashboard')
     } catch (err) {
-      console.warn('[OnboardingShell] skip failed', err)
+      clientLog.warn('[OnboardingShell] skip failed', err)
       setIsSkipping(false)
     }
   }

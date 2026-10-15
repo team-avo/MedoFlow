@@ -148,11 +148,11 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
               }}
               className={cn(
                 'relative inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors',
-                hasAlerts
-                  ? 'text-amber-600 hover:bg-amber-50'
-                  : 'text-slate-400 hover:bg-slate-100'
+                hasAlerts ? 'text-amber-600 hover:bg-amber-50' : 'text-slate-400 hover:bg-slate-100'
               )}
-              aria-label={hasAlerts ? `${alertCount} active alert${alertCount !== 1 ? 's' : ''}` : 'No alerts'}
+              aria-label={
+                hasAlerts ? `${alertCount} active alert${alertCount !== 1 ? 's' : ''}` : 'No alerts'
+              }
             >
               {/* Ripple rings — only when there are unseen alerts */}
               {hasAlerts && !alertsSeen && (
@@ -161,7 +161,9 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
                   <span className="absolute inline-flex h-[80%] w-[80%] animate-ping rounded-lg bg-amber-400 opacity-20 [animation-delay:0.3s]" />
                 </>
               )}
-              <AlertCircle className={cn('relative h-5 w-5', hasAlerts && !alertsSeen && 'animate-bounce')} />
+              <AlertCircle
+                className={cn('relative h-5 w-5', hasAlerts && !alertsSeen && 'animate-bounce')}
+              />
               {hasAlerts && (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow">
                   {alertCount > 9 ? '9+' : alertCount}
@@ -303,7 +305,7 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
                   className="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
                   <Settings className="h-4 w-4 text-slate-400" />
-                  Settings
+                  Security
                 </Link>
                 <Link
                   href="/account/profile"

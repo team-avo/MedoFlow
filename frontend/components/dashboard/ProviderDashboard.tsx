@@ -78,11 +78,15 @@ function countdownLabel(minutes: number): string {
 
 export function ProviderDashboard() {
   const { user } = useAuth()
-  const clinicId = user?.clinicId ?? ''
-
   if (user && user.role !== 'PROVIDER') {
     return null
   }
+  return <ProviderDashboardContent />
+}
+
+function ProviderDashboardContent() {
+  const { user } = useAuth()
+  const clinicId = user?.clinicId ?? ''
 
   // Today (00:00 local) → 7 days out, so the dashboard can surface the next
   // few days of AI-Scribe-ready sessions, not just today.

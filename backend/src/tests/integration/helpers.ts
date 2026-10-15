@@ -42,7 +42,8 @@ export async function api<T = any>(
     headers?: Record<string, string>
   } = {}
 ): Promise<ApiResponse<T>> {
-  const headers: Record<string, string> = { ...(opts.headers ?? {}) }
+  // The web client always sends this header; refresh/logout require it (CSRF guard).
+  const headers: Record<string, string> = { 'x-medoflow-client': 'web', ...(opts.headers ?? {}) }
   if (opts.token) headers.authorization = `Bearer ${opts.token}`
   if (opts.cookie) headers.cookie = opts.cookie
   let body: string | undefined

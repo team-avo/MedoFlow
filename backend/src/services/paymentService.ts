@@ -290,8 +290,8 @@ export const demoConfirmPayment = async (
     where: { id: appointmentId, ...clinicScope(), ...where },
     include: {
       service: true,
-      patient: true,
-      provider: { include: { user: true } },
+      patient: { select: { id: true, name: true, email: true } },
+      provider: true,
       location: true,
     },
   })

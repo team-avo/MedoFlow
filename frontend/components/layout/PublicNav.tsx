@@ -24,6 +24,7 @@ import {
   ShoppingCart,
   User as UserIcon,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { BrandLogo } from '@/components/common/BrandLogo'
 import { UserAvatar } from '@/components/common/UserAvatar'
 import { useAuth } from '@/contexts/AuthContext'
@@ -415,7 +416,7 @@ function MenuItem({
   children,
 }: {
   href: string
-  icon: React.ElementType
+  icon: LucideIcon
   onClick: () => void
   children: React.ReactNode
 }) {

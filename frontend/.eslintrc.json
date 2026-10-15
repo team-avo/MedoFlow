@@ -1,0 +1,31 @@
+{
+  "root": true,
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "no-console": "error",
+    "react/no-unescaped-entities": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "lib/clientLog.ts",
+        "scripts/**",
+        "e2e/**",
+        "**/*.test.ts",
+        "**/*.test.tsx"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    ".next/",
+    ".open-next/",
+    ".wrangler/",
+    "node_modules/",
+    "coverage/",
+    "playwright-report/",
+    "test-results/"
+  ]
+}

@@ -36,6 +36,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -49,6 +50,7 @@ import {
   type CreatedSlotHold,
 } from '@/lib/appointmentApi'
 import type { Service, Provider, TimeSlot, Location } from '@/lib/types/booking'
+import { clientLog } from '@/lib/clientLog'
 
 // ───────────────────────── Context ─────────────────────────
 
@@ -156,7 +158,7 @@ function BookingModal({
       setFlow((f) => ({ ...f, slot, hold, locationId: slot.locationId ?? locationId }))
       setStep('review')
     } catch (err) {
-      console.error(err)
+      clientLog.error('[booking] request failed', err)
       toast.error('That slot was just taken. Pick another.')
     }
   }
@@ -179,7 +181,7 @@ function BookingModal({
       if (clientSecret) {
         onOpenChange(false)
         toast.info('Complete payment to finish booking.')
-        router.push(`/payment/${appointment.id}?clientSecret=${clientSecret}`)
+        router.push(`/payment/${appointment.id}`) // the page loads its own PaymentIntent; no secret in the URL
         return
       }
       setConfirmedId(appointment.id)
@@ -375,7 +377,7 @@ function ServiceStep({
         const res = await getClinicServices(clinicId)
         if (!cancelled) setServices(res)
       } catch (err) {
-        console.error(err)
+        clientLog.error('[booking] request failed', err)
         if (!cancelled) setError('Could not load services.')
       }
     })()
@@ -453,7 +455,7 @@ function ProviderStep({
         )
         if (!cancelled) setProviders(eligible)
       } catch (err) {
-        console.error(err)
+        clientLog.error('[booking] request failed', err)
         if (!cancelled) setError('Could not load providers.')
       }
     })()
@@ -557,7 +559,7 @@ function ScheduleStep({
         )
         if (!cancelled) setSlots(res)
       } catch (err) {
-        console.error(err)
+        clientLog.error('[booking] request failed', err)
         if (!cancelled) {
           setError('Could not load availability.')
           setSlots([])
@@ -728,7 +730,7 @@ function ReviewRow({
   label,
   children,
 }: {
-  icon: React.ElementType
+  icon: LucideIcon
   label: string
   children: React.ReactNode
 }) {

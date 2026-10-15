@@ -39,10 +39,12 @@ import {
   Truck,
   Users,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { categorize, CATEGORIES, type CategoryId } from '@/lib/product-categories'
 import { useProductDetail, type StoreProduct } from '@/components/store/ProductDetailModal'
 import { useCartModal } from '@/components/store/CartModal'
+import { clientLog } from '@/lib/clientLog'
 
 type PackageT = {
   id: string
@@ -95,7 +97,7 @@ export default function StorePage() {
         setPackages(packRes)
         setMemberships(memRes)
       } catch (err) {
-        console.error('Failed to fetch catalog', err)
+        clientLog.error('Failed to fetch catalog', err)
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -719,7 +721,7 @@ function AssuranceCell({
   title,
   body,
 }: {
-  icon: React.ElementType
+  icon: LucideIcon
   title: string
   body: string
 }) {

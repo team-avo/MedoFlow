@@ -1,43 +1,43 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { startConsultationRecordingFlow } from './consultationRecordingFlow.js';
+import { test } from 'vitest'
+import assert from 'node:assert/strict'
+import { startConsultationRecordingFlow } from './consultationRecordingFlow.js'
 
 test('recording flow starts browser capture before backend state change', async () => {
-  const calls = [];
+  const calls = []
 
   await startConsultationRecordingFlow({
     startBrowserCapture: async () => {
-      calls.push('browser');
+      calls.push('browser')
     },
     markRecordingStarted: async () => {
-      calls.push('backend');
-      return 'ok';
+      calls.push('backend')
+      return 'ok'
     },
     rollbackBrowserCapture: async () => {
-      calls.push('rollback');
+      calls.push('rollback')
     },
-  });
+  })
 
-  assert.deepEqual(calls, ['browser', 'backend']);
-});
+  assert.deepEqual(calls, ['browser', 'backend'])
+})
 
 test('recording flow rolls back browser capture if backend start fails', async () => {
-  const calls = [];
+  const calls = []
 
   await assert.rejects(async () => {
     await startConsultationRecordingFlow({
       startBrowserCapture: async () => {
-        calls.push('browser');
+        calls.push('browser')
       },
       markRecordingStarted: async () => {
-        calls.push('backend');
-        throw new Error('backend failed');
+        calls.push('backend')
+        throw new Error('backend failed')
       },
       rollbackBrowserCapture: async () => {
-        calls.push('rollback');
+        calls.push('rollback')
       },
-    });
-  }, /backend failed/);
+    })
+  }, /backend failed/)
 
-  assert.deepEqual(calls, ['browser', 'backend', 'rollback']);
-});
+  assert.deepEqual(calls, ['browser', 'backend', 'rollback'])
+})
