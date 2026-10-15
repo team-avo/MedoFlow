@@ -291,6 +291,25 @@ export const cancel = asyncHandler(
   }
 )
 
+export const cancelSeries = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const clinicId = req.clinicId
+    if (!clinicId) {
+      const err = new Error('Clinic ID is required') as ApiError
+      err.statusCode = 400
+      throw err
+    }
+    const reason = (req.body as { reason?: string } | undefined)?.reason?.trim() ?? ''
+    const result = await appointmentService.cancelRecurringSeries(
+      req.params.seriesId as string,
+      clinicId,
+      reason,
+      req.user!.id
+    )
+    successResponse(res, 200, 'Recurring series cancelled', result)
+  }
+)
+
 export const reschedule = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const id = req.params.id as string

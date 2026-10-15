@@ -63,7 +63,7 @@ export interface MockState {
   calls: string[]
 }
 
-const ok = (route: Route, data: unknown, extra: Record<string, string> = {}) =>
+export const ok = (route: Route, data: unknown, extra: Record<string, string> = {}) =>
   route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -71,7 +71,7 @@ const ok = (route: Route, data: unknown, extra: Record<string, string> = {}) =>
     body: JSON.stringify({ success: true, message: 'ok', data }),
   })
 
-const fail = (route: Route, status: number, code: string, message: string) =>
+export const fail = (route: Route, status: number, code: string, message: string) =>
   route.fulfill({
     status,
     contentType: 'application/json',
@@ -79,7 +79,7 @@ const fail = (route: Route, status: number, code: string, message: string) =>
     body: JSON.stringify({ success: false, code, message }),
   })
 
-function corsHeaders(route: Route, extra: Record<string, string> = {}) {
+export function corsHeaders(route: Route, extra: Record<string, string> = {}) {
   const origin = route.request().headers()['origin'] ?? 'http://127.0.0.1:4310'
   return {
     'access-control-allow-origin': origin,
@@ -90,24 +90,41 @@ function corsHeaders(route: Route, extra: Record<string, string> = {}) {
   }
 }
 
-export async function installMockApi(page: Page, opts: { idleTimeoutMinutes?: number } = {}) {
+export type MockRole = 'FRONT_DESK' | 'SUPER_ADMIN' | 'PATIENT'
+
+/** The signed-in identity per role (synthetic). Patient values double as the PHI probe. */
+export const MOCK_USERS: Record<MockRole, { id: string; name: string; email: string }> = {
+  FRONT_DESK: { id: 'user-e2e-1', name: 'Synthetic Front Desk', email: STAFF_EMAIL },
+  SUPER_ADMIN: { id: 'user-e2e-admin', name: 'Synthetic Admin', email: 'admin.e2e@example.test' },
+  PATIENT: { id: 'patient-e2e-1', name: 'Quinn Marlowe', email: 'quinn.marlowe@example.test' },
+}
+
+export async function installMockApi(
+  page: Page,
+  opts: {
+    idleTimeoutMinutes?: number
+    role?: MockRole
+    /** Start with a live session (the refresh cookie exchange succeeds on load). */
+    signedIn?: boolean
+  } = {}
+) {
   const state: MockState = {
     mfaEnabled: false,
     secret: null,
     pendingSecret: null,
-    sessionLive: false,
+    sessionLive: opts.signedIn ?? false,
     calls: [],
   }
   const idleTimeoutMinutes = opts.idleTimeoutMinutes ?? 15
+  const role: MockRole = opts.role ?? 'FRONT_DESK'
   const user = () => ({
-    id: 'user-e2e-1',
-    name: 'Synthetic Front Desk',
-    email: STAFF_EMAIL,
-    role: 'FRONT_DESK',
+    ...MOCK_USERS[role],
+    role,
     clinicId: 'clinic-e2e',
     permissions: [],
     // Skip the first-run product tour overlay.
     hasSeenTour: true,
+    hasSeenPatientTour: true,
     tourCompletedAt: '2026-01-01T00:00:00.000Z',
     mfaEnabled: state.mfaEnabled,
     clinic: {

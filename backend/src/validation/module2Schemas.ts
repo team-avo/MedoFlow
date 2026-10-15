@@ -83,6 +83,17 @@ export const appointmentRescheduleSchema = {
   }),
 }
 
+export const appointmentSeriesCancelSchema = {
+  params: z.object({
+    seriesId: cuidSchema,
+  }),
+  body: z
+    .object({
+      reason: z.string().max(500).optional(),
+    })
+    .optional(),
+}
+
 export const waitlistCreateSchema = {
   body: z.object({
     clinicId: cuidSchema,

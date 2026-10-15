@@ -51,6 +51,12 @@ import {
 } from '@/lib/appointmentApi'
 import type { Service, Provider, TimeSlot, Location } from '@/lib/types/booking'
 import { clientLog } from '@/lib/clientLog'
+import {
+  SLOT_TAKEN_MESSAGE,
+  bookingErrorMessage,
+  isSlotUnavailableError,
+} from '@/lib/bookingErrors'
+import { cancellationTerms, describeCancellationPolicy } from '@/lib/cancellationPolicy'
 
 // ───────────────────────── Context ─────────────────────────
 
@@ -111,6 +117,14 @@ function BookingModal({
   const [flow, setFlow] = React.useState<FlowState>(emptyFlow)
   const [confirmedId, setConfirmedId] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  // F1.1: the chosen time was taken — back on the time picker with a notice
+  // and freshly loaded availability, instead of an error.
+  const [slotTaken, setSlotTaken] = React.useState(false)
+  const [availabilityKey, setAvailabilityKey] = React.useState(0)
+  const showSlotTaken = () => {
+    setSlotTaken(true)
+    setAvailabilityKey((k) => k + 1)
+  }
 
   // Reset when closing — hold is released as a best-effort cleanup.
   React.useEffect(() => {
@@ -121,6 +135,7 @@ function BookingModal({
     setStep('service')
     setFlow(emptyFlow())
     setConfirmedId(null)
+    setSlotTaken(false)
   }, [open, flow.hold, clinicId])
 
   const goBack = () => {
@@ -156,10 +171,16 @@ function BookingModal({
         endTime: slot.end,
       })
       setFlow((f) => ({ ...f, slot, hold, locationId: slot.locationId ?? locationId }))
+      setSlotTaken(false)
       setStep('review')
     } catch (err) {
       clientLog.error('[booking] request failed', err)
-      toast.error('That slot was just taken. Pick another.')
+      if (isSlotUnavailableError(err)) {
+        setFlow((f) => ({ ...f, slot: null, hold: null }))
+        showSlotTaken()
+      } else {
+        toast.error('Could not reserve that time. Please try again.')
+      }
     }
   }
 
@@ -188,10 +209,15 @@ function BookingModal({
       toast.dismiss()
       setStep('success')
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Could not confirm booking.'
-      toast.error(msg)
+      if (isSlotUnavailableError(err)) {
+        // The hold expired or the slot went to someone else: nothing was
+        // booked. Return to the time picker with what is still open.
+        setFlow((f) => ({ ...f, slot: null, hold: null }))
+        showSlotTaken()
+        setStep('schedule')
+        return
+      }
+      toast.error(bookingErrorMessage(err, 'Could not confirm booking.'))
     } finally {
       setSubmitting(false)
     }
@@ -273,10 +299,15 @@ function BookingModal({
               />
             ) : step === 'schedule' && clinicId && flow.service ? (
               <ScheduleStep
+                key={availabilityKey}
                 clinicId={clinicId}
                 service={flow.service}
                 provider={flow.provider}
+                slotTaken={slotTaken}
+                initialDate={flow.date}
+                onDateChange={(date) => setFlow((f) => ({ ...f, date }))}
                 onPick={handleSelectSlot}
+                onJoinWaitlist={() => onOpenChange(false)}
               />
             ) : step === 'review' && flow.service && flow.slot ? (
               <ReviewStep flow={flow} submitting={submitting} onConfirm={handleConfirm} />
@@ -525,15 +556,24 @@ function ScheduleStep({
   clinicId,
   service,
   provider,
+  slotTaken,
+  initialDate,
+  onDateChange,
   onPick,
+  onJoinWaitlist,
 }: {
   clinicId: string
   service: Service
   provider: Provider | null
+  slotTaken: boolean
+  initialDate: string | null
+  onDateChange: (date: string) => void
   onPick: (slot: TimeSlot, locationId: string | null) => void
+  onJoinWaitlist: () => void
 }) {
+  const router = useRouter()
   const [locations, setLocations] = React.useState<Location[]>([])
-  const [date, setDate] = React.useState<string>(() => todayISO())
+  const [date, setDate] = React.useState<string>(() => initialDate ?? todayISO())
   const [slots, setSlots] = React.useState<TimeSlot[] | null>(null)
   const [loadingSlots, setLoadingSlots] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -589,7 +629,10 @@ function ScheduleStep({
               <button
                 key={d.value}
                 type="button"
-                onClick={() => setDate(d.value)}
+                onClick={() => {
+                  setDate(d.value)
+                  onDateChange(d.value)
+                }}
                 className={cn(
                   'flex min-w-[66px] flex-col items-center rounded-2xl border px-3 py-2.5 transition-colors',
                   active
@@ -608,6 +651,16 @@ function ScheduleStep({
         </div>
       </div>
 
+      {slotTaken && (
+        <p
+          role="status"
+          data-testid="slot-taken-notice"
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900"
+        >
+          {SLOT_TAKEN_MESSAGE}
+        </p>
+      )}
+
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
           Available times
@@ -617,10 +670,27 @@ function ScheduleStep({
         ) : loadingSlots ? (
           <LoadingBlock />
         ) : !slots || slots.length === 0 ? (
-          <EmptyBlock
-            title="Fully booked"
-            body="Try a different date — mornings tend to open up first."
-          />
+          <div className="space-y-3">
+            <EmptyBlock
+              title="Fully booked"
+              body="Try a different date — mornings tend to open up first."
+            />
+            {provider && (
+              <button
+                type="button"
+                onClick={() => {
+                  // The full booking page hosts the waitlist form; IDs only in the URL.
+                  onJoinWaitlist()
+                  router.push(
+                    `/book/${service.id}?clinicId=${encodeURIComponent(clinicId)}&providerId=${encodeURIComponent(provider.id)}`
+                  )
+                }}
+                className="w-full rounded-full border border-slate-200 bg-white py-2.5 text-[13px] font-semibold text-slate-800 hover:border-slate-300"
+              >
+                Join the waitlist for Dr. {provider.lastName}
+              </button>
+            )}
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
             {slots.map((s) => (
@@ -661,6 +731,9 @@ function ReviewStep({
   const svc = flow.service!
   const slot = flow.slot!
   const price = Number(svc.defaultPrice)
+  const policy = describeCancellationPolicy(
+    cancellationTerms(svc, { startTime: slot.start, priceAtBooking: svc.defaultPrice })
+  )
   const d = new Date(slot.start)
   const longDate = d.toLocaleDateString(undefined, {
     weekday: 'long',
@@ -698,8 +771,8 @@ function ReviewStep({
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
             Visit fee
           </p>
-          <p className="text-[11.5px] text-slate-500">
-            Billed after your visit — cancel free up to 24h prior.
+          <p data-testid="booking-policy" className="text-[11.5px] text-slate-500">
+            {policy}
           </p>
         </div>
         <p className="text-2xl font-black text-slate-900">${price.toFixed(0)}</p>

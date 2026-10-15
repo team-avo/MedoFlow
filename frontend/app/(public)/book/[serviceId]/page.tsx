@@ -51,6 +51,13 @@ import {
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
 import { clientLog } from '@/lib/clientLog'
+import { WaitlistModal } from '@/components/WaitlistModal'
+import {
+  SLOT_TAKEN_MESSAGE,
+  bookingErrorMessage,
+  isSlotUnavailableError,
+} from '@/lib/bookingErrors'
+import { cancellationTerms, describeCancellationPolicy } from '@/lib/cancellationPolicy'
 
 const ONLINE_LOCATION_NAMES = ['online', 'virtual']
 
@@ -100,6 +107,10 @@ function BookingPageContent() {
   // Default ON — most patients expect automated note-taking as part of modern
   // telehealth. They can uncheck during review if they'd rather opt out.
   const [aiScribeConsent, setAiScribeConsent] = useState<boolean>(true)
+  // F1.1: the chosen time was taken (or its hold expired) — back on the time
+  // picker with a notice and fresh availability, not an error.
+  const [slotTaken, setSlotTaken] = useState(false)
+  const [waitlistOpen, setWaitlistOpen] = useState(false)
 
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd')
 
@@ -194,6 +205,15 @@ function BookingPageContent() {
     }
   }
 
+  const recoverFromTakenSlot = () => {
+    setPendingSlot(null)
+    setSelectedSlot(null)
+    setSlotHoldId(null)
+    setSlotTaken(true)
+    void queryClient.invalidateQueries({ queryKey: ['availability', clinicId, serviceId] })
+    setStep(1)
+  }
+
   const handleSlotSelect = async (slot: TimeSlot) => {
     if (pendingSlot?.start === slot.start) {
       if (holdingSlot) return
@@ -211,13 +231,15 @@ function BookingPageContent() {
         })
         setSlotHoldId(hold.id)
         setSelectedSlot(slot)
+        setSlotTaken(false)
         if (isAuthenticated) {
           setStep(3)
         } else {
           setStep(2)
         }
       } catch (err) {
-        toast.error('Failed to hold slot. It may have just been taken.')
+        if (isSlotUnavailableError(err)) recoverFromTakenSlot()
+        else toast.error('Could not reserve that time. Please try again.')
       } finally {
         setHoldingSlot(false)
       }
@@ -274,7 +296,8 @@ function BookingPageContent() {
         setStep(4)
       }
     } catch (err) {
-      toast.error('Booking failed. Please try again.')
+      if (isSlotUnavailableError(err)) recoverFromTakenSlot()
+      else toast.error(bookingErrorMessage(err, 'Booking failed. Please try again.'))
     }
   }
 
@@ -481,6 +504,16 @@ function BookingPageContent() {
                           {format(selectedDate, 'EEEE, MMMM d')}
                         </h2>
 
+                        {slotTaken && (
+                          <p
+                            role="status"
+                            data-testid="slot-taken-notice"
+                            className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+                          >
+                            {SLOT_TAKEN_MESSAGE}
+                          </p>
+                        )}
+
                         <div className="relative">
                           {slotsLoading ? (
                             <div className="space-y-3">
@@ -544,6 +577,20 @@ function BookingPageContent() {
                                     <p className="text-sm font-medium text-slate-400">
                                       No availability
                                     </p>
+                                    {/* F1.2: join the waitlist for this clinician and date */}
+                                    {providerId ? (
+                                      <AppButton
+                                        variant="outline"
+                                        className="mt-4 rounded-full"
+                                        onClick={() => setWaitlistOpen(true)}
+                                      >
+                                        Join the waitlist
+                                      </AppButton>
+                                    ) : (
+                                      <p className="mt-2 text-xs text-slate-400">
+                                        Choose a specific clinician to join their waitlist.
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -674,6 +721,19 @@ function BookingPageContent() {
                       Please review your appointment details. By confirming, you agree to our
                       clinic's cancellation policy.
                     </p>
+                    {service && selectedSlot && (
+                      <p
+                        data-testid="booking-policy"
+                        className="mx-auto max-w-md rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600"
+                      >
+                        {describeCancellationPolicy(
+                          cancellationTerms(service, {
+                            startTime: selectedSlot.start,
+                            priceAtBooking: service.defaultPrice,
+                          })
+                        )}
+                      </p>
+                    )}
 
                     {isAuthenticated && patientPackages && patientPackages.length > 0 && (
                       <div className="max-w-md mx-auto p-6 bg-primary-50 rounded-3xl border border-primary-100 space-y-4 text-left">
@@ -815,6 +875,22 @@ function BookingPageContent() {
           </div>
         </div>
       </div>
+
+      {providerId && (
+        <WaitlistModal
+          isOpen={waitlistOpen}
+          onClose={() => setWaitlistOpen(false)}
+          clinicId={clinicId}
+          providerId={providerId}
+          serviceId={serviceId}
+          locationId={locations?.[0]?.id}
+          timezone={locations?.[0]?.timezone}
+          defaultPreferredDate={selectedDateStr}
+          onSuccess={() =>
+            toast.success("You're on the waitlist. We'll email you if a time opens up.")
+          }
+        />
+      )}
     </div>
   )
 }

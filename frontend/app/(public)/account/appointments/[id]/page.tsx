@@ -20,6 +20,7 @@ import {
 import { PageContainer } from '@/components/layout'
 import { Skeleton } from '@/components/ui/skeleton'
 import { IntakeFormsSection } from '@/components/intake/IntakeFormsSection'
+import { PatientAppointmentActions } from '@/components/appointments/PatientAppointmentActions'
 import {
   ArrowLeft,
   Video,
@@ -255,6 +256,9 @@ export default function PatientAppointmentDetailPage() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
+            {/* Reschedule / cancel (F1.3) — upcoming, live visits only */}
+            <PatientAppointmentActions appointment={appointment} />
+
             {/* Sidebar Summary */}
             <StickySummaryPanel
               title="Visit Details"

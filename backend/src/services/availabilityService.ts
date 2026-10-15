@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon'
+import type { Prisma, ProviderUnavailability } from '@prisma/client'
 import prisma from '../config/prisma'
 import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
@@ -117,46 +118,55 @@ export interface GetAvailableSlotsParams {
   clinicId?: string
 }
 
-export const getAvailableSlots = async (
-  params: GetAvailableSlotsParams
-): Promise<SchedulingSlot[]> => {
-  const { providerId, serviceId, serviceDurationMinutes, date, clinicId } = params
-  const normalizedDurationMinutes = Math.max(
-    serviceDurationMinutes,
-    MIN_APPOINTMENT_DURATION_MINUTES
-  )
-
-  const provider = await prisma.provider.findFirst({
-    where: { id: providerId, isActive: true, ...(clinicId ? { clinicId } : clinicScope()) },
-    include: {
-      providerAvailability: true,
-      locationAssignments: {
-        where: { location: { isActive: true } },
-        include: {
-          location: true,
-        },
-        orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-      },
-      providerServices: {
-        where: { serviceId },
-        include: { service: true },
-      },
+/** What slot computation needs to know about a provider (one query loads it). */
+const providerForSlotsInclude = (serviceId: string) =>
+  ({
+    providerAvailability: true,
+    locationAssignments: {
+      where: { location: { isActive: true } },
+      include: { location: true },
+      orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
     },
-  })
+    providerServices: {
+      where: { serviceId },
+      include: { service: true },
+    },
+  }) satisfies Prisma.ProviderInclude
 
-  if (!provider) return []
-  if (!provider.isActive) return []
-  if (provider.providerServices.length === 0) return []
+type ProviderForSlots = Prisma.ProviderGetPayload<{
+  include: ReturnType<typeof providerForSlotsInclude>
+}>
 
-  const assignedLocation = params.locationId
-    ? provider.locationAssignments.find((assignment) => assignment.locationId === params.locationId)
+type TimeRange = { startTime: Date; endTime: Date }
+
+/** Bookings that can block a provider's slots, possibly spanning many days. */
+interface ProviderBlockers {
+  appointments: TimeRange[]
+  holds: (TimeRange & { expiresAt: Date })[]
+  unavailabilities: ProviderUnavailability[]
+}
+
+const NO_BLOCKERS: ProviderBlockers = { appointments: [], holds: [], unavailabilities: [] }
+
+/**
+ * Where and when a provider works on one calendar date: the resolved
+ * location + timezone, that date's window in the timezone, and the matching
+ * weekly schedules. Pure.
+ */
+function resolveProviderDay(
+  provider: ProviderForSlots,
+  date: string,
+  requestedLocationId: string | null | undefined
+) {
+  const assignedLocation = requestedLocationId
+    ? provider.locationAssignments.find((a) => a.locationId === requestedLocationId)
     : provider.locationAssignments[0]
 
   const timezone =
     assignedLocation?.location.timezone ||
     provider.locationAssignments[0]?.location.timezone ||
     'UTC'
-  const locationId = assignedLocation?.locationId ?? params.locationId ?? null
+  const locationId = assignedLocation?.locationId ?? requestedLocationId ?? null
 
   const { start, end, weekday } = getDateWindow(date, timezone)
   const schedules = provider.providerAvailability.filter(
@@ -165,95 +175,171 @@ export const getAvailableSlots = async (
       ((availability.locationId ?? null) === (locationId ?? null) ||
         availability.locationId == null)
   )
-  if (schedules.length === 0) return []
+  return { timezone, locationId, start, end, schedules }
+}
 
+/** An unavailability row as a blocked interval (server-local clock, as stored). */
+function unavailabilityToInterval(unav: ProviderUnavailability): BlockedInterval {
+  const baseDate = new Date(unav.date)
+  baseDate.setHours(0, 0, 0, 0)
+  const unavStart = unav.startTime
+    ? (() => {
+        const d = new Date(baseDate)
+        const [h, m] = unav.startTime.split(':').map(Number)
+        d.setHours(h ?? 0, m ?? 0, 0, 0)
+        return d
+      })()
+    : new Date(baseDate)
+  const unavEnd = unav.endTime
+    ? (() => {
+        const d = new Date(baseDate)
+        const [h, m] = unav.endTime.split(':').map(Number)
+        d.setHours(h ?? 0, m ?? 0, 0, 0)
+        return d
+      })()
+    : new Date(baseDate)
+  unavEnd.setHours(23, 59, 59, 999)
+  return { start: unavStart, end: unavEnd }
+}
+
+/**
+ * The free slots for one provider on one date, given every blocker that might
+ * touch it. Pure: blockers outside the date's window are filtered here with
+ * the same predicates the per-day queries use, so callers can pass rows
+ * loaded for a whole range (B1.3) or for just that day.
+ */
+function computeProviderDaySlots(
+  provider: ProviderForSlots,
+  params: {
+    serviceId: string
+    serviceDurationMinutes: number
+    date: string
+    locationId?: string | null
+  },
+  blockers: ProviderBlockers,
+  now: Date
+): SchedulingSlot[] {
+  if (!provider.isActive) return []
+  if (provider.providerServices.length === 0) return []
+
+  const day = resolveProviderDay(provider, params.date, params.locationId)
+  if (day.schedules.length === 0) return []
+
+  const dayStart = day.start.toJSDate()
+  const dayEnd = day.end.toJSDate()
+  const overlapsDay = (r: TimeRange) => r.startTime < dayEnd && r.endTime > dayStart
+  const unavUpper = day.end.plus({ milliseconds: 1 }).toJSDate()
   const bufferMinutes = provider.bufferMinutes ?? 0
 
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      providerId,
-      clinicId: provider.clinicId,
-      status: { notIn: [CANCELLED_STATUS, RESCHEDULED_STATUS] },
-      startTime: { lt: end.toJSDate() },
-      endTime: { gt: start.toJSDate() },
-    },
-    select: { startTime: true, endTime: true },
-  })
-
-  const activeHolds = await prisma.slotHold.findMany({
-    where: {
-      providerId,
-      clinicId: provider.clinicId,
-      status: 'ACTIVE',
-      expiresAt: { gt: new Date() },
-      startTime: { lt: end.toJSDate() },
-      endTime: { gt: start.toJSDate() },
-    },
-    select: { startTime: true, endTime: true },
-  })
-
-  const unavailabilities = await prisma.providerUnavailability.findMany({
-    where: {
-      providerId,
-      date: {
-        gte: start.toJSDate(),
-        lt: end.plus({ milliseconds: 1 }).toJSDate(),
-      },
-    },
-  })
-
-  const blockedRanges: BlockedInterval[] = []
-
-  for (const apt of appointments) {
-    const start = new Date(apt.startTime)
-    const end = addMinutes(new Date(apt.endTime), bufferMinutes)
-    blockedRanges.push({ start, end })
-  }
-
-  for (const hold of activeHolds) {
-    blockedRanges.push({
-      start: new Date(hold.startTime),
-      end: new Date(hold.endTime),
+  const blocked: BlockedInterval[] = []
+  for (const apt of blockers.appointments) {
+    if (!overlapsDay(apt)) continue
+    blocked.push({
+      start: new Date(apt.startTime),
+      end: addMinutes(new Date(apt.endTime), bufferMinutes),
     })
   }
-
-  for (const unav of unavailabilities) {
-    const baseDate = new Date(unav.date)
-    baseDate.setHours(0, 0, 0, 0)
-    const unavStart = unav.startTime
-      ? (() => {
-          const d = new Date(baseDate)
-          const [h, m] = unav.startTime.split(':').map(Number)
-          d.setHours(h ?? 0, m ?? 0, 0, 0)
-          return d
-        })()
-      : new Date(baseDate)
-    const unavEnd = unav.endTime
-      ? (() => {
-          const d = new Date(baseDate)
-          const [h, m] = unav.endTime.split(':').map(Number)
-          d.setHours(h ?? 0, m ?? 0, 0, 0)
-          return d
-        })()
-      : new Date(baseDate)
-    unavEnd.setHours(23, 59, 59, 999)
-    blockedRanges.push({ start: unavStart, end: unavEnd })
+  for (const hold of blockers.holds) {
+    if (hold.expiresAt <= now || !overlapsDay(hold)) continue
+    blocked.push({ start: new Date(hold.startTime), end: new Date(hold.endTime) })
+  }
+  for (const unav of blockers.unavailabilities) {
+    if (unav.date < dayStart || unav.date >= unavUpper) continue
+    blocked.push(unavailabilityToInterval(unav))
   }
 
   return buildCandidateSlots({
-    date,
-    timezone,
-    locationId,
-    providerId,
-    serviceId,
-    durationMinutes: normalizedDurationMinutes,
-    schedules: schedules.map((schedule) => ({
+    date: params.date,
+    timezone: day.timezone,
+    locationId: day.locationId,
+    providerId: provider.id,
+    serviceId: params.serviceId,
+    durationMinutes: Math.max(params.serviceDurationMinutes, MIN_APPOINTMENT_DURATION_MINUTES),
+    schedules: day.schedules.map((schedule) => ({
       startTime: schedule.startTime,
       endTime: schedule.endTime,
     })),
-    blocked: blockedRanges,
+    blocked,
     stepMinutes: DEFAULT_SLOT_STEP_MINUTES,
   })
+}
+
+/**
+ * Every blocker for the given providers that overlaps [from, to): live
+ * appointments, active holds and unavailability days — three queries no
+ * matter how many providers or days are asked about.
+ */
+async function loadBlockers(
+  clinicId: string,
+  providerIds: string[],
+  from: Date,
+  to: Date,
+  now: Date
+): Promise<Map<string, ProviderBlockers>> {
+  const [appointments, holds, unavailabilities] = await Promise.all([
+    prisma.appointment.findMany({
+      where: {
+        clinicId,
+        providerId: { in: providerIds },
+        status: { notIn: [CANCELLED_STATUS, RESCHEDULED_STATUS] },
+        startTime: { lt: to },
+        endTime: { gt: from },
+      },
+      select: { providerId: true, startTime: true, endTime: true },
+    }),
+    prisma.slotHold.findMany({
+      where: {
+        clinicId,
+        providerId: { in: providerIds },
+        status: 'ACTIVE',
+        expiresAt: { gt: now },
+        startTime: { lt: to },
+        endTime: { gt: from },
+      },
+      select: { providerId: true, startTime: true, endTime: true, expiresAt: true },
+    }),
+    prisma.providerUnavailability.findMany({
+      where: { providerId: { in: providerIds }, date: { gte: from, lt: to } },
+    }),
+  ])
+
+  const byProvider = new Map<string, ProviderBlockers>()
+  for (const id of providerIds) {
+    byProvider.set(id, { appointments: [], holds: [], unavailabilities: [] })
+  }
+  for (const a of appointments) byProvider.get(a.providerId)?.appointments.push(a)
+  for (const h of holds) byProvider.get(h.providerId)?.holds.push(h)
+  for (const u of unavailabilities) byProvider.get(u.providerId)?.unavailabilities.push(u)
+  return byProvider
+}
+
+export const getAvailableSlots = async (
+  params: GetAvailableSlotsParams
+): Promise<SchedulingSlot[]> => {
+  const { providerId, serviceId, date, clinicId } = params
+
+  const provider = await prisma.provider.findFirst({
+    where: { id: providerId, isActive: true, ...(clinicId ? { clinicId } : clinicScope()) },
+    include: providerForSlotsInclude(serviceId),
+  })
+
+  if (!provider) return []
+  if (!provider.isActive) return []
+  if (provider.providerServices.length === 0) return []
+
+  const day = resolveProviderDay(provider, date, params.locationId)
+  if (day.schedules.length === 0) return []
+
+  const now = new Date()
+  const blockers = await loadBlockers(
+    provider.clinicId,
+    [provider.id],
+    day.start.toJSDate(),
+    day.end.plus({ milliseconds: 1 }).toJSDate(),
+    now
+  )
+
+  return computeProviderDaySlots(provider, params, blockers.get(provider.id) ?? NO_BLOCKERS, now)
 }
 
 export interface PreviewAvailabilityUpdateParams {
@@ -477,6 +563,15 @@ export const createUnavailability = async (
   })
   return created
 }
+/**
+ * Dates in [startDate, endDate] on which at least one eligible provider has a
+ * free slot for the service. Set-based (B1.3): one query each for the
+ * service and the providers (with schedules + locations), then the three
+ * blocker tables once over the whole window, then a pure per-day/per-provider
+ * pass in memory — a bounded number of queries instead of a round of queries
+ * per day per provider. Results are identical to calling getAvailableSlots
+ * for every day/provider (tested against that reference).
+ */
 export const getAvailableDatesInRange = async (params: {
   clinicId: string
   serviceId: string
@@ -487,22 +582,16 @@ export const getAvailableDatesInRange = async (params: {
 }): Promise<string[]> => {
   const { clinicId, serviceId, providerId, locationId, startDate, endDate } = params
 
-  // For each day in the range, check if there's at least one slot.
-  // This is a bit heavy, so we optimize by only checking providers who offer the service.
   const start = DateTime.fromISO(startDate).startOf('day')
   const end = DateTime.fromISO(endDate).endOf('day')
+  if (!start.isValid || !end.isValid || end < start) return []
 
-  const availableDates: string[] = []
-  let current = start
-
-  // Fetch service to get duration
   const service = await prisma.service.findUnique({
     where: { id: serviceId, clinicId },
     select: { duration: true },
   })
   if (!service) return []
 
-  // Fetch eligible providers
   const providers = await prisma.provider.findMany({
     where: {
       id: providerId,
@@ -510,39 +599,45 @@ export const getAvailableDatesInRange = async (params: {
       isActive: true,
       providerServices: { some: { serviceId } },
     },
-    select: { id: true },
+    include: providerForSlotsInclude(serviceId),
   })
+  if (providers.length === 0) return []
 
-  const pIds = providers.map((p) => p.id)
-  if (pIds.length === 0) return []
-
-  while (current <= end) {
-    const dStr = current.toISODate()!
-    let dayHasSlot = false
-
-    // Check availability for each provider on this day until one is found
-    for (const pid of pIds) {
-      const slots = await getAvailableSlots({
-        providerId: pid,
-        serviceId,
-        serviceDurationMinutes: service.duration,
-        date: dStr,
-        clinicId,
-        locationId: locationId ?? undefined,
-      })
-
-      if (slots.length > 0) {
-        dayHasSlot = true
-        break
-      }
-    }
-
-    if (dayHasSlot) {
-      availableDates.push(dStr)
-    }
-
-    current = current.plus({ days: 1 })
+  const dates: string[] = []
+  for (let current = start; current <= end; current = current.plus({ days: 1 })) {
+    dates.push(current.toISODate())
   }
 
-  return availableDates
+  // Day windows are computed in each provider's own timezone (UTC-12 to
+  // UTC+14), so load a day of margin on each side; computeProviderDaySlots
+  // trims every blocker to the exact day window.
+  const now = new Date()
+  const from = DateTime.fromISO(dates[0]!, { zone: 'utc' }).minus({ days: 1 }).toJSDate()
+  const to = DateTime.fromISO(dates[dates.length - 1]!, { zone: 'utc' })
+    .plus({ days: 2 })
+    .toJSDate()
+  const blockers = await loadBlockers(
+    clinicId,
+    providers.map((p) => p.id),
+    from,
+    to,
+    now
+  )
+
+  return dates.filter((date) =>
+    providers.some(
+      (provider) =>
+        computeProviderDaySlots(
+          provider,
+          {
+            serviceId,
+            serviceDurationMinutes: service.duration,
+            date,
+            locationId: locationId ?? undefined,
+          },
+          blockers.get(provider.id) ?? NO_BLOCKERS,
+          now
+        ).length > 0
+    )
+  )
 }

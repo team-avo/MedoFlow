@@ -60,8 +60,9 @@ jobs:
   # B0.5 — blocking backend quality gate: typecheck, lint (zero warnings),
   # synthetic-fixture scan, unit tests + coverage ratchet, migrations on a
   # fresh Postgres, integration suites (tenant isolation, RLS, auth
-  # safeguards, authZ matrix, booking race, invoice states, webhook
-  # idempotency, audit) as the non-owner app role, dependency audit, secret scan.
+  # safeguards, authZ matrix, booking race + overlap constraint (B1), invoice
+  # states, webhook idempotency, audit) as the non-owner app role, dependency
+  # audit, secret scan.
   backend-quality:
     name: Backend quality gate
     runs-on: ubuntu-latest
@@ -126,7 +127,8 @@ jobs:
   # warnings, no-console), unit + component tests with coverage ratchet
   # (refresh interceptor, role guards, PHI boundary, no-PHI-in-URL / telemetry
   # guards), dependency audit, production build (type errors fail it), and
-  # browser e2e (idle logoff, MFA enrol + challenge, axe a11y scan).
+  # browser e2e (idle logoff, MFA enrol + challenge, scheduling flows F1.1–F1.3,
+  # axe a11y scan).
   frontend-quality:
     name: Frontend quality gate
     runs-on: ubuntu-latest
@@ -161,7 +163,7 @@ jobs:
         run: pnpm exec next build
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
-      - name: Browser e2e (F0.2.1 idle logoff, F0.2.2 MFA)
+      - name: Browser e2e (F0.2 idle logoff + MFA, F1 booking / waitlist / recurring / cancel-reschedule)
         env:
           E2E_SKIP_BUILD: '1'
         run: pnpm run test:e2e
