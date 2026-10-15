@@ -13,17 +13,11 @@
  * call sites need to be touched.
  */
 
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { toast } from 'sonner'
+import { clientLog } from '@/lib/clientLog'
 
 export interface CartItem {
   id: string
@@ -83,7 +77,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }))
         setCart({ ...raw, items })
       } catch (err) {
-        console.error('Failed to fetch server cart', err)
+        clientLog.error('Failed to fetch server cart', err)
       }
     } else {
       const savedCart = localStorage.getItem(LOCAL_CART_KEY)
@@ -91,7 +85,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         try {
           setCart(JSON.parse(savedCart))
         } catch (e) {
-          console.error('Failed to parse local cart', e)
+          clientLog.error('Failed to parse local cart', e)
         }
       } else {
         setCart({ items: [] })
@@ -122,7 +116,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                     quantity: item.quantity,
                   })
                 } catch (e) {
-                  console.error('Failed to sync item', item.name, e)
+                  clientLog.error('Failed to sync cart item', e)
                 }
               }
               localStorage.removeItem(LOCAL_CART_KEY)
@@ -132,7 +126,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             syncCart()
           }
         } catch (e) {
-          console.error('Failed to parse and sync guest cart', e)
+          clientLog.error('Failed to parse and sync guest cart', e)
         }
       }
     }
@@ -150,7 +144,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           toast.success(`Added ${item.name} to cart`)
           await fetchCartItems()
         } catch (error) {
-          console.error('Failed to add to server cart', error)
+          clientLog.error('Failed to add to server cart', error)
           toast.error('Could not add item to cart.')
         }
       } else {
@@ -187,7 +181,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           await api.delete(`/carts/items/${cartItemId}`)
           await fetchCartItems()
         } catch (err) {
-          console.error('Failed to remove cart item', err)
+          clientLog.error('Failed to remove cart item', err)
           toast.error('Could not remove item.')
         }
       } else {
@@ -208,7 +202,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           await api.put(`/carts/items/${cartItemId}`, { quantity })
           await fetchCartItems()
         } catch (err) {
-          console.error('Failed to update cart item', err)
+          clientLog.error('Failed to update cart item', err)
           toast.error('Could not update quantity.')
         }
       } else {
@@ -229,10 +223,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated])
 
   const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = cart.items.reduce(
-    (sum, item) => sum + Number(item.unitPrice) * item.quantity,
-    0
-  )
+  const subtotal = cart.items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0)
 
   const value = useMemo<CartContextValue>(
     () => ({

@@ -237,7 +237,7 @@ export const getProduct = asyncHandler(
 
 export const checkPatientExists = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const { email } = req.query
+    const { email } = (req.body ?? {}) as { email?: unknown }
     if (!email || typeof email !== 'string') {
       const err = new Error('Email is required') as ApiError
       err.statusCode = 400

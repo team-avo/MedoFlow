@@ -6,6 +6,7 @@ import { Check, Plus, X } from 'lucide-react'
 import api from '@/lib/api'
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell'
 import { AppInput } from '@/components/ui-system'
+import { clientLog } from '@/lib/clientLog'
 
 const SUGGESTED = [
   'Longevity',
@@ -88,7 +89,7 @@ export default function DisciplinesStepPage() {
           } catch (err) {
             // Skip duplicates silently — 409 is fine for resume flows
             // eslint-disable-next-line no-console
-            console.warn('[disciplines] create failed', name, err)
+            clientLog.warn('[disciplines] create failed', err)
           }
         }
         await api.patch('/onboarding/step', { step: 4 })

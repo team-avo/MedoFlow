@@ -39,7 +39,8 @@ router.get(
   })
 )
 router.get('/products/:id', publicController.getProduct)
-router.get('/patients/check', publicLookupRateLimit, publicController.checkPatientExists)
+// POST so the email travels in the body, never in a URL (F0.3.1).
+router.post('/patients/check', publicLookupRateLimit, publicController.checkPatientExists)
 router.get(
   '/availability',
   validateRequest(publicAvailabilitySchema),

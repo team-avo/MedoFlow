@@ -50,6 +50,14 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format, parseISO } from 'date-fns'
+import { clientLog } from '@/lib/clientLog'
+import { WaitlistModal } from '@/components/WaitlistModal'
+import {
+  SLOT_TAKEN_MESSAGE,
+  bookingErrorMessage,
+  isSlotUnavailableError,
+} from '@/lib/bookingErrors'
+import { cancellationTerms, describeCancellationPolicy } from '@/lib/cancellationPolicy'
 
 const ONLINE_LOCATION_NAMES = ['online', 'virtual']
 
@@ -99,6 +107,10 @@ function BookingPageContent() {
   // Default ON — most patients expect automated note-taking as part of modern
   // telehealth. They can uncheck during review if they'd rather opt out.
   const [aiScribeConsent, setAiScribeConsent] = useState<boolean>(true)
+  // F1.1: the chosen time was taken (or its hold expired) — back on the time
+  // picker with a notice and fresh availability, not an error.
+  const [slotTaken, setSlotTaken] = useState(false)
+  const [waitlistOpen, setWaitlistOpen] = useState(false)
 
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd')
 
@@ -188,9 +200,18 @@ function BookingPageContent() {
         await releaseSlotHold(slotHoldId, clinicId)
         setSlotHoldId(null)
       } catch (err) {
-        console.error('Failed to release hold', err)
+        clientLog.error('Failed to release hold', err)
       }
     }
+  }
+
+  const recoverFromTakenSlot = () => {
+    setPendingSlot(null)
+    setSelectedSlot(null)
+    setSlotHoldId(null)
+    setSlotTaken(true)
+    void queryClient.invalidateQueries({ queryKey: ['availability', clinicId, serviceId] })
+    setStep(1)
   }
 
   const handleSlotSelect = async (slot: TimeSlot) => {
@@ -210,13 +231,15 @@ function BookingPageContent() {
         })
         setSlotHoldId(hold.id)
         setSelectedSlot(slot)
+        setSlotTaken(false)
         if (isAuthenticated) {
           setStep(3)
         } else {
           setStep(2)
         }
       } catch (err) {
-        toast.error('Failed to hold slot. It may have just been taken.')
+        if (isSlotUnavailableError(err)) recoverFromTakenSlot()
+        else toast.error('Could not reserve that time. Please try again.')
       } finally {
         setHoldingSlot(false)
       }
@@ -228,7 +251,14 @@ function BookingPageContent() {
   const handlePatientFormSubmit = async (data: PatientFormData) => {
     if (patientExists === true) {
       try {
-        await login(data.email, data.password)
+        const result = await login(data.email, data.password)
+        if (result.mfaRequired) {
+          // Two-step verification is a staff feature; finish it in the sign-in dialog.
+          toast.error(
+            'This account uses two-step verification. Please sign in from the main sign-in page.'
+          )
+          return
+        }
         setStep(3)
       } catch (err) {
         toast.error('Invalid password. Please try again.')
@@ -260,13 +290,14 @@ function BookingPageContent() {
       })
 
       if (clientSecret) {
-        router.push(`/payment/${appointment.id}?clientSecret=${clientSecret}`)
+        router.push(`/payment/${appointment.id}`) // the page loads its own PaymentIntent; no secret in the URL
       } else {
         setConfirmedAppointmentId(appointment.id)
         setStep(4)
       }
     } catch (err) {
-      toast.error('Booking failed. Please try again.')
+      if (isSlotUnavailableError(err)) recoverFromTakenSlot()
+      else toast.error(bookingErrorMessage(err, 'Booking failed. Please try again.'))
     }
   }
 
@@ -293,11 +324,7 @@ function BookingPageContent() {
 
   // Build a "Back to clinic" target that lands on /clinic/[slug or id]
   // rather than the Medoflow root.
-  const backHref = clinic?.slug
-    ? `/clinic/${clinic.slug}`
-    : clinicId
-      ? `/clinic/${clinicId}`
-      : '/'
+  const backHref = clinic?.slug ? `/clinic/${clinic.slug}` : clinicId ? `/clinic/${clinicId}` : '/'
 
   return (
     <div className="bg-slate-50 min-h-screen" style={themeStyle}>
@@ -382,9 +409,7 @@ function BookingPageContent() {
                           }}
                           className={cn(
                             'flex items-center justify-between p-6 rounded-2xl border-2 transition-all text-left',
-                            !providerId
-                              ? ''
-                              : 'border-slate-100 hover:border-slate-200'
+                            !providerId ? '' : 'border-slate-100 hover:border-slate-200'
                           )}
                           style={
                             !providerId
@@ -422,9 +447,7 @@ function BookingPageContent() {
                             }}
                             className={cn(
                               'flex items-center justify-between p-6 rounded-2xl border-2 transition-all text-left',
-                              providerId === p.id
-                                ? ''
-                                : 'border-slate-100 hover:border-slate-200'
+                              providerId === p.id ? '' : 'border-slate-100 hover:border-slate-200'
                             )}
                             style={
                               providerId === p.id
@@ -481,6 +504,16 @@ function BookingPageContent() {
                           {format(selectedDate, 'EEEE, MMMM d')}
                         </h2>
 
+                        {slotTaken && (
+                          <p
+                            role="status"
+                            data-testid="slot-taken-notice"
+                            className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+                          >
+                            {SLOT_TAKEN_MESSAGE}
+                          </p>
+                        )}
+
                         <div className="relative">
                           {slotsLoading ? (
                             <div className="space-y-3">
@@ -502,7 +535,8 @@ function BookingPageContent() {
                                         onClick={() => handleSlotSelect(slot)}
                                         className={cn(
                                           'flex-1 h-14 rounded-2xl border-2 font-bold transition-all duration-200',
-                                          isPending && 'border-slate-400 bg-slate-600 text-white w-1/2'
+                                          isPending &&
+                                            'border-slate-400 bg-slate-600 text-white w-1/2'
                                         )}
                                         style={
                                           isPending
@@ -543,6 +577,20 @@ function BookingPageContent() {
                                     <p className="text-sm font-medium text-slate-400">
                                       No availability
                                     </p>
+                                    {/* F1.2: join the waitlist for this clinician and date */}
+                                    {providerId ? (
+                                      <AppButton
+                                        variant="outline"
+                                        className="mt-4 rounded-full"
+                                        onClick={() => setWaitlistOpen(true)}
+                                      >
+                                        Join the waitlist
+                                      </AppButton>
+                                    ) : (
+                                      <p className="mt-2 text-xs text-slate-400">
+                                        Choose a specific clinician to join their waitlist.
+                                      </p>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -673,6 +721,19 @@ function BookingPageContent() {
                       Please review your appointment details. By confirming, you agree to our
                       clinic's cancellation policy.
                     </p>
+                    {service && selectedSlot && (
+                      <p
+                        data-testid="booking-policy"
+                        className="mx-auto max-w-md rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600"
+                      >
+                        {describeCancellationPolicy(
+                          cancellationTerms(service, {
+                            startTime: selectedSlot.start,
+                            priceAtBooking: service.defaultPrice,
+                          })
+                        )}
+                      </p>
+                    )}
 
                     {isAuthenticated && patientPackages && patientPackages.length > 0 && (
                       <div className="max-w-md mx-auto p-6 bg-primary-50 rounded-3xl border border-primary-100 space-y-4 text-left">
@@ -814,6 +875,22 @@ function BookingPageContent() {
           </div>
         </div>
       </div>
+
+      {providerId && (
+        <WaitlistModal
+          isOpen={waitlistOpen}
+          onClose={() => setWaitlistOpen(false)}
+          clinicId={clinicId}
+          providerId={providerId}
+          serviceId={serviceId}
+          locationId={locations?.[0]?.id}
+          timezone={locations?.[0]?.timezone}
+          defaultPreferredDate={selectedDateStr}
+          onSuccess={() =>
+            toast.success("You're on the waitlist. We'll email you if a time opens up.")
+          }
+        />
+      )}
     </div>
   )
 }
@@ -903,9 +980,7 @@ function BookingConfirmation({
         <CheckCircle2 className="h-10 w-10" />
       </div>
       <div>
-        <h2 className="text-3xl font-black text-slate-900">
-          You're booked, {patientFirstName}.
-        </h2>
+        <h2 className="text-3xl font-black text-slate-900">You're booked, {patientFirstName}.</h2>
         <p className="mx-auto mt-3 max-w-md text-slate-500">
           We've sent a confirmation to your email. The clinic team will be ready for you.
         </p>

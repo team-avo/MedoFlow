@@ -5,6 +5,13 @@ import { PaymentStatus, Prisma } from '@prisma/client'
 import * as auditService from './auditService'
 import * as membershipService from './membershipService'
 
+/**
+ * Minimum-necessary patient fields on invoice responses (F0.3.4). Never
+ * `patient: true`: that returns the whole User row — password hash, MFA
+ * secret and recovery codes included.
+ */
+export const PATIENT_SUMMARY_SELECT = { id: true, name: true, email: true } as const
+
 const DEFAULT_TAX_RATE = 0.13 // 13% - configurable via env if needed
 
 const ZERO = new Prisma.Decimal(0)
@@ -88,7 +95,7 @@ export const createInvoice = async (
     include: {
       items: { include: { service: true } },
       appointment: true,
-      patient: true,
+      patient: { select: PATIENT_SUMMARY_SELECT },
       provider: true,
     },
   })
@@ -621,7 +628,7 @@ export const finalizeInvoice = async (
     include: {
       items: { include: { service: true } },
       appointment: true,
-      patient: true,
+      patient: { select: PATIENT_SUMMARY_SELECT },
       provider: true,
     },
   })
@@ -806,7 +813,7 @@ export const recordInvoiceManualPayment = async (
     include: {
       items: { include: { service: true, product: true, package: true } },
       appointment: true,
-      patient: true,
+      patient: { select: PATIENT_SUMMARY_SELECT },
       provider: true,
       payments: true,
     },
@@ -828,7 +835,7 @@ export const getInvoiceById = async (id: string, clinicId?: string) => {
       include: {
         items: { include: { service: true, product: true, package: true } },
         appointment: true,
-        patient: true,
+        patient: { select: PATIENT_SUMMARY_SELECT },
         provider: true,
         payments: true,
       },
@@ -883,7 +890,7 @@ export const getInvoicesByAppointment = async (appointmentId: string, clinicId: 
     where: { appointmentId, clinicId },
     include: {
       items: { include: { service: true, product: true, package: true } },
-      patient: true,
+      patient: { select: PATIENT_SUMMARY_SELECT },
       provider: true,
       payments: true,
     },

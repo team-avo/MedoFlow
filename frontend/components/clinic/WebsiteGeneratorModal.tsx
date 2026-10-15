@@ -490,7 +490,7 @@ function Step1Form({
   selectedSections: string[]
   error: string | null
   isEdit: boolean
-  fileInputRef: React.RefObject<HTMLInputElement>
+  fileInputRef: React.RefObject<HTMLInputElement | null>
   onNameChange: (v: string) => void
   onLogoRemove: () => void
   onDragOver: (e: React.DragEvent) => void

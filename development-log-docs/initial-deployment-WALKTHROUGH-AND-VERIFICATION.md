@@ -3,6 +3,7 @@
 > **Scope:** `arh-agent-docs/development-plan.md` → PART 0 (PhD · P0): D0 backend, D1 frontend, D2 exit criteria
 > **Status: ✅ PART 0 COMPLETE (declared 2026-10-13)** · **Date:** 2026-10-12, updated 2026-10-13 · **Live code:** `myselfabhi/MedoFlow` `main` @ `379818c` (merge of PR #3)
 > **Cloudflare account:** `Devops@medoflow.com's Account` (`523c0186a1808be62e718907053c513b`)
+> **Deploying repo (since 2026-10-15):** `team-avo/MedoFlow`, branch `development`. Mentions of `myselfabhi/MedoFlow` `main` below record history. See [ci-team-avo-migration](ci-team-avo-migration-WALKTHROUGH-AND-VERIFICATION.md).
 > **Data:** synthetic demo dump `arh-agent-docs/medoflow-demo-20261005.sql.gz` only. See [PHI gate](../docs/PHI_GATE.md).
 
 Legend: ✅ done and verified · 🟨 partly done · ⬜ not done · ↪ moved out of Part 0 to the Backend Foundation section of the plan
@@ -54,8 +55,8 @@ Browser ──HTTPS──▶ medoflow-web (Cloudflare Worker, Next.js via OpenNe
                                                      ├─▶ Redis Cloud (BullMQ queue)
                                                      └─▶ R2 (S3 API)  ✅ keys set 2026-10-13 (scribe audio only)
 
-CI/CD (.github/workflows/deploy.yml in myselfabhi/MedoFlow):
-  PR → build gate · merge to main → build gate → Render deploy hook (?ref=<sha>) + wrangler deploy → smoke
+CI/CD (.github/workflows/deploy.yml in team-avo/MedoFlow):
+  PR → build gate · merge to development → build gate → Render deploy hook (?ref=<sha>) + wrangler deploy → smoke
   ↪ deploy jobs inactive until the repo secrets/variables are set (B0.6.8)
 ```
 
@@ -89,14 +90,14 @@ CI/CD (.github/workflows/deploy.yml in myselfabhi/MedoFlow):
 
 ### 3b. Render + CI/CD (commit `fd2791a`, merged via PR #3)
 
-| File                                                        | Purpose                                                                                                                                                                                                          |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `render.yaml`                                               | Render Blueprint: Docker web service, Ohio, health check `/api/v1/health`, auto-deploy off, secrets prompted (never in git).                                                                                     |
-| `.github/workflows/deploy.yml`                              | PR → build gate. Merge to `main` → build gate → deploys only the app that changed (Render hook pinned to the SHA; Cloudflare `wrangler deploy`) → waits/smoke-checks. Deploys only run in `myselfabhi/MedoFlow`. |
-| `backend/src/routes/health.ts`                              | Health response includes `commit` (`RENDER_GIT_COMMIT`), so CI can confirm the live version.                                                                                                                     |
-| `backend/prisma/migrations/20261012000000_add_voice_agent/` | **Missing migration** for the voice-agent tables from PR #1 (they had been created with `db push`). Marked as already applied on Neon.                                                                           |
-| `frontend/.env.production`                                  | **Removed**; CI supplies `NEXT_PUBLIC_API_URL` from the `BACKEND_URL` repo variable.                                                                                                                             |
-| `development-log-docs/render-cicd-SETUP.md`                 | One-time Render + GitHub setup guide.                                                                                                                                                                            |
+| File                                                                            | Purpose                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `render.yaml`                                                                   | Render Blueprint: Docker web service, Ohio, health check `/api/v1/health`, auto-deploy off, secrets prompted (never in git).                                                                                          |
+| `.github/workflows/deploy.yml`                                                  | PR → build gate. Merge to `development` → build gate → deploys only the app that changed (Render hook pinned to the SHA; Cloudflare `wrangler deploy`) → waits/smoke-checks. Deploys only run in `team-avo/MedoFlow`. |
+| `backend/src/routes/health.ts`                                                  | Health response includes `commit` (`RENDER_GIT_COMMIT`), so CI can confirm the live version.                                                                                                                          |
+| `backend/prisma/migrations/20261012000000_add_voice_agent/`                     | **Missing migration** for the voice-agent tables from PR #1 (they had been created with `db push`). Marked as already applied on Neon.                                                                                |
+| `frontend/.env.production`                                                      | **Removed**; CI supplies `NEXT_PUBLIC_API_URL` from the `BACKEND_URL` repo variable.                                                                                                                                  |
+| `development-log-docs/ci-team-avo-migration-WALKTHROUGH-AND-VERIFICATION.md` §2 | One-time Render + GitHub setup guide.                                                                                                                                                                                 |
 
 ### 3c. Not in git
 
@@ -249,7 +250,9 @@ gh variable list --repo myselfabhi/MedoFlow ; gh secret list --repo myselfabhi/M
 #  → ⬜ currently empty (only the repo owner can set them)
 ```
 
-Once set (see `render-cicd-SETUP.md`): re-run that workflow → `deploy-backend` logs "Render is serving <sha>", and `deploy-frontend` smoke shows `/ → 200`, `/login → 200`.
+The record above is from `myselfabhi/MedoFlow`. Deploys now run in `team-avo/MedoFlow`, so check there: `gh run list --repo team-avo/MedoFlow --limit 3`, `gh variable list --repo team-avo/MedoFlow`, `gh secret list --repo team-avo/MedoFlow`.
+
+Once set (see `ci-team-avo-migration-WALKTHROUGH-AND-VERIFICATION.md` §2): re-run that workflow → `deploy-backend` logs "Render is serving <sha>", and `deploy-frontend` smoke shows `/ → 200`, `/login → 200`.
 
 Rollback: Render › medoflow-backend › Events › _Rollback_ · Cloudflare: `cd frontend && npx wrangler rollback`.
 
@@ -384,13 +387,13 @@ Any failure goes in §7 as a defect against the relevant component (it does **no
 ## 6. Day-to-day operations
 
 ```bash
-# Backend: Render deploys from myselfabhi/MedoFlow main.
+# Backend: Render deploys from team-avo/MedoFlow development.
 #   Manual: Render dashboard › medoflow-backend › Manual Deploy › Deploy latest commit
 #   Logs:   Render dashboard › medoflow-backend › Logs
 
 # Frontend manual deploy (until CI is active). Build in LINUX; NEXT_PUBLIC_API_URL must be the Render URL.
-git fetch https://github.com/myselfabhi/MedoFlow.git main:refs/heads/upstream-main -f
-git archive --format=tar -o /tmp/src.tar upstream-main
+git fetch team development   # team = https://github.com/team-avo/MedoFlow.git
+git archive --format=tar -o /tmp/src.tar team/development
 MSYS_NO_PATHCONV=1 docker run --rm --cpus 4 -m 8g -v "$(cygpath -w /tmp):/scripts" \
   -v "$(cygpath -w ~/.wrangler/config/default.toml):/root/.config/.wrangler/config/default.toml" -w /work node:22-bookworm bash -c '
   tar -xf /scripts/src.tar && corepack enable && corepack prepare pnpm@10.33.0 --activate &&
@@ -407,7 +410,7 @@ Demo logins (synthetic): `admin@`, `doctor@`, `frontdesk@`, `patient@`, `platfor
 
 | #   | Item                                                                            | AC              | Status             | Owner / how                                                                                                                                                                                                                                                                                                                                                                              |
 | --- | ------------------------------------------------------------------------------- | --------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **CI auto-deploy active**                                                       | D0.6            | ↪ **B0.6.8**       | Repo owner (myselfabhi) adds secrets `RENDER_DEPLOY_HOOK_URL`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and variables `BACKEND_URL=https://medoflow-backend-6pd5.onrender.com`, `FRONTEND_URL`, then sets Render Auto-Deploy to Off. Then demonstrate "failing build blocks deploy".                                                                                              |
+| 1   | **CI auto-deploy active**                                                       | D0.6            | ↪ **B0.6.8**       | A team-avo/MedoFlow admin adds secrets `RENDER_DEPLOY_HOOK_URL`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and variables `BACKEND_URL=https://medoflow-backend-6pd5.onrender.com`, `FRONTEND_URL`, reconnects the Render service to `team-avo/MedoFlow` / `development`, then sets Render Auto-Deploy to Off. Then demonstrate "failing build blocks deploy".                      |
 | 2   | ~~Background job completes on the deployed env~~                                | D0.1, D0.3      | ✅ 2026-10-13      | Cron sweep proof (§5.8b). AI scribe declared out of Part 0 scope (B2.1).                                                                                                                                                                                                                                                                                                                 |
 | 3   | ~~Redis eviction policy → `noeviction`~~                                        | D0.3            | ✅ 2026-10-13      | Set by the owner; verified (§5.4).                                                                                                                                                                                                                                                                                                                                                       |
 | 4   | ~~R2 keys on Render + presigned upload/download test~~                          | D0.4            | ✅ 2026-10-13      | §5.5. Known gap accepted: patient-file uploads still use local disk (B3.1/F3.1). Optional: rotate the R2 keys (they were displayed in a working session).                                                                                                                                                                                                                                |

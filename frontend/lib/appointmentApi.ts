@@ -51,9 +51,8 @@ export const getClinicLocations = async (clinicId: string): Promise<Location[]> 
 }
 
 export const checkPatientExists = async (email: string): Promise<boolean> => {
-  const { data } = await publicApi.get<CheckPatientExistsResponse>(
-    `/patients/check?email=${encodeURIComponent(email)}`
-  )
+  // POST: the email travels in the body, never in a URL (F0.3.1).
+  const { data } = await publicApi.post<CheckPatientExistsResponse>('/patients/check', { email })
   return data.data.exists
 }
 

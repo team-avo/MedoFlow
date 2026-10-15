@@ -15,6 +15,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSkeleton } from '@/components/ui-system'
 import { cn } from '@/lib/utils'
+import { accountRedirect } from '@/lib/routeGuards'
 
 const NAV = [
   { href: '/account', label: 'Overview', icon: LayoutDashboard, tourId: 'account-overview' },
@@ -31,18 +32,14 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   const pathname = usePathname() ?? ''
   const { user, isLoading, isAuthenticated } = useAuth()
 
-  useEffect(() => {
-    if (isLoading) return
-    if (!isAuthenticated) {
-      router.replace(`/?auth=login&returnUrl=${encodeURIComponent(pathname)}`)
-      return
-    }
-    if (user && user.role !== 'PATIENT') {
-      router.replace('/dashboard')
-    }
-  }, [user, isLoading, isAuthenticated, pathname, router])
+  // Pure guard (lib/routeGuards.ts); nothing renders until it allows this user.
+  const redirectTo = isLoading ? null : accountRedirect(isAuthenticated ? user : null, pathname)
 
-  if (isLoading || !user || user.role !== 'PATIENT') {
+  useEffect(() => {
+    if (redirectTo) router.replace(redirectTo)
+  }, [redirectTo, router])
+
+  if (isLoading || !user || redirectTo) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-10">
         <LoadingSkeleton variant="page" />

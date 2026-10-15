@@ -1,0 +1,23 @@
+[
+  {
+    "id": "GHSA-f88m-g3jw-g9cj",
+    "package": "sharp",
+    "owner": "frontend lead",
+    "expires": "2027-01-31",
+    "reason": "sharp is only loaded by the Next.js image optimiser under a Node server (next start). Production runs on Cloudflare Workers via OpenNext, which cannot load native modules and never executes sharp; the fixed sharp 0.35 changes its native-binary loading so the OpenNext bundle no longer builds. Re-check when Next/OpenNext support sharp >= 0.35.5."
+  },
+  {
+    "id": "GHSA-rgj7-g3m4-5g8c",
+    "package": "sharp",
+    "owner": "frontend lead",
+    "expires": "2027-01-31",
+    "reason": "sharp is only loaded by the Next.js image optimiser under a Node server (next start). Production runs on Cloudflare Workers via OpenNext, which cannot load native modules and never executes sharp; the fixed sharp 0.35 changes its native-binary loading so the OpenNext bundle no longer builds. Re-check when Next/OpenNext support sharp >= 0.35.5."
+  },
+  {
+    "id": "GHSA-wq5f-xc86-pv6w",
+    "package": "sharp",
+    "owner": "frontend lead",
+    "expires": "2027-01-31",
+    "reason": "sharp is only loaded by the Next.js image optimiser under a Node server (next start). Production runs on Cloudflare Workers via OpenNext, which cannot load native modules and never executes sharp; the fixed sharp 0.35 changes its native-binary loading so the OpenNext bundle no longer builds. Re-check when Next/OpenNext support sharp >= 0.35.5."
+  }
+]

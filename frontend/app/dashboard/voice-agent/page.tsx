@@ -11,13 +11,14 @@
 
 import React, { useState } from 'react'
 import { Phone, Settings, ListMusic, Sparkles, Mic } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { VoiceAgentTester } from './_components/VoiceAgentTester'
 import { VoiceAgentConfigForm } from './_components/VoiceAgentConfigForm'
 import { VoiceAgentCallLog } from './_components/VoiceAgentCallLog'
 
 type Tab = 'test' | 'configure' | 'log'
 
-const TABS: Array<{ id: Tab; label: string; icon: React.ElementType }> = [
+const TABS: Array<{ id: Tab; label: string; icon: LucideIcon }> = [
   { id: 'test', label: 'Test', icon: Mic },
   { id: 'configure', label: 'Configure', icon: Settings },
   { id: 'log', label: 'Call log', icon: ListMusic },

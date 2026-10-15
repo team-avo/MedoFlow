@@ -39,14 +39,18 @@ function formatTime(iso: string) {
 
 export default function FrontDeskDashboardPage() {
   const { user } = useAuth()
+  if (user && user.role !== 'FRONT_DESK') {
+    return null
+  }
+  return <FrontDeskDashboardContent />
+}
+
+function FrontDeskDashboardContent() {
+  const { user } = useAuth()
   const clinicId = user?.clinicId ?? ''
 
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('ALL_TIME')
   const [dateRangeValues, setDateRangeValues] = useState<DateRange>({})
-
-  if (user && user.role !== 'FRONT_DESK') {
-    return null
-  }
 
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery({
     queryKey: ['invoices'],

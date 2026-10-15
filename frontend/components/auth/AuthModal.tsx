@@ -25,6 +25,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ArrowRight, Lock, Mail, ShieldCheck, User as UserIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
@@ -33,6 +34,8 @@ import { BrandLogo } from '@/components/common/BrandLogo'
 import { MedoflowLoader } from '@/components/common/MedoflowLoader'
 import { useQuery } from '@tanstack/react-query'
 import { getClinic } from '@/lib/clinicApi'
+import type { User } from '@/lib/types'
+import { MfaChallengeForm } from './MfaChallengeForm'
 
 const CLINIC_DEFAULT_THEME = '#0D9488'
 
@@ -219,10 +222,7 @@ function AuthModal() {
               {mode === 'login' ? (
                 <LoginForm onSuccess={close} themeColor={clinicCtx?.themeColor} />
               ) : (
-                <SignupForm
-                  onSuccess={close}
-                  themeColor={clinicCtx?.themeColor}
-                />
+                <SignupForm onSuccess={close} themeColor={clinicCtx?.themeColor} />
               )}
             </div>
           </div>
@@ -378,9 +378,7 @@ function MobileBrandStrip({ mode, clinicCtx }: { mode: AuthMode; clinicCtx: Clin
           </div>
         )}
         <p className="mf-display min-w-0 truncate text-[13px] leading-tight text-white">
-          {mode === 'login'
-            ? `Welcome back to ${clinic.name}`
-            : `Join ${clinic.name}`}
+          {mode === 'login' ? `Welcome back to ${clinic.name}` : `Join ${clinic.name}`}
         </p>
       </div>
     )
@@ -430,13 +428,7 @@ const loginSchema = z.object({
 })
 type LoginData = z.infer<typeof loginSchema>
 
-function LoginForm({
-  onSuccess,
-  themeColor,
-}: {
-  onSuccess: () => void
-  themeColor?: string
-}) {
+function LoginForm({ onSuccess, themeColor }: { onSuccess: () => void; themeColor?: string }) {
   const isClinic = !!themeColor
   const router = useRouter()
   const search = useSearchParams()
@@ -444,17 +436,28 @@ function LoginForm({
   const returnUrl = search.get('returnUrl')
   const { login } = useAuth()
 
+  const reason = search.get('reason')
   const [error, setError] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  const [mfaToken, setMfaToken] = React.useState<string | null>(null)
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<LoginData>({ resolver: zodResolver(loginSchema) })
 
   // Patients on a clinic site stay on the clinic site after login. Only
   // staff/admin (non-PATIENT) get routed to their dashboard.
+  const finish = (user: User) => {
+    onSuccess()
+    const isPatientOnClinicSite = user.role === 'PATIENT' && pathname?.startsWith('/clinic/')
+    const target = returnUrl ? returnUrl : isPatientOnClinicSite ? pathname! : landingForRole(user)
+    router.replace(target)
+    router.refresh()
+  }
+
   const onSubmit = async (data: LoginData) => {
     setError(null)
     setSubmitting(true)
@@ -463,17 +466,14 @@ function LoginForm({
       // reject cross-clinic logins from a clinic-branded surface. The same
       // generic 401 is returned to avoid clinic enumeration.
       const clinicHint = clinicIdFromPath(pathname)
-      const user = await login(data.email, data.password, clinicHint)
-      onSuccess()
-      const isPatientOnClinicSite =
-        user.role === 'PATIENT' && pathname?.startsWith('/clinic/')
-      const target = returnUrl
-        ? returnUrl
-        : isPatientOnClinicSite
-          ? pathname!
-          : landingForRole(user)
-      router.replace(target)
-      router.refresh()
+      const result = await login(data.email, data.password, clinicHint)
+      if (result.mfaRequired) {
+        // Password accepted; tokens are only issued after the second factor.
+        setMfaToken(result.mfaToken)
+        reset({ email: data.email, password: '' })
+        return
+      }
+      finish(result.user)
     } catch (err: unknown) {
       setError(extractErrorMessage(err, 'Sign in failed'))
     } finally {
@@ -481,8 +481,31 @@ function LoginForm({
     }
   }
 
+  if (mfaToken) {
+    return (
+      <MfaChallengeForm
+        mfaToken={mfaToken}
+        onVerified={finish}
+        onRestart={() => {
+          setMfaToken(null)
+          setError(null)
+        }}
+      />
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+      {!error && (reason === 'idle' || reason === 'expired') && (
+        <div
+          role="status"
+          className="rounded-[10px] border border-amber-300/60 bg-amber-50 px-3.5 py-2.5 text-[12.5px] leading-snug text-amber-900"
+        >
+          {reason === 'idle'
+            ? 'You were signed out after a period of inactivity to protect patient data. Please sign in again.'
+            : 'Your session ended. Please sign in again.'}
+        </div>
+      )}
       {error && <FormError message={error} />}
 
       <Field
@@ -540,13 +563,7 @@ function clinicIdFromPath(pathname: string | null): string | null {
   return m?.[1] ?? null
 }
 
-function SignupForm({
-  onSuccess,
-  themeColor,
-}: {
-  onSuccess: () => void
-  themeColor?: string
-}) {
+function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeColor?: string }) {
   const pathname = usePathname()
   const isClinic = !!themeColor
   const { login } = useAuth()
@@ -646,11 +663,7 @@ function SignupForm({
         .
       </p>
 
-      <SubmitButton
-        submitting={submitting}
-        label="Create account"
-        themeColor={themeColor}
-      />
+      <SubmitButton submitting={submitting} label="Create account" themeColor={themeColor} />
     </form>
   )
 }
@@ -660,7 +673,7 @@ function SignupForm({
 type FieldProps = React.InputHTMLAttributes<HTMLInputElement> & {
   id: string
   label: string
-  icon: React.ElementType
+  icon: LucideIcon
   error?: string
   trailing?: React.ReactNode
   themeColor?: string
@@ -675,10 +688,8 @@ const Field = React.forwardRef<HTMLInputElement, FieldProps>(function Field(
   // because the value is dynamic per clinic.
   const themedStyle = themeColor
     ? ({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ['--tw-ring-color' as any]: `${themeColor}40`,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ['--auth-field-focus-border' as any]: themeColor,
+        '--tw-ring-color': `${themeColor}40`,
+        '--auth-field-focus-border': themeColor,
       } as React.CSSProperties)
     : undefined
   return (
@@ -757,10 +768,7 @@ function SubmitButton({
         'mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-[10px] text-[14px] font-bold text-white shadow-sm transition-opacity',
         submitting ? 'cursor-not-allowed opacity-80' : 'hover:opacity-90'
       )
-    : cn(
-        'mf-btn mf-btn-primary mt-2 w-full',
-        submitting && 'cursor-not-allowed opacity-80'
-      )
+    : cn('mf-btn mf-btn-primary mt-2 w-full', submitting && 'cursor-not-allowed opacity-80')
   const themedStyle = themeColor ? { backgroundColor: themeColor } : undefined
   return (
     <button type="submit" disabled={submitting} className={themedClass} style={themedStyle}>

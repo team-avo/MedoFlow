@@ -13,6 +13,7 @@ import {
   type TourScript,
   type TourStep,
 } from '@/components/tour/tours'
+import { clientLog } from '@/lib/clientLog'
 
 export interface StartOptions {
   /** force=true bypasses the hasSeenTour check; used by "Restart tour" */
@@ -121,7 +122,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       // Non-fatal — tour will just try to auto-start again on next login.
       // eslint-disable-next-line no-console
-      console.warn('[TourContext] failed to persist hasSeenTour', err)
+      clientLog.warn('[TourContext] failed to persist hasSeenTour', err)
     }
   }, [patchUser])
 

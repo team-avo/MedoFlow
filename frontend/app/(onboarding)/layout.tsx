@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { loginRedirect } from '@/lib/routeGuards'
 import { LoadingSkeleton } from '@/components/ui-system'
 
 /**
@@ -23,7 +24,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
   useEffect(() => {
     if (isLoading) return
     if (!isAuthenticated) {
-      router.replace('/?auth=login&returnUrl=/onboarding')
+      router.replace(loginRedirect('/welcome'))
       return
     }
     if (!user) return

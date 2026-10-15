@@ -321,11 +321,28 @@ function setRlsConfig(client: { $executeRaw: PrismaClient['$executeRaw'] }) {
   return client.$executeRaw`SELECT set_config('app.clinic_ids', ${clinicIds}, TRUE), set_config('app.rls_bypass', ${bypass}, TRUE), set_config('app.current_tenant_id', ${tenantId}, TRUE)`
 }
 
+type OperationListener = (model: string, operation: string) => void
+const operationListeners: OperationListener[] = []
+
+/**
+ * Observe every model operation the app issues (model + operation name only,
+ * never arguments). Used by tests that bound how many queries an endpoint
+ * makes (B1.3). Returns an unsubscribe function.
+ */
+export function onPrismaOperation(listener: OperationListener): () => void {
+  operationListeners.push(listener)
+  return () => {
+    const i = operationListeners.indexOf(listener)
+    if (i >= 0) operationListeners.splice(i, 1)
+  }
+}
+
 const extended = basePrisma.$extends({
   name: 'tenantScopeGuard',
   query: {
     $allModels: {
       async $allOperations({ model, operation, args, query, ...rest }) {
+        for (const listener of operationListeners) listener(model, operation)
         const ctx = getTenantContext()
         assertTenantScope(model, operation, args, ctx)
         assertDeletePolicy(model, operation, ctx)

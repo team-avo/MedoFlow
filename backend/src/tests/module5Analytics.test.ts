@@ -322,7 +322,8 @@ test('aggregate analytics computes finance, rates, patient value, and utilizatio
     assert.equal(result.summary.commissionSummary.owed, 10)
     assert.equal(result.summary.membershipSummary.churnRate, 50)
     assert.equal(result.summary.patientSummary.repeatVisitRate, 100)
-    assert.equal(result.summary.providerUtilization[0]?.availableMinutes, 2700)
+    // March 2026 (UTC) has 14 Mon/Tue/Wed days x 180 min of availability
+    assert.equal(result.summary.providerUtilization[0]?.availableMinutes, 2520)
   } finally {
     restore(prisma.appointment, 'findMany', originalAppointmentFindMany)
     restore(prisma.provider, 'findMany', originalProviderFindMany)

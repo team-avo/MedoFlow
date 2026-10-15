@@ -6,6 +6,7 @@ import { Trash2, Plus, Sparkles } from 'lucide-react'
 import api from '@/lib/api'
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell'
 import { AppFormField, AppInput } from '@/components/ui-system'
+import { clientLog } from '@/lib/clientLog'
 
 interface Discipline {
   id: string
@@ -195,7 +196,7 @@ export default function ServicesStepPage() {
             })
           } catch (err) {
             // eslint-disable-next-line no-console
-            console.warn('[services] create failed', d.name, err)
+            clientLog.warn('[services] create failed', err)
           }
         }
         await api.patch('/onboarding/step', { step: 5 })

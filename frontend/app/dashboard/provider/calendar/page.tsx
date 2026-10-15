@@ -341,6 +341,7 @@ export default function ProviderCalendarPage() {
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         onSuccess={handleSheetSuccess}
+        canManageSeries={user?.role === 'FRONT_DESK' || user?.role === 'SUPER_ADMIN'}
       />
     </PageContainer>
   )

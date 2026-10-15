@@ -49,10 +49,14 @@ import { getClinic } from '@/lib/clinicApi'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
-
   if (user && user.role !== 'SUPER_ADMIN') {
     return null
   }
+  return <AdminDashboardContent />
+}
+
+function AdminDashboardContent() {
+  const { user } = useAuth()
 
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('ALL_TIME')
   const [dateRangeValues, setDateRangeValues] = useState<DateRange>({})
@@ -321,12 +325,48 @@ export default function AdminDashboardPage() {
         <AppCardContent>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {[
-              { href: '/dashboard/staff', icon: Users, label: 'Team', color: 'text-blue-600', bg: 'bg-blue-50' },
-              { href: '/dashboard/services', icon: Activity, label: 'Services', color: 'text-teal-600', bg: 'bg-teal-50' },
-              { href: '/dashboard/patients', icon: FileText, label: 'Patients', color: 'text-violet-600', bg: 'bg-violet-50' },
-              { href: '/dashboard/products', icon: ShoppingBag, label: 'Storefront', color: 'text-purple-600', bg: 'bg-purple-50' },
-              { href: '/dashboard/front-desk/invoices', icon: Receipt, label: 'Billing', color: 'text-amber-600', bg: 'bg-amber-50' },
-              { href: '/dashboard/analytics', icon: TrendingUp, label: 'Analytics', color: 'text-emerald-600', bg: 'bg-emerald-50' },
+              {
+                href: '/dashboard/staff',
+                icon: Users,
+                label: 'Team',
+                color: 'text-blue-600',
+                bg: 'bg-blue-50',
+              },
+              {
+                href: '/dashboard/services',
+                icon: Activity,
+                label: 'Services',
+                color: 'text-teal-600',
+                bg: 'bg-teal-50',
+              },
+              {
+                href: '/dashboard/patients',
+                icon: FileText,
+                label: 'Patients',
+                color: 'text-violet-600',
+                bg: 'bg-violet-50',
+              },
+              {
+                href: '/dashboard/products',
+                icon: ShoppingBag,
+                label: 'Storefront',
+                color: 'text-purple-600',
+                bg: 'bg-purple-50',
+              },
+              {
+                href: '/dashboard/front-desk/invoices',
+                icon: Receipt,
+                label: 'Billing',
+                color: 'text-amber-600',
+                bg: 'bg-amber-50',
+              },
+              {
+                href: '/dashboard/analytics',
+                icon: TrendingUp,
+                label: 'Analytics',
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50',
+              },
             ].map(({ href, icon: Icon, label, color, bg }) => (
               <Link
                 key={href}
@@ -464,8 +504,8 @@ function WebsiteStatusBanner({
                 Your patient website isn't live yet.
               </h2>
               <p className="mt-1 max-w-xl text-sm text-slate-600">
-                Generate a branded booking site for {clinicName}. Patients can sign up and
-                book the moment it's live.
+                Generate a branded booking site for {clinicName}. Patients can sign up and book the
+                moment it's live.
               </p>
             </div>
           </div>
@@ -529,7 +569,10 @@ function WebsiteStatusBanner({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <a
-            href={websiteUrl.replace(typeof window !== 'undefined' ? window.location.origin : '', '')}
+            href={websiteUrl.replace(
+              typeof window !== 'undefined' ? window.location.origin : '',
+              ''
+            )}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"

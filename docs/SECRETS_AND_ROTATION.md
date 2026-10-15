@@ -1,6 +1,6 @@
 # Secrets inventory and rotation (B0.6.3)
 
-All runtime secrets live in **Render environment variables** for `medoflow-backend` (the secret store for the API). CI secrets live in **GitHub Actions secrets** on `myselfabhi/MedoFlow`. The rest are **Cloudflare** secrets. Nothing secret is committed: `gitleaks` runs in CI over the full history, and every value in `render.yaml` is `sync: false` (prompted) or generated.
+All runtime secrets live in **Render environment variables** for `medoflow-backend` (the secret store for the API). CI secrets live in **GitHub Actions secrets** on `team-avo/MedoFlow`. The rest are **Cloudflare** secrets. Nothing secret is committed: `gitleaks` runs in CI over the full history, and every value in `render.yaml` is `sync: false` (prompted) or generated.
 
 | Secret                                                       | Store  | Rotation                                         | Notes                                                            |
 | ------------------------------------------------------------ | ------ | ------------------------------------------------ | ---------------------------------------------------------------- |

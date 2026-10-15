@@ -2,13 +2,18 @@ import type { Request, Response, NextFunction } from 'express'
 import type * as multer from 'multer'
 import type { ApiError } from '../types/errors'
 import { logError } from '../utils/errorLogger'
+import { isAppointmentOverlapError, slotTakenError } from '../utils/bookingConflict'
 
 export const errorHandler = (
-  err: ApiError | multer.MulterError,
+  caught: ApiError | multer.MulterError,
   req: Request,
   res: Response,
   _next: NextFunction
 ): Response => {
+  // A write the B1.1 overlap constraint refused, from any code path (e.g. a
+  // status change that re-activates a cancelled appointment): a clean 409,
+  // never a 500 carrying the raw database message.
+  const err = isAppointmentOverlapError(caught) ? slotTakenError() : caught
   const multerErr = err as multer.MulterError
   if (multerErr.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({

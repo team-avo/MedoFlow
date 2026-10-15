@@ -1,0 +1,4 @@
+{
+  "$comment": "F0.3.3: client-side analytics / monitoring SDKs. Empty = none in use. Any entry needs the vendor BAA reference (from the vendor BAA register, A.6) and must send events through lib/phiScrub.ts#scrubPhi (e.g. Sentry beforeSend). Enforced by tests/unit/staticGuards.test.ts.",
+  "allowed": []
+}
