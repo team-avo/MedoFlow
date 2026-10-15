@@ -5,3 +5,10 @@
 backend/src/config/stripe.ts:stripe-access-token:3
 # frontend/e2e/mockApi.ts:13 — synthetic e2e password for the mocked login, not a credential.
 215a4008663f08caa2eec8ce8337c8c1b91772b1:frontend/e2e/mockApi.ts:generic-api-key:13
+# Synthetic integration-test fixture password (same made-up value in each place), not a credential.
+68646fd978e521c10516c6fe21be9589ddc58460:backend/src/tests/integration/rateLimit.int.test.ts:generic-api-key:24
+68646fd978e521c10516c6fe21be9589ddc58460:backend/src/tests/integration/rateLimit.int.test.ts:generic-api-key:58
+cb31e497bd7af2c702923a60c83b81cbf2638a84:backend/src/tests/integration/helpers.ts:generic-api-key:100
+# Comment in this file and a Part 0 doc line that name the stripe.ts placeholder fallback above.
+b6e7f934759980e38acf2aabf4805e4d4846f038:.gitleaksignore:stripe-access-token:2
+b6e7f934759980e38acf2aabf4805e4d4846f038:development-log-docs/initial-deployment-WALKTHROUGH-AND-VERIFICATION.md:stripe-access-token:85
