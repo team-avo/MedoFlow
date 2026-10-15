@@ -3,3 +3,5 @@
 # (Making STRIPE_SECRET_KEY mandatory in production is tracked as B4.1 / F4.3.)
 230167b5b1bee447c7c2c5cb748f4b93a9e271ad:backend/src/config/stripe.ts:stripe-access-token:3
 backend/src/config/stripe.ts:stripe-access-token:3
+# frontend/e2e/mockApi.ts:13 — synthetic e2e password for the mocked login, not a credential.
+215a4008663f08caa2eec8ce8337c8c1b91772b1:frontend/e2e/mockApi.ts:generic-api-key:13
