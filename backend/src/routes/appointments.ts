@@ -9,6 +9,7 @@ import {
   appointmentCreateSchema,
   appointmentRecurringSchema,
   appointmentRescheduleSchema,
+  appointmentSeriesCancelSchema,
 } from '../validation/module2Schemas'
 
 const router = Router()
@@ -34,6 +35,15 @@ router.post(
   setClinicFromUser,
   validateRequest(appointmentRecurringSchema),
   appointmentController.createRecurring
+)
+
+// F1.2: staff cancel every upcoming visit of a recurring series in one action.
+router.post(
+  '/recurring/:seriesId/cancel',
+  authorize(Role.SUPER_ADMIN, Role.FRONT_DESK),
+  setClinicFromUser,
+  validateRequest(appointmentSeriesCancelSchema),
+  appointmentController.cancelSeries
 )
 
 router.get('/my', authorize(Role.PATIENT), setClinicFromUser, appointmentController.getMy)

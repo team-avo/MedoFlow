@@ -1,13 +1,15 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * Browser end-to-end tests (F0.2.1 idle logoff, F0.2.2 MFA enrol + challenge).
+ * Browser end-to-end tests (F0.2.1 idle logoff, F0.2.2 MFA enrol + challenge,
+ * F1.1–F1.3 booking, waitlist, recurring series, cancel/reschedule).
  *
  * They drive the production build of the app in Chromium. The API is
- * simulated per test by e2e/mockApi.ts (stateful, verifies real RFC 6238
- * TOTP codes), so the suite needs no database and runs the same in CI.
- * The real backend behaviour behind these screens is covered by the backend
- * integration suites (authSafeguards.int.test.ts).
+ * simulated per test by e2e/mockApi.ts (stateful auth, verifies real RFC 6238
+ * TOTP codes) and e2e/schedulingMock.ts (stateful scheduling), so the suite
+ * needs no database and runs the same in CI. The real backend behaviour
+ * behind these screens is covered by the backend integration suites
+ * (authSafeguards.int.test.ts, scheduling.int.test.ts).
  *
  *   pnpm test:e2e                     build + start on :4310, run (CI, Linux/macOS)
  *   E2E_SKIP_BUILD=1 pnpm test:e2e    reuse the last e2e build

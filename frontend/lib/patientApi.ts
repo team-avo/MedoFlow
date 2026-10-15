@@ -35,11 +35,20 @@ export interface PatientAppointment {
   }
   service: { id: string; name: string }
   meetLink?: string | null
+  recurringSeriesId?: string | null
 }
 
 export interface PatientAppointmentDetail extends PatientAppointment {
   clinic: { id: string; name: string }
-  service: { id: string; name: string; duration: number }
+  service: {
+    id: string
+    name: string
+    duration: number
+    /** Cancellation policy (F1.3); see lib/cancellationPolicy.ts. */
+    cancellationWindowHours?: number | null
+    cancellationFeeType?: string | null
+    cancellationFeeValue?: string | null
+  }
   patient: { id: string; name: string; email: string }
 }
 
@@ -113,6 +122,21 @@ export interface ProviderAppointment {
   patient: { id: string; name: string; email: string }
   provider?: { id: string; firstName: string; lastName: string }
   meetLink?: string | null
+  recurringSeriesId?: string | null
+}
+
+export interface ClinicPatient {
+  id: string
+  name: string
+  email: string
+}
+
+/** Staff: the clinic's active patients (id, name, email only). */
+export const getClinicPatients = async (): Promise<ClinicPatient[]> => {
+  const { data } = await api.get<{ success: boolean; data: { patients: ClinicPatient[] } }>(
+    '/patients'
+  )
+  return data.data.patients
 }
 
 export const getProviderAppointments = async (
@@ -150,12 +174,14 @@ export const cancelAppointment = async (
   reason?: string
 ): Promise<{
   appointment: PatientAppointment
+  lateCancellation?: boolean
   cancellationFee?: { type: string; value: string; amount?: string }
 }> => {
   const { data } = await api.post<{
     success: boolean
     data: {
       appointment: PatientAppointment
+      lateCancellation?: boolean
       cancellationFee?: { type: string; value: string; amount?: string }
     }
   }>(`/appointments/${appointmentId}/cancel`, { reason: reason ?? '' })

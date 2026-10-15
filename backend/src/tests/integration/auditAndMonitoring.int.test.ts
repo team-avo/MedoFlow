@@ -10,7 +10,7 @@ import path from 'path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PrismaClient } from '@prisma/client'
 import { adminDb, api, login, startServer, type TestServer } from './helpers'
-import { createClinicFixture, type ClinicFixture } from './fixtures'
+import { createClinicFixture, slot, type ClinicFixture } from './fixtures'
 import { purgeExpiredAuditLogs } from '../../services/auditService'
 import { UPLOAD_BASE } from '../../config/multer'
 import {
@@ -203,15 +203,18 @@ describe('B0.6.5 security alerts', () => {
       const others = await Promise.all([1, 2].map(() => createClinicFixture('audit-x')))
       // Three distinct visit records in the provider's clinic: reuse the fixture visit + 2 new ones.
       const extra = await Promise.all(
-        others.map(async (o) => {
+        others.map(async (o, i) => {
+          // Distinct 30-minute slots: the provider cannot hold overlapping
+          // live appointments (B1.1 exclusion constraint).
+          const s = slot(20 + i, 9)
           const appt = await adminDb.appointment.create({
             data: {
               clinicId: C.clinicId,
               providerId: C.providerId,
               serviceId: C.serviceId,
               patientId: C.users.patient.id,
-              startTime: new Date(Date.now() + Math.random() * 1e9 + 1e9),
-              endTime: new Date(Date.now() + Math.random() * 1e9 + 2e9),
+              startTime: new Date(s.startTime),
+              endTime: new Date(s.endTime),
               priceAtBooking: 100,
             },
           })
