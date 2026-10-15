@@ -1,8 +1,8 @@
-import { Request, Response } from 'express'
+import type { Request, Response } from 'express'
 import * as voiceAgentService from '../services/voiceAgentService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { z } from 'zod'
 
 const clinicScope = (req: Request): string => {
@@ -129,7 +129,7 @@ export const executeTool = asyncHandler(async (req: Request, res: Response) => {
 
 export const runTurn = asyncHandler(async (req: Request, res: Response) => {
   const clinicId = clinicScope(req)
-  const callId = String(req.body.callId ?? '')
+  const callId = String((req.body as { callId?: string | number | null }).callId ?? '')
   if (!callId) {
     const err = new Error('callId required') as ApiError
     err.statusCode = 400

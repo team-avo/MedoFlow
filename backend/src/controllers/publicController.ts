@@ -1,25 +1,25 @@
-import { Request, Response, NextFunction } from 'express';
-import prisma from '../config/prisma';
-import { successResponse } from '../utils/apiResponse';
-import { asyncHandler } from '../utils/asyncHandler';
-import { ApiError } from '../types/errors';
-import * as slotHoldService from '../services/slotHoldService';
-import * as availabilityService from '../services/availabilityService';
+import type { Request, Response, NextFunction } from 'express'
+import prisma from '../config/prisma'
+import { successResponse } from '../utils/apiResponse'
+import { asyncHandler } from '../utils/asyncHandler'
+import type { ApiError } from '../types/errors'
+import * as slotHoldService from '../services/slotHoldService'
+import * as availabilityService from '../services/availabilityService'
 
-const ONLINE_LOCATION_NAMES = ['online', 'virtual'];
+const ONLINE_LOCATION_NAMES = ['online', 'virtual']
 
 // Public clinic routes accept either the cuid (e.g. `clinic_0dzeprrd`) or
 // the human slug (e.g. `everwell`) in the `:id` path param. Every handler
 // below normalises through this resolver so /clinic/everwell shows the same
 // data as /clinic/<cuid>.
 const resolveClinicId = async (idOrSlug: string): Promise<string | null> => {
-  if (!idOrSlug) return null;
+  if (!idOrSlug) return null
   const clinic = await prisma.clinic.findFirst({
     where: { isActive: true, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
     select: { id: true },
-  });
-  return clinic?.id ?? null;
-};
+  })
+  return clinic?.id ?? null
+}
 
 export const listClinics = asyncHandler(
   async (_req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -35,17 +35,17 @@ export const listClinics = asyncHandler(
         subscriptionPlan: true,
       },
       orderBy: { name: 'asc' },
-    });
-    successResponse(res, 200, 'Clinics retrieved', { clinics });
+    })
+    successResponse(res, 200, 'Clinics retrieved', { clinics })
   }
-);
+)
 
 // Resolve by slug first, then by id. Lets the same /clinics/:idOrSlug
 // route work for both pretty URLs and legacy cuid links without forking
 // the API surface.
 export const getClinic = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const idOrSlug = req.params.id as string;
+    const idOrSlug = req.params.id as string
     const clinic = await prisma.clinic.findFirst({
       where: { isActive: true, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
       select: {
@@ -57,23 +57,23 @@ export const getClinic = asyncHandler(
         themeColor: true,
         subscriptionPlan: true,
       },
-    });
+    })
     if (!clinic) {
-      const err = new Error('Clinic not found') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Clinic not found') as ApiError
+      err.statusCode = 404
+      throw err
     }
-    successResponse(res, 200, 'Clinic retrieved', { clinic });
+    successResponse(res, 200, 'Clinic retrieved', { clinic })
   }
-);
+)
 
 export const getClinicServices = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const id = req.params.id as string;
-    const clinicId = await resolveClinicId(id);
+    const id = req.params.id as string
+    const clinicId = await resolveClinicId(id)
     if (!clinicId) {
-      successResponse(res, 200, 'Services retrieved', { services: [] });
-      return;
+      successResponse(res, 200, 'Services retrieved', { services: [] })
+      return
     }
     const services = await prisma.service.findMany({
       where: {
@@ -86,21 +86,21 @@ export const getClinicServices = asyncHandler(
       include: {
         discipline: { select: { id: true, name: true } },
         recommendedProducts: {
-          select: { id: true, name: true, price: true, description: true }
-        }
+          select: { id: true, name: true, price: true, description: true },
+        },
       },
-    });
-    successResponse(res, 200, 'Services retrieved', { services });
+    })
+    successResponse(res, 200, 'Services retrieved', { services })
   }
-);
+)
 
 export const getClinicProviders = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const idOrSlug = (req.params.id as string) || (req.query.clinicId as string);
-    const clinicId = await resolveClinicId(idOrSlug);
+    const idOrSlug = (req.params.id as string) || (req.query.clinicId as string)
+    const clinicId = await resolveClinicId(idOrSlug)
     if (!clinicId) {
-      successResponse(res, 200, 'Providers retrieved', { providers: [] });
-      return;
+      successResponse(res, 200, 'Providers retrieved', { providers: [] })
+      return
     }
     const providers = await prisma.provider.findMany({
       where: { clinicId, isActive: true },
@@ -122,48 +122,48 @@ export const getClinicProviders = asyncHandler(
           select: { serviceId: true },
         },
         providerAvailability: {
-          select: { weekday: true, locationId: true }
+          select: { weekday: true, locationId: true },
         },
         providerUnavailability: {
           where: {
-            date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+            date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
           },
-          select: { date: true, startTime: true, endTime: true }
-        }
+          select: { date: true, startTime: true, endTime: true },
+        },
       },
-    });
-    successResponse(res, 200, 'Providers retrieved', { providers });
+    })
+    successResponse(res, 200, 'Providers retrieved', { providers })
   }
-);
+)
 
 export const getClinicLocations = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const idOrSlug = req.params.id as string;
-    const clinicId = await resolveClinicId(idOrSlug);
+    const idOrSlug = req.params.id as string
+    const clinicId = await resolveClinicId(idOrSlug)
     if (!clinicId) {
-      successResponse(res, 200, 'Locations retrieved', { locations: [] });
-      return;
+      successResponse(res, 200, 'Locations retrieved', { locations: [] })
+      return
     }
     const locations = await prisma.location.findMany({
       where: { clinicId, isActive: true },
       select: { id: true, name: true, address: true, timezone: true },
-    });
+    })
     locations.sort((left, right) => {
-      const leftOnline = ONLINE_LOCATION_NAMES.includes(left.name.trim().toLowerCase()) ? 1 : 0;
-      const rightOnline = ONLINE_LOCATION_NAMES.includes(right.name.trim().toLowerCase()) ? 1 : 0;
-      return rightOnline - leftOnline || left.name.localeCompare(right.name);
-    });
-    successResponse(res, 200, 'Locations retrieved', { locations });
+      const leftOnline = ONLINE_LOCATION_NAMES.includes(left.name.trim().toLowerCase()) ? 1 : 0
+      const rightOnline = ONLINE_LOCATION_NAMES.includes(right.name.trim().toLowerCase()) ? 1 : 0
+      return rightOnline - leftOnline || left.name.localeCompare(right.name)
+    })
+    successResponse(res, 200, 'Locations retrieved', { locations })
   }
-);
+)
 
 export const getClinicProducts = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const idOrSlug = req.params.id as string;
-    const clinicId = await resolveClinicId(idOrSlug);
+    const idOrSlug = req.params.id as string
+    const clinicId = await resolveClinicId(idOrSlug)
     if (!clinicId) {
-      successResponse(res, 200, 'Products retrieved', { products: [] });
-      return;
+      successResponse(res, 200, 'Products retrieved', { products: [] })
+      return
     }
     const products = await prisma.product.findMany({
       where: {
@@ -174,18 +174,18 @@ export const getClinicProducts = asyncHandler(
         inventoryItem: true,
       },
       orderBy: { name: 'asc' },
-    });
-    successResponse(res, 200, 'Products retrieved', { products });
+    })
+    successResponse(res, 200, 'Products retrieved', { products })
   }
-);
+)
 
 export const getClinicPackages = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const idOrSlug = req.params.id as string;
-    const clinicId = await resolveClinicId(idOrSlug);
+    const idOrSlug = req.params.id as string
+    const clinicId = await resolveClinicId(idOrSlug)
     if (!clinicId) {
-      successResponse(res, 200, 'Packages retrieved', { packages: [] });
-      return;
+      successResponse(res, 200, 'Packages retrieved', { packages: [] })
+      return
     }
     const packages = await prisma.package.findMany({
       where: {
@@ -193,18 +193,18 @@ export const getClinicPackages = asyncHandler(
         isActive: true,
       },
       orderBy: { name: 'asc' },
-    });
-    successResponse(res, 200, 'Packages retrieved', { packages });
+    })
+    successResponse(res, 200, 'Packages retrieved', { packages })
   }
-);
+)
 
 export const getClinicMemberships = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const idOrSlug = req.params.id as string;
-    const clinicId = await resolveClinicId(idOrSlug);
+    const idOrSlug = req.params.id as string
+    const clinicId = await resolveClinicId(idOrSlug)
     if (!clinicId) {
-      successResponse(res, 200, 'Memberships retrieved', { memberships: [] });
-      return;
+      successResponse(res, 200, 'Memberships retrieved', { memberships: [] })
+      return
     }
     const memberships = await prisma.membership.findMany({
       where: {
@@ -212,68 +212,60 @@ export const getClinicMemberships = asyncHandler(
         isActive: true,
       },
       orderBy: { name: 'asc' },
-    });
-    successResponse(res, 200, 'Memberships retrieved', { memberships });
+    })
+    successResponse(res, 200, 'Memberships retrieved', { memberships })
   }
-);
+)
 
 export const getProduct = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const id = req.params.id as string;
+    const id = req.params.id as string
     const product = await prisma.product.findFirst({
       where: { id, isActive: true },
       include: {
         inventoryItem: true,
       },
-    });
+    })
     if (!product) {
-      const err = new Error('Product not found') as ApiError;
-      err.statusCode = 404;
-      throw err;
+      const err = new Error('Product not found') as ApiError
+      err.statusCode = 404
+      throw err
     }
-    successResponse(res, 200, 'Product retrieved', { product });
+    successResponse(res, 200, 'Product retrieved', { product })
   }
-);
+)
 
 export const checkPatientExists = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const { email } = req.query;
+    const { email } = req.query
     if (!email || typeof email !== 'string') {
-      const err = new Error('Email is required') as ApiError;
-      err.statusCode = 400;
-      throw err;
+      const err = new Error('Email is required') as ApiError
+      err.statusCode = 400
+      throw err
     }
     const user = await prisma.user.findUnique({
       where: { email, role: 'PATIENT' },
       select: { id: true },
-    });
-    successResponse(res, 200, 'Check complete', { exists: !!user });
+    })
+    successResponse(res, 200, 'Check complete', { exists: !!user })
   }
-);
+)
 
 export const getAvailability = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const {
-      clinicId,
-      serviceId,
-      providerId,
-      locationId,
-      date,
-    } = req.query as {
-      clinicId?: string;
-      serviceId?: string;
-      providerId?: string;
-      locationId?: string;
-      date?: string;
-    };
+    const { clinicId, serviceId, providerId, locationId, date } = req.query as {
+      clinicId?: string
+      serviceId?: string
+      providerId?: string
+      locationId?: string
+      date?: string
+    }
 
     if (!clinicId || !serviceId || !date) {
-      const err = new Error(
-        'clinicId, serviceId, and date are required'
-      ) as ApiError;
-      err.statusCode = 400;
-      err.code = 'validation_error';
-      throw err;
+      const err = new Error('clinicId, serviceId, and date are required') as ApiError
+      err.statusCode = 400
+      err.code = 'validation_error'
+      throw err
     }
 
     const service = await prisma.service.findFirst({
@@ -284,12 +276,12 @@ export const getAvailability = asyncHandler(
         isArchived: false,
         discipline: { isArchived: false },
       },
-    });
+    })
     if (!service) {
-      const err = new Error('Service not found') as ApiError;
-      err.statusCode = 404;
-      err.code = 'validation_error';
-      throw err;
+      const err = new Error('Service not found') as ApiError
+      err.statusCode = 404
+      err.code = 'validation_error'
+      throw err
     }
 
     let resolvedLocation = locationId
@@ -307,7 +299,7 @@ export const getAvailability = asyncHandler(
           },
           orderBy: { createdAt: 'asc' },
           select: { id: true, timezone: true },
-        });
+        })
 
     // Fallback to the first available location if no online/requested location is found
     if (!resolvedLocation) {
@@ -315,18 +307,17 @@ export const getAvailability = asyncHandler(
         where: { clinicId, isActive: true },
         orderBy: { createdAt: 'asc' },
         select: { id: true, timezone: true },
-      });
+      })
     }
 
-    // If still no location, we allow the request to proceed with a virtual 'None' location 
+    // If still no location, we allow the request to proceed with a virtual 'None' location
     // to search for providers who might have general availability.
-    const effectiveLocationId = resolvedLocation?.id;
-    const effectiveTimezone = resolvedLocation?.timezone ?? 'UTC';
+    const effectiveLocationId = resolvedLocation?.id
 
-    // Removed strict 404 throw for missing location, as the scheduling service 
+    // Removed strict 404 throw for missing location, as the scheduling service
     // can handle null locationId for general availability checks.
 
-    let providerIds: string[] = [];
+    let providerIds: string[] = []
     if (providerId) {
       const p = await prisma.provider.findFirst({
         where: {
@@ -337,8 +328,8 @@ export const getAvailability = asyncHandler(
           // Removed the strict locationAssignment check here to allow the scheduling service
           // to handle location-specific availability windows more flexibly.
         },
-      });
-      if (p) providerIds = [p.id];
+      })
+      if (p) providerIds = [p.id]
     } else {
       const providers = await prisma.provider.findMany({
         where: {
@@ -349,11 +340,11 @@ export const getAvailability = asyncHandler(
           // They will only produce slots if they have a valid assignment/availability record.
         },
         select: { id: true },
-      });
-      providerIds = providers.map((p) => p.id);
+      })
+      providerIds = providers.map((p) => p.id)
     }
 
-    const slots: Awaited<ReturnType<typeof availabilityService.getAvailableSlots>> = [];
+    const slots: Awaited<ReturnType<typeof availabilityService.getAvailableSlots>> = []
     for (const pid of providerIds) {
       const providerSlots = await availabilityService.getAvailableSlots({
         providerId: pid,
@@ -362,44 +353,36 @@ export const getAvailability = asyncHandler(
         serviceDurationMinutes: service.duration,
         date,
         clinicId,
-      });
-      slots.push(...providerSlots);
+      })
+      slots.push(...providerSlots)
     }
 
-    slots.sort((left, right) => left.start.localeCompare(right.start));
+    slots.sort((left, right) => left.start.localeCompare(right.start))
 
-    successResponse(res, 200, 'Availability retrieved', { slots });
+    successResponse(res, 200, 'Availability retrieved', { slots })
   }
-);
+)
 
 export const createSlotHold = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const {
-      clinicId,
-      providerId,
-      serviceId,
-      locationId,
-      timezone,
-      startTime,
-      endTime,
-      patientId,
-    } = req.body as {
-      clinicId: string;
-      providerId: string;
-      serviceId: string;
-      locationId?: string | null;
-      timezone: string;
-      startTime: string;
-      endTime: string;
-      patientId?: string;
-    };
+    const { clinicId, providerId, serviceId, locationId, timezone, startTime, endTime, patientId } =
+      req.body as {
+        clinicId: string
+        providerId: string
+        serviceId: string
+        locationId?: string | null
+        timezone: string
+        startTime: string
+        endTime: string
+        patientId?: string
+      }
     if (!clinicId || !providerId || !serviceId || !startTime || !endTime || !timezone) {
       const err = new Error(
         'clinicId, providerId, serviceId, timezone, startTime, and endTime are required'
-      ) as ApiError;
-      err.statusCode = 400;
-      err.code = 'validation_error';
-      throw err;
+      ) as ApiError
+      err.statusCode = 400
+      err.code = 'validation_error'
+      throw err
     }
     const hold = await slotHoldService.createSlotHold({
       clinicId,
@@ -411,37 +394,44 @@ export const createSlotHold = asyncHandler(
       endTime: new Date(endTime),
       patientId,
       performedById: patientId,
-    });
-    successResponse(res, 201, 'Slot hold created', { hold });
+    })
+    successResponse(res, 201, 'Slot hold created', { hold })
   }
-);
+)
 
 export const releaseSlotHold = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const holdId = req.params.holdId as string;
-    const clinicId = (req.query.clinicId as string) || (req.body?.clinicId as string);
+    const holdId = req.params.holdId as string
+    const clinicId =
+      (req.query.clinicId as string) ||
+      ((req.body as { clinicId?: string } | undefined)?.clinicId as string)
     if (!clinicId) {
-      const err = new Error('clinicId is required') as ApiError;
-      err.statusCode = 400;
-      err.code = 'validation_error';
-      throw err;
+      const err = new Error('clinicId is required') as ApiError
+      err.statusCode = 400
+      err.code = 'validation_error'
+      throw err
     }
-    const released = await slotHoldService.releaseSlotHold(holdId, clinicId);
+    const released = await slotHoldService.releaseSlotHold(holdId, clinicId)
     successResponse(res, 200, released ? 'Slot hold released' : 'Slot hold not found', {
       released,
-    });
+    })
   }
-);
+)
 
 export const getAvailableDatesSummary = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const clinicId = (req.params.clinicId as string) || (req.query.clinicId as string);
-    const { serviceId, providerId, locationId, startDate, endDate } = req.query as any;
+    const clinicId = (req.params.clinicId as string) || (req.query.clinicId as string)
+    const { serviceId, providerId, locationId, startDate, endDate } = req.query as Record<
+      string,
+      string | undefined
+    >
 
     if (!serviceId || !startDate || !endDate || !clinicId) {
-      const err = new Error('Clinic ID, Service ID, start date, and end date are required') as any;
-      err.statusCode = 400;
-      throw err;
+      const err = new Error(
+        'Clinic ID, Service ID, start date, and end date are required'
+      ) as ApiError
+      err.statusCode = 400
+      throw err
     }
 
     const availableDates = await availabilityService.getAvailableDatesInRange({
@@ -451,8 +441,8 @@ export const getAvailableDatesSummary = asyncHandler(
       locationId: locationId || undefined,
       startDate,
       endDate,
-    });
+    })
 
-    successResponse(res, 200, 'Available dates retrieved', { availableDates });
+    successResponse(res, 200, 'Available dates retrieved', { availableDates })
   }
-);
+)

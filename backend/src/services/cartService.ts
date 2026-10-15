@@ -1,6 +1,7 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
-import { CartItemType, CartStatus, PaymentStatus, Prisma, SubscriptionStatus } from '@prisma/client'
+import type { ApiError } from '../types/errors'
+import type { CartItemType } from '@prisma/client'
+import { PaymentStatus, Prisma, SubscriptionStatus } from '@prisma/client'
 
 import stripe from '../config/stripe'
 import { recalculateInvoiceTotals } from './invoiceService'
@@ -200,7 +201,7 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
 
   // Re-fetch invoice to get updated amounts for Stripe
   const updatedInvoice = await prisma.invoice.findUnique({
-    where: { id: invoice.id },
+    where: { id: invoice.id, clinicId },
   })
 
   if (!updatedInvoice) throw new Error('Failed to retrieve updated invoice')
@@ -225,7 +226,7 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
 
     await prisma.$transaction([
       prisma.invoice.update({
-        where: { id: updatedInvoice.id },
+        where: { id: updatedInvoice.id, clinicId },
         data: { status: 'FINALIZED' },
       }),
       prisma.payment.create({
@@ -243,7 +244,7 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
         },
       }),
       prisma.cart.update({
-        where: { id: cart.id },
+        where: { id: cart.id, clinicId },
         data: { status: 'CHECKED_OUT' },
       }),
     ])
@@ -362,7 +363,7 @@ export const demoCheckoutCart = async (clinicId: string, patientId: string) => {
     }
 
     if (item.packageId) {
-      const pkg = await prisma.package.findUnique({ where: { id: item.packageId } })
+      const pkg = await prisma.package.findUnique({ where: { id: item.packageId, clinicId } })
       if (pkg) {
         await prisma.patientPackage.create({
           data: {
@@ -395,7 +396,7 @@ export const demoCheckoutCart = async (clinicId: string, patientId: string) => {
 
   // Update cart status
   await prisma.cart.update({
-    where: { id: cart.id },
+    where: { id: cart.id, clinicId },
     data: { status: 'CHECKED_OUT' },
   })
 

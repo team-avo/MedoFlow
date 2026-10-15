@@ -7,7 +7,7 @@ import { requireClinic } from '../middleware/requireClinic'
 import { validateRequest } from '../middleware/validateRequest'
 import { Role } from '@prisma/client'
 import * as sitePageService from '../services/sitePageService'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 
 const router = Router()
 
@@ -70,7 +70,10 @@ router.post(
     }),
   }),
   asyncHandler(async (req, res) => {
-    const result = await sitePageService.aiBootstrapPage(clinicId(req), req.body)
+    const result = await sitePageService.aiBootstrapPage(
+      clinicId(req),
+      req.body as Parameters<typeof sitePageService.aiBootstrapPage>[1]
+    )
     successResponse(res, 200, 'Bootstrap complete', result)
   })
 )
@@ -87,7 +90,10 @@ router.post(
   '/',
   validateRequest(createSchema),
   asyncHandler(async (req, res) => {
-    const page = await sitePageService.createPage(clinicId(req), req.body)
+    const page = await sitePageService.createPage(
+      clinicId(req),
+      req.body as Parameters<typeof sitePageService.createPage>[1]
+    )
     successResponse(res, 201, 'Page created', page)
   })
 )
@@ -107,7 +113,7 @@ router.put(
     const page = await sitePageService.updateDraft(
       clinicId(req),
       String(req.params['id']),
-      req.body
+      req.body as Parameters<typeof sitePageService.updateDraft>[2]
     )
     successResponse(res, 200, 'Draft saved', page)
   })

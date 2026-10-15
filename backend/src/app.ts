@@ -6,7 +6,8 @@ import morgan from 'morgan'
 import cookieParser from 'cookie-parser'
 import routes from './routes'
 import { errorHandler } from './middleware/errorHandler'
-import { ApiError } from './types/errors'
+import type { ApiError } from './types/errors'
+import { scrubUrl } from './utils/phiScrubber'
 
 const app = express()
 
@@ -48,9 +49,23 @@ app.use(
     credentials: true,
   })
 )
-app.use(morgan('combined'))
-// Raised limit to accept base64 logo data-URLs during onboarding (<=2 MB raw → ~2.7 MB encoded)
-app.use(express.json({ limit: '6mb' }))
+// Request log with every query-string value masked (B0.3.5): e.g.
+// /public/patients/check?email=… must never write the address to the log drain.
+morgan.token('safe-url', (req) => scrubUrl((req as express.Request).originalUrl ?? req.url ?? ''))
+app.use(
+  morgan(
+    ':remote-addr - :remote-user [:date[clf]] ":method :safe-url HTTP/:http-version" :status :res[content-length] ":referrer" ":user-agent"',
+    { skip: () => process.env.NODE_ENV === 'test' }
+  )
+)
+// Raised limit to accept base64 logo data-URLs during onboarding (<=2 MB raw → ~2.7 MB encoded).
+// The Stripe webhook is skipped: signature verification needs the raw body,
+// which routes/webhooks.ts reads with express.raw().
+const jsonParser = express.json({ limit: '6mb' })
+app.use((req, res, next) => {
+  if (req.path === '/api/v1/webhooks/stripe') return next()
+  jsonParser(req, res, next)
+})
 app.use(cookieParser())
 
 app.use('/api/v1', routes)

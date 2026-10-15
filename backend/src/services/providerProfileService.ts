@@ -1,5 +1,6 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
+import { clinicScope } from '../config/tenantContext'
 
 export interface ProviderProfileUpdate {
   bio?: string | null
@@ -15,7 +16,7 @@ export interface ProviderProfileUpdate {
 
 async function getProviderForUser(userId: string) {
   const provider = await prisma.provider.findFirst({
-    where: { userId },
+    where: { userId, ...clinicScope() },
     select: {
       id: true,
       clinicId: true,
@@ -71,7 +72,7 @@ export async function updateMyProfile(userId: string, input: ProviderProfileUpda
   }
 
   const updated = await prisma.provider.update({
-    where: { id: provider.id },
+    where: { id: provider.id, clinicId: provider.clinicId },
     data: {
       bio: input.bio === undefined ? undefined : input.bio,
       headshotUrl: input.headshotUrl === undefined ? undefined : input.headshotUrl,
@@ -104,7 +105,7 @@ export async function updateMyProfile(userId: string, input: ProviderProfileUpda
 
 export async function listAvailableTemplates(userId: string) {
   const provider = await prisma.provider.findFirst({
-    where: { userId },
+    where: { userId, ...clinicScope() },
     select: { clinicId: true },
   })
   if (!provider) {

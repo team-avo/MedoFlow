@@ -28,9 +28,8 @@ async function sendEmail(params: {
     if (!isExplicitDev) {
       throw new Error('SMTP is not configured. Refusing to send email outside development.')
     }
-    console.log('[Email] SMTP not configured. Would send:')
-    console.log(`  To: ${to}`)
-    console.log(`  Subject: ${subject}`)
+    // Recipient intentionally not logged (PII).
+    console.warn(`[Email] SMTP not configured. Skipping send: ${subject}`)
     return
   }
 

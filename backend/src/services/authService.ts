@@ -1,6 +1,6 @@
 import * as argon2 from 'argon2'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { ensurePatientClinicMembership } from './patientMembershipService'
 
 export interface RegisterBody {

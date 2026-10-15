@@ -1,4 +1,4 @@
-import { Role, TenantStatus, TenantPlan } from '@prisma/client'
+import type { Role, TenantStatus, TenantPlan } from '@prisma/client'
 
 declare global {
   namespace Express {
@@ -13,6 +13,8 @@ declare global {
         customRoleName: string | null
         permissions: string[]
         hasSeenPatientTour?: boolean
+        /** UserSession bound to the access token (B0.2.1) */
+        sessionId?: string
       }
       clinicId?: string | null
       /** Resolved from clinic → tenant; null for PLATFORM_ADMIN */
@@ -23,6 +25,11 @@ declare global {
         plan: TenantPlan
       } | null
       bypassClinicScope?: boolean
+      /** Active break-glass grant for this request (B0.2.6) */
+      breakGlass?: {
+        id: string
+        expiresAt: Date
+      }
     }
   }
 }

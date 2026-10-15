@@ -1,33 +1,110 @@
+import { getIsolationMode } from './tenantContext'
+import { jwtSecretWeakness } from '../utils/tokenUtils'
+import { getAuditRetentionYears, MIN_AUDIT_RETENTION_YEARS } from '../services/auditService'
+import { isSecretBoxConfigured } from '../utils/secretBox'
+
 /**
- * Production env validation. Fails fast if required vars are missing.
+ * Configuration problems found at boot. `fatal` entries stop a production
+ * boot; outside production they are printed as warnings so local
+ * development keeps working.
+ */
+export interface EnvProblem {
+  fatal: boolean
+  message: string
+}
+
+export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvProblem[] => {
+  const problems: EnvProblem[] = []
+  const fatal = (message: string) => problems.push({ fatal: true, message })
+  const warn = (message: string) => problems.push({ fatal: false, message })
+
+  for (const name of ['DATABASE_URL', 'JWT_SECRET', 'CORS_ORIGIN']) {
+    if (!env[name]) fatal(`${name} is required`)
+  }
+
+  // B0.2.1 — signing-secret strength (current and, during rotation, previous).
+  const weak = jwtSecretWeakness(env.JWT_SECRET)
+  if (env.JWT_SECRET && weak) fatal(`JWT_SECRET ${weak}. Generate one with: openssl rand -hex 32`)
+  if (env.JWT_SECRET_PREVIOUS) {
+    const weakPrev = jwtSecretWeakness(env.JWT_SECRET_PREVIOUS)
+    if (weakPrev) fatal(`JWT_SECRET_PREVIOUS ${weakPrev}`)
+  }
+
+  // B0.1.1 — tenant isolation must be enforcing.
+  if (getIsolationMode() !== 'enforce') {
+    fatal(
+      `TENANT_ISOLATION_MODE is "${env.TENANT_ISOLATION_MODE}"; it must be "enforce" (or unset, which defaults to enforce)`
+    )
+  }
+
+  // B0.1.3 — RLS must be applied by the app (the role check runs after connect).
+  if ((env.TENANT_RLS ?? 'on').toLowerCase() === 'off') {
+    fatal('TENANT_RLS=off disables Postgres row-level security; remove it')
+  }
+
+  // B0.3.6 — audit retention.
+  const years = getAuditRetentionYears()
+  if (!(years >= MIN_AUDIT_RETENTION_YEARS)) {
+    fatal(`AUDIT_RETENTION_YEARS must be ≥ ${MIN_AUDIT_RETENTION_YEARS} (HIPAA §164.316(b)(2))`)
+  }
+
+  // B0.2.2 — MFA needs its encryption key; without it MFA endpoints answer 503.
+  if (!isSecretBoxConfigured()) {
+    warn('MFA_ENCRYPTION_KEY is not set (64 hex chars) — staff MFA enrolment is unavailable')
+  }
+
+  if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
+    warn('STRIPE_SECRET_KEY is not set — Stripe payment features will not function')
+  }
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    warn(
+      'STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is DISABLED. ' +
+        'Any party can send spoofed webhook events. Set this before accepting live payments.'
+    )
+  }
+  if (!env.ALERT_WEBHOOK_URL) {
+    warn('ALERT_WEBHOOK_URL is not set — security alerts go to the log stream only')
+  }
+  return problems
+}
+
+/**
+ * Boot validation. Fails fast in production on any fatal problem; prints
+ * everything as a warning elsewhere.
  */
 export const validateProductionEnv = (): void => {
-  if (process.env.NODE_ENV !== 'production') return;
-
-  const required: string[] = [];
-  if (!process.env.DATABASE_URL) required.push('DATABASE_URL');
-  if (!process.env.JWT_SECRET) required.push('JWT_SECRET');
-  if (!process.env.CORS_ORIGIN) required.push('CORS_ORIGIN');
-
-  if (required.length > 0) {
-    console.error(
-      `[FATAL] Production requires these env vars: ${required.join(', ')}`
-    );
-    process.exit(1);
+  const isProduction = process.env.NODE_ENV === 'production'
+  const problems = collectEnvProblems()
+  for (const p of problems) {
+    console.warn(`[${p.fatal && isProduction ? 'FATAL' : 'WARN'}] ${p.message}`)
   }
+  if (isProduction && problems.some((p) => p.fatal)) {
+    console.error('[FATAL] Refusing to start: fix the configuration problems above.')
+    process.exit(1)
+  }
+}
 
-  // Warn about security-critical optional vars. These are not hard fails
-  // because some deployments may intentionally omit them, but they should
-  // never be silently missing in a production payment environment.
-  if (!process.env.STRIPE_SECRET_KEY && !process.env.STRIPE_SECRET) {
-    console.warn(
-      '[WARN] STRIPE_SECRET_KEY is not set — Stripe payment features will not function'
-    );
+/**
+ * B0.1.3 — after the database connects: RLS only engages when the app role
+ * is neither superuser nor BYPASSRLS. Fatal in production.
+ */
+export const validateDatabaseRole = (info: {
+  role: string
+  superuser: boolean
+  bypassRls: boolean
+}): void => {
+  if (!info.superuser && !info.bypassRls) {
+    console.warn(`[db] connected as "${info.role}" — row-level security is enforced`)
+    return
   }
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    console.warn(
-      '[WARN] STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is DISABLED. ' +
-      'Any party can send spoofed webhook events. Set this before accepting live payments.'
-    );
+  const message =
+    `DATABASE_URL connects as "${info.role}" (${info.superuser ? 'superuser' : 'BYPASSRLS'}), ` +
+    'so Postgres row-level security does not apply. Connect as the medoflow_app role ' +
+    '(see development-log-docs/backend-foundation-B0-WALKTHROUGH-AND-VERIFICATION.md) and keep the owner ' +
+    'role in MIGRATION_DATABASE_URL.'
+  if (process.env.NODE_ENV === 'production') {
+    console.error(`[FATAL] ${message}`)
+    process.exit(1)
   }
-};
+  console.warn(`[WARN] ${message}`)
+}

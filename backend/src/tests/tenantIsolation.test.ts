@@ -129,7 +129,7 @@ test('assertClinicAccess: throws when resource clinicId differs from user clinic
     () => assertClinicAccess(req, 'clinic-B'),
     (err: unknown) => {
       assert.ok(err instanceof Error)
-      assert.ok((err as Error).message.includes('another clinic'))
+      assert.ok(err.message.includes('another clinic'))
       return true
     },
     'Should throw when accessing a resource from a different clinic'

@@ -1,6 +1,7 @@
 import * as argon2 from 'argon2'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { Prisma, Role } from '@prisma/client'
+import type { ApiError } from '../types/errors'
 import * as passwordSetupService from './passwordSetupService'
 import * as emailService from './emailService'
 import * as auditService from './auditService'
@@ -155,7 +156,7 @@ export const updateStaffUser = async (
   // If a customRoleId is provided, validate it belongs to this clinic
   if (data.customRoleId) {
     const customRole = await prisma.customRole.findUnique({
-      where: { id: data.customRoleId },
+      where: { id: data.customRoleId, clinicId },
     })
     if (!customRole || customRole.clinicId !== clinicId) {
       const err = new Error('Invalid custom role') as ApiError
@@ -165,14 +166,16 @@ export const updateStaffUser = async (
   }
 
   // Determine the system role to use
-  const systemRole = data.customRoleId ? 'STAFF' : ((data.role as any) ?? user.role)
+  const systemRole = data.customRoleId ? 'STAFF' : ((data.role as Role | undefined) ?? user.role)
 
   const updated = await prisma.user.update({
     where: { id: userId },
     data: {
       role: systemRole,
       ...(data.customRoleId !== undefined ? { customRoleId: data.customRoleId || null } : {}),
-      ...(data.permissions !== undefined ? { permissions: data.permissions as any } : {}),
+      ...(data.permissions !== undefined
+        ? { permissions: data.permissions as Prisma.InputJsonValue }
+        : {}),
     },
     select: {
       id: true,
@@ -191,11 +194,16 @@ export const updateStaffUser = async (
     clinicId,
     entityType: 'User',
     entityId: userId,
-    action: 'UPDATE',
+    action: 'PERMISSION_CHANGED',
     fieldChanged: 'role/permissions',
-    oldValue: user.role,
-    newValue: data.customRoleId ?? data.role ?? user.role,
+    oldValue: { role: user.role },
+    newValue: {
+      role: updated.role,
+      customRoleId: updated.customRoleId,
+      permissions: updated.customRole?.permissions ?? updated.permissions ?? null,
+    },
     performedById,
+    severity: 'warning',
   })
 
   return updated
@@ -281,13 +289,13 @@ export const provisionFrontDeskUser = async (
   }
 
   // Determine role — if customRoleId is provided, use STAFF; otherwise fallback to legacy roles
-  let assignedRole: any
+  let assignedRole: Role
   let customRoleId: string | null = null
   let roleLabelForEmail = 'Staff'
 
   if (data.customRoleId) {
     const customRole = await prisma.customRole.findUnique({
-      where: { id: data.customRoleId },
+      where: { id: data.customRoleId, clinicId },
     })
     if (!customRole || customRole.clinicId !== clinicId) {
       const err = new Error('Invalid custom role') as ApiError
@@ -300,7 +308,7 @@ export const provisionFrontDeskUser = async (
   } else {
     const allowedNonProviderRoles = ['FRONT_DESK', 'ACCOUNTING', 'MARKETING']
     assignedRole =
-      data.role && allowedNonProviderRoles.includes(data.role) ? data.role : 'FRONT_DESK'
+      data.role && allowedNonProviderRoles.includes(data.role) ? (data.role as Role) : 'FRONT_DESK'
 
     const roleLabels: Record<string, string> = {
       FRONT_DESK: 'Front Desk',
@@ -324,7 +332,7 @@ export const provisionFrontDeskUser = async (
       role: assignedRole,
       clinicId,
       ...(customRoleId ? { customRoleId } : {}),
-      ...(data.permissions ? { permissions: data.permissions as any } : {}),
+      ...(data.permissions ? { permissions: data.permissions as Prisma.InputJsonValue } : {}),
     },
     select: {
       id: true,

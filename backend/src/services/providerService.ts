@@ -1,9 +1,10 @@
 import * as argon2 from 'argon2'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 import * as passwordSetupService from './passwordSetupService'
 import * as emailService from './emailService'
+import { clinicScope, withTenantBypass } from '../config/tenantContext'
 
 export interface CreateProviderServiceInput {
   serviceId: string
@@ -50,9 +51,13 @@ const validateUserBelongsToClinic = async (userId: string, clinicId: string) => 
 }
 
 const checkDuplicateProviderUserLink = async (userId: string) => {
-  const existing = await prisma.provider.findFirst({
-    where: { userId },
-  })
+  // Provider.userId is globally unique, so the duplicate check must see every clinic.
+  const existing = await withTenantBypass('provider.user_link_uniqueness_check', () =>
+    prisma.provider.findFirst({
+      where: { userId },
+      select: { id: true },
+    })
+  )
   if (existing) {
     const err = new Error('User is already linked to another provider') as ApiError
     err.statusCode = 409
@@ -130,7 +135,7 @@ async function reactivateAndUpdateProvider(
   }
 
   await prisma.provider.update({
-    where: { id: providerId },
+    where: { id: providerId, clinicId },
     data: {
       isActive: true,
       firstName: data.firstName,
@@ -188,7 +193,7 @@ async function reactivateAndUpdateProvider(
   })
 
   return prisma.provider.findUnique({
-    where: { id: providerId },
+    where: { id: providerId, clinicId },
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },
       user: { select: { id: true, name: true, email: true } },
@@ -369,7 +374,7 @@ export const createProvider = async (
   })
 
   return prisma.provider.findUnique({
-    where: { id: provider.id },
+    where: { id: provider.id, clinicId },
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },
       user: { select: { id: true, name: true, email: true } },
@@ -389,9 +394,11 @@ export const createProvider = async (
 
 export const getProviders = async (where: ClinicWhere) => {
   const whereClause =
-    Object.keys(where).length === 0 ? { isActive: true } : { ...where, isActive: true }
+    Object.keys(where).length === 0
+      ? { isActive: true, ...clinicScope() }
+      : { ...where, isActive: true }
   return prisma.provider.findMany({
-    where: whereClause as { isActive: boolean; clinicId?: string },
+    where: whereClause as { isActive: boolean; clinicId?: string | { in: string[] } },
     orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },
@@ -411,9 +418,9 @@ export const getProviders = async (where: ClinicWhere) => {
 }
 
 export const getProviderById = async (id: string, where: ClinicWhere = {}) => {
-  const whereClause = Object.keys(where).length === 0 ? { id } : { id, ...where }
+  const whereClause = Object.keys(where).length === 0 ? { id, ...clinicScope() } : { id, ...where }
   return prisma.provider.findFirst({
-    where: whereClause as { id: string; clinicId?: string },
+    where: whereClause as { id: string; clinicId?: string | { in: string[] } },
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },
       user: { select: { id: true, name: true, email: true } },
@@ -466,6 +473,7 @@ export const updateProvider = async (
     const affected = await prisma.appointment.findMany({
       where: {
         providerId: id,
+        clinicId: provider.clinicId,
         startTime: { gt: new Date() },
         status: { notIn: ['CANCELLED', 'RESCHEDULED'] },
       },
@@ -507,7 +515,7 @@ export const updateProvider = async (
   }
 
   const updatedProvider = await prisma.provider.update({
-    where: { id },
+    where: { id, clinicId: provider.clinicId },
     data: baseData as Parameters<typeof prisma.provider.update>[0]['data'],
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },
@@ -561,7 +569,7 @@ export const updateProvider = async (
   }
 
   return prisma.provider.findUnique({
-    where: { id },
+    where: { id, clinicId: provider.clinicId },
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },
       user: { select: { id: true, name: true, email: true } },
@@ -585,6 +593,7 @@ export const softDeleteProvider = async (id: string, where: ClinicWhere, perform
   const affected = await prisma.appointment.findMany({
     where: {
       providerId: id,
+      clinicId: provider.clinicId,
       startTime: { gt: new Date() },
       status: { notIn: ['CANCELLED', 'RESCHEDULED'] },
     },
@@ -609,7 +618,7 @@ export const softDeleteProvider = async (id: string, where: ClinicWhere, perform
   }
 
   const updated = await prisma.provider.update({
-    where: { id },
+    where: { id, clinicId: provider.clinicId },
     data: { isActive: false },
     include: {
       disciplines: { include: { discipline: { select: { id: true, name: true } } } },

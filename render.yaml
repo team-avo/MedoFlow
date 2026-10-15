@@ -23,8 +23,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # B0.1.1: production refuses to boot unless isolation is enforcing.
       - key: TENANT_ISOLATION_MODE
-        value: warn
+        value: enforce
+      # B0.2.3: server-side idle logoff window.
+      - key: SESSION_IDLE_TIMEOUT_MINUTES
+        value: '15'
+      # B0.3.6: audit rows are kept at least 6 years.
+      - key: AUDIT_RETENTION_YEARS
+        value: '6'
       # Frontend origin(s) allowed by CORS (comma-separated).
       - key: CORS_ORIGIN
         value: https://medoflow-web.advertout-medoflow.workers.dev
@@ -35,7 +42,17 @@ services:
       - key: JWT_SECRET
         generateValue: true
       # ── Secrets: prompted once when the Blueprint is created ──────────────────
-      - key: DATABASE_URL # Neon *direct* (non-pooler) connection string
+      # B0.1.3: the app connects as medoflow_app (non-owner, NOBYPASSRLS) so RLS applies;
+      # migrations run as the owner. Both are Neon *direct* (non-pooler) URLs.
+      - key: DATABASE_URL # postgresql://medoflow_app:…@…/medoflow-demo-db?sslmode=require
+        sync: false
+      - key: MIGRATION_DATABASE_URL # postgresql://neondb_owner:…@… (owner; migrations only)
+        sync: false
+      - key: AUDIT_PURGE_DATABASE_URL # owner URL; audit retention purge (rows > 6 years)
+        sync: false
+      - key: MFA_ENCRYPTION_KEY # B0.2.2: openssl rand -hex 32
+        sync: false
+      - key: ALERT_WEBHOOK_URL # B0.6.5: Slack-compatible incoming webhook for security alerts
         sync: false
       - key: REDIS_URL # redis:// or rediss:// (eviction policy must be noeviction)
         sync: false

@@ -26,7 +26,9 @@ router.post(
   '/clinics',
   validateRequest(createClinicSchema),
   asyncHandler(async (req, res) => {
-    const result = await platformAdminService.createClinicByPlatform(req.body)
+    const result = await platformAdminService.createClinicByPlatform(
+      req.body as platformAdminService.CreateClinicByPlatformInput
+    )
     successResponse(res, 201, 'Clinic created', {
       tenantId: result.tenant.id,
       clinicId: result.clinic.id,

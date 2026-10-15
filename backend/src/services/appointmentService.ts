@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
-import { Request } from 'express'
-import { ApiError } from '../types/errors'
+import type { Request } from 'express'
+import type { ApiError } from '../types/errors'
 import {
   AppointmentStatus,
   ApprovalStatus,
@@ -11,20 +11,20 @@ import {
 } from '@prisma/client'
 import * as auditService from './auditService'
 import * as waitlistService from './waitlistService'
-import * as patientMembershipService from './patientMembershipService'
 import * as packageUsageService from './packageUsageService'
 import * as membershipService from './membershipService'
-import {
-  buildSlotFingerprint,
-  MIN_APPOINTMENT_DURATION_MINUTES,
-  resolveAppointmentLifecycle,
-} from './schedulingCore'
+import { MIN_APPOINTMENT_DURATION_MINUTES, resolveAppointmentLifecycle } from './schedulingCore'
 
 import stripe from '../config/stripe'
+import {
+  clinicScope,
+  getAllowedClinicIds,
+  getTenantContext,
+  withTenantContext,
+} from '../config/tenantContext'
 
 import * as emailService from './emailService'
 
-const CANCELLED_STATUS = 'CANCELLED'
 const ZERO = new Prisma.Decimal(0)
 
 export interface CreateAppointmentData {
@@ -53,99 +53,6 @@ export interface CreateAppointmentContext {
   patientPackageId?: string
   skipPackageSessionConsumption?: boolean
 }
-
-const validateServiceBelongsToClinic = async (serviceId: string, clinicId: string) => {
-  const service = await prisma.service.findFirst({
-    where: { id: serviceId, clinicId, isActive: true },
-  })
-  if (!service) {
-    const err = new Error('Service not found or does not belong to this clinic') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  return service
-}
-
-const validateProviderOffersService = async (
-  providerId: string,
-  serviceId: string,
-  clinicId: string
-) => {
-  const provider = await prisma.provider.findFirst({
-    where: { id: providerId, clinicId, isActive: true },
-    include: {
-      providerServices: {
-        where: { serviceId },
-        include: { service: true },
-      },
-    },
-  })
-  if (!provider) {
-    const err = new Error('Provider not found or does not belong to this clinic') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  const assignment = provider.providerServices[0]
-  if (!assignment) {
-    const err = new Error('Provider does not offer this service') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-  return assignment
-}
-
-const validateLocationBelongsToClinic = async (locationId: string, clinicId: string) => {
-  const location = await prisma.location.findFirst({
-    where: { id: locationId, clinicId, isActive: true },
-  })
-  if (!location) {
-    const err = new Error('Location not found or does not belong to this clinic') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  return location
-}
-
-const validatePatient = async (patientId: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id: patientId },
-  })
-  if (!user) {
-    const err = new Error('Patient not found') as ApiError
-    err.statusCode = 404
-    throw err
-  }
-  if (user.role !== 'PATIENT') {
-    const err = new Error('User is not a patient') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-  return user
-}
-
-const checkDoubleBooking = async (
-  providerId: string,
-  startTime: Date,
-  endTime: Date,
-  excludeId: string | null = null
-): Promise<void> => {
-  const conflicting = await prisma.appointment.findFirst({
-    where: {
-      providerId,
-      status: { notIn: [CANCELLED_STATUS, RESCHEDULED_STATUS] },
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-  })
-  if (conflicting) {
-    const err = new Error('Provider has a conflicting appointment in this time slot') as ApiError
-    err.statusCode = 409
-    throw err
-  }
-}
-
-const RESCHEDULED_STATUS = 'RESCHEDULED'
 
 const ACTIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.DRAFT,
@@ -182,44 +89,23 @@ const validateAppointmentWindow = (startTime: Date, endTime: Date) => {
   }
 }
 
-// Using `any` for the tx type: Prisma.TransactionClient doesn't match
-// the shape produced by an extended client's $transaction. The call is
-// purely raw SQL (pg_advisory_xact_lock) so the structural type of the
-// tx doesn't matter beyond having $executeRaw, which any Prisma tx has.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const lockBookingScope = async (tx: any, providerId: string, patientId: string) => {
+// Only $executeRaw is needed (pure raw SQL: pg_advisory_xact_lock), so the
+// tx is typed structurally rather than as the full TransactionClient.
+const lockBookingScope = async (
+  tx: Pick<Prisma.TransactionClient, '$executeRaw'>,
+  providerId: string,
+  patientId: string
+) => {
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-provider:${providerId}`}))`
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`appointment-patient:${patientId}`}))`
-}
-
-const checkSamePatientOverlap = async (
-  patientId: string,
-  startTime: Date,
-  endTime: Date,
-  excludeId: string | null = null
-): Promise<void> => {
-  const conflicting = await prisma.appointment.findFirst({
-    where: {
-      patientId,
-      status: { notIn: [CANCELLED_STATUS, RESCHEDULED_STATUS] },
-      startTime: { lt: endTime },
-      endTime: { gt: startTime },
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-  })
-  if (conflicting) {
-    const err = new Error('You already have another appointment during this time.') as ApiError
-    err.statusCode = 409
-    throw err
-  }
 }
 
 const checkMinimumNotice = (
   startTime: Date,
   minimumNoticeMinutes: number,
-  clinicId: string,
-  serviceId: string,
-  performedById: string | undefined
+  _clinicId: string,
+  _serviceId: string,
+  _performedById: string | undefined
 ): void => {
   if (minimumNoticeMinutes <= 0) return
   const now = new Date()
@@ -237,9 +123,9 @@ const checkMinimumNotice = (
 const checkMaxFutureBooking = (
   startTime: Date,
   maxFutureBookingDays: number,
-  clinicId: string,
-  serviceId: string,
-  performedById: string | undefined
+  _clinicId: string,
+  _serviceId: string,
+  _performedById: string | undefined
 ): void => {
   const now = new Date()
   const maxDate = new Date(now)
@@ -254,21 +140,17 @@ const checkMaxFutureBooking = (
   }
 }
 
-const logBookingRejectedPolicy = async (
-  clinicId: string,
-  serviceId: string,
-  reason: string,
-  performedById: string
-): Promise<void> => {
-  await auditService.logAudit({
-    clinicId,
-    entityType: 'Booking',
-    entityId: serviceId,
-    action: 'BOOKING_REJECTED_POLICY',
-    fieldChanged: 'reason',
-    newValue: reason,
-    performedById,
-  })
+// A patient booking at a clinic they are not yet a member of: the booking
+// upserts their PatientClinicMembership for that clinic, so the booking runs
+// with exactly that one clinic added to the caller's scope (tenant guard and
+// RLS), instead of a bypass. Staff, other patients' bookings and bypass
+// scopes are left untouched.
+const withPatientSelfEnrollScope = <T>(clinicId: string, patientId: string, fn: () => T): T => {
+  const ctx = getTenantContext()
+  if (!ctx || ctx.bypassReason || ctx.role !== 'PATIENT' || ctx.userId !== patientId) return fn()
+  const allowed = getAllowedClinicIds(ctx)
+  if (allowed.includes(clinicId)) return fn()
+  return withTenantContext({ ...ctx, allowedClinicIds: [...allowed, clinicId] }, fn)
 }
 
 export const createAppointment = async (
@@ -287,510 +169,519 @@ export const createAppointment = async (
 
   validateAppointmentWindow(startDate, endDate)
 
-  return prisma.$transaction(async (tx) => {
-    await lockBookingScope(tx, providerId, patientId)
+  return withPatientSelfEnrollScope(clinicId, patientId, () =>
+    prisma.$transaction(async (tx) => {
+      await lockBookingScope(tx, providerId, patientId)
 
-    if (slotHoldId) {
-      const hold = await tx.slotHold.findFirst({
-        where: { id: slotHoldId, clinicId, status: 'ACTIVE' },
-      })
-      if (!hold) {
-        throw createApiError(
-          'Slot hold expired or invalid. Please select the slot again.',
-          400,
-          'expired_hold'
-        )
-      }
-      if (hold.expiresAt < new Date()) {
-        await tx.slotHold.update({
-          where: { id: hold.id },
-          data: {
-            status: 'EXPIRED',
-            expiredAt: new Date(),
-          },
+      if (slotHoldId) {
+        const hold = await tx.slotHold.findFirst({
+          where: { id: slotHoldId, clinicId, status: 'ACTIVE' },
         })
+        if (!hold) {
+          throw createApiError(
+            'Slot hold expired or invalid. Please select the slot again.',
+            400,
+            'expired_hold'
+          )
+        }
+        if (hold.expiresAt < new Date()) {
+          await tx.slotHold.update({
+            where: { id: hold.id, clinicId },
+            data: {
+              status: 'EXPIRED',
+              expiredAt: new Date(),
+            },
+          })
+          throw createApiError(
+            'Slot hold expired or invalid. Please select the slot again.',
+            400,
+            'expired_hold'
+          )
+        }
+        if (
+          hold.providerId !== providerId ||
+          hold.serviceId !== serviceId ||
+          (hold.locationId ?? null) !== (locationId ?? null) ||
+          hold.startTime.getTime() !== startDate.getTime() ||
+          hold.endTime.getTime() !== endDate.getTime()
+        ) {
+          throw createApiError('Slot hold does not match booking details', 400, 'invalid_slot')
+        }
+
+        await tx.slotHold.update({
+          where: { id: slotHoldId, clinicId },
+          data: { status: 'CONVERTED' },
+        })
+      }
+
+      const service = await tx.service.findFirst({
+        where: { id: serviceId, clinicId },
+        include: { discipline: { select: { isArchived: true } } },
+      })
+      if (!service) {
         throw createApiError(
-          'Slot hold expired or invalid. Please select the slot again.',
-          400,
-          'expired_hold'
+          'Service not found or does not belong to this clinic',
+          404,
+          'validation_error'
         )
       }
-      if (
-        hold.providerId !== providerId ||
-        hold.serviceId !== serviceId ||
-        (hold.locationId ?? null) !== (locationId ?? null) ||
-        hold.startTime.getTime() !== startDate.getTime() ||
-        hold.endTime.getTime() !== endDate.getTime()
-      ) {
-        throw createApiError('Slot hold does not match booking details', 400, 'invalid_slot')
+      if (!service.isActive || service.isArchived || service.discipline?.isArchived) {
+        throw createApiError(
+          'This service is not currently available for booking.',
+          400,
+          'validation_error'
+        )
       }
 
-      await tx.slotHold.update({
-        where: { id: slotHoldId },
-        data: { status: 'CONVERTED' },
-      })
-    }
-
-    const service = await tx.service.findFirst({
-      where: { id: serviceId, clinicId },
-      include: { discipline: { select: { isArchived: true } } },
-    })
-    if (!service) {
-      throw createApiError(
-        'Service not found or does not belong to this clinic',
-        404,
-        'validation_error'
-      )
-    }
-    if (!service.isActive || service.isArchived || service.discipline?.isArchived) {
-      throw createApiError(
-        'This service is not currently available for booking.',
-        400,
-        'validation_error'
-      )
-    }
-
-    const provider = await tx.provider.findFirst({
-      where: { id: providerId, clinicId, isActive: true },
-      include: {
-        providerServices: {
-          where: { serviceId },
-          include: { service: true },
+      const provider = await tx.provider.findFirst({
+        where: { id: providerId, clinicId, isActive: true },
+        include: {
+          providerServices: {
+            where: { serviceId },
+            include: { service: true },
+          },
         },
-      },
-    })
-    if (!provider) {
-      throw createApiError(
-        'Provider not found or does not belong to this clinic',
-        404,
-        'validation_error'
-      )
-    }
-    const assignment = provider.providerServices[0]
-    if (!assignment) {
-      throw createApiError('Provider does not offer this service', 400, 'validation_error')
-    }
+      })
+      if (!provider) {
+        throw createApiError(
+          'Provider not found or does not belong to this clinic',
+          404,
+          'validation_error'
+        )
+      }
+      const assignment = provider.providerServices[0]
+      if (!assignment) {
+        throw createApiError('Provider does not offer this service', 400, 'validation_error')
+      }
 
-    const resolvedLocation =
-      (locationId
-        ? await tx.location.findFirst({
-            where: { id: locationId, clinicId, isActive: true },
-          })
-        : await tx.location.findFirst({
-            where: { clinicId, isActive: true },
-            orderBy: { createdAt: 'asc' },
-          })) ?? null
+      const resolvedLocation =
+        (locationId
+          ? await tx.location.findFirst({
+              where: { id: locationId, clinicId, isActive: true },
+            })
+          : await tx.location.findFirst({
+              where: { clinicId, isActive: true },
+              orderBy: { createdAt: 'asc' },
+            })) ?? null
 
-    if (!resolvedLocation) {
-      throw createApiError(
-        'Location not found or does not belong to this clinic',
-        404,
-        'validation_error'
-      )
-    }
+      if (!resolvedLocation) {
+        throw createApiError(
+          'Location not found or does not belong to this clinic',
+          404,
+          'validation_error'
+        )
+      }
 
-    const providerAtLocation = await tx.providerLocationAssignment.findFirst({
-      where: {
-        providerId,
-        locationId: resolvedLocation.id,
-      },
-    })
-    if (!providerAtLocation) {
-      throw createApiError(
-        'Provider is not assigned to the selected location',
-        400,
-        'validation_error'
-      )
-    }
+      const providerAtLocation = await tx.providerLocationAssignment.findFirst({
+        where: {
+          providerId,
+          locationId: resolvedLocation.id,
+        },
+      })
+      if (!providerAtLocation) {
+        throw createApiError(
+          'Provider is not assigned to the selected location',
+          400,
+          'validation_error'
+        )
+      }
 
-    const user = await tx.user.findUnique({
-      where: { id: patientId },
-    })
-    if (!user) {
-      throw createApiError('Patient not found', 404, 'validation_error')
-    }
-    if (user.role !== 'PATIENT') {
-      throw createApiError('User is not a patient', 400, 'validation_error')
-    }
+      const user = await tx.user.findUnique({
+        where: { id: patientId },
+      })
+      if (!user) {
+        throw createApiError('Patient not found', 404, 'validation_error')
+      }
+      if (user.role !== 'PATIENT') {
+        throw createApiError('User is not a patient', 400, 'validation_error')
+      }
 
-    await tx.patientClinicMembership.upsert({
-      where: {
-        clinicId_patientId: {
+      await tx.patientClinicMembership.upsert({
+        where: {
+          clinicId_patientId: {
+            clinicId,
+            patientId,
+          },
+        },
+        create: {
           clinicId,
           patientId,
+          primaryLocationId: resolvedLocation.id,
+          isActive: true,
         },
-      },
-      create: {
-        clinicId,
-        patientId,
-        primaryLocationId: resolvedLocation.id,
-        isActive: true,
-      },
-      update: {
-        isActive: true,
-        primaryLocationId: resolvedLocation.id,
-      },
-    })
+        update: {
+          isActive: true,
+          primaryLocationId: resolvedLocation.id,
+        },
+      })
 
-    const samePatientConflict = await tx.appointment.findFirst({
-      where: {
-        patientId,
-        status: { in: ACTIVE_APPOINTMENT_STATUSES },
-        startTime: { lt: endDate },
-        endTime: { gt: startDate },
-        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
-      },
-    })
-    if (samePatientConflict) {
-      if (performedById) {
-        await tx.auditLog.create({
-          data: {
-            clinicId,
-            entityType: 'Booking',
-            entityId: serviceId,
-            action: 'BOOKING_REJECTED_POLICY',
-            fieldChanged: 'reason',
-            newValue:
-              'You already have another appointment during this time.' as Prisma.InputJsonValue,
-            oldValue: Prisma.JsonNull,
-            performedById,
-          },
-        })
-      }
-      throw createApiError(
-        'You already have another appointment during this time.',
-        409,
-        'conflict'
-      )
-    }
-
-    const minNotice = service.minimumNoticeMinutes ?? 0
-    const maxFuture = service.maxFutureBookingDays ?? 365
-
-    try {
-      checkMinimumNotice(startDate, minNotice, clinicId, serviceId, performedById)
-    } catch (err) {
-      if (performedById) {
-        await tx.auditLog.create({
-          data: {
-            clinicId,
-            entityType: 'Booking',
-            entityId: serviceId,
-            action: 'BOOKING_REJECTED_POLICY',
-            fieldChanged: 'reason',
-            newValue: (err as Error).message as unknown as Prisma.InputJsonValue,
-            oldValue: Prisma.JsonNull,
-            performedById,
-          },
-        })
-      }
-      throw err
-    }
-
-    try {
-      checkMaxFutureBooking(startDate, maxFuture, clinicId, serviceId, performedById)
-    } catch (err) {
-      if (performedById) {
-        await tx.auditLog.create({
-          data: {
-            clinicId,
-            entityType: 'Booking',
-            entityId: serviceId,
-            action: 'BOOKING_REJECTED_POLICY',
-            fieldChanged: 'reason',
-            newValue: (err as Error).message as unknown as Prisma.InputJsonValue,
-            oldValue: Prisma.JsonNull,
-            performedById,
-          },
-        })
-      }
-      throw err
-    }
-
-    const doubleBookConflict = await tx.appointment.findFirst({
-      where: {
-        providerId,
-        status: { in: ACTIVE_APPOINTMENT_STATUSES },
-        startTime: { lt: endDate },
-        endTime: { gt: startDate },
-        ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
-      },
-    })
-    if (doubleBookConflict) {
-      throw createApiError(
-        'Provider has a conflicting appointment in this time slot',
-        409,
-        'conflict'
-      )
-    }
-
-    const activeHoldConflict = await tx.slotHold.findFirst({
-      where: {
-        providerId,
-        status: 'ACTIVE',
-        expiresAt: { gt: new Date() },
-        startTime: { lt: endDate },
-        endTime: { gt: startDate },
-        ...(slotHoldId ? { id: { not: slotHoldId } } : {}),
-      },
-    })
-    if (activeHoldConflict) {
-      throw createApiError(
-        'This slot is temporarily reserved. Please choose another slot.',
-        409,
-        'conflict'
-      )
-    }
-
-    const standardPriceAtBooking = assignment.priceOverride ?? assignment.service.defaultPrice
-
-    // Check for package usage
-    let usingPackage = false
-    if (context?.patientPackageId) {
-      const pkg = await tx.patientPackage.findFirst({
+      const samePatientConflict = await tx.appointment.findFirst({
         where: {
-          id: context.patientPackageId,
           patientId,
+          ...clinicScope(),
+          status: { in: ACTIVE_APPOINTMENT_STATUSES },
+          startTime: { lt: endDate },
+          endTime: { gt: startDate },
+          ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+        },
+      })
+      if (samePatientConflict) {
+        if (performedById) {
+          await tx.auditLog.create({
+            data: {
+              clinicId,
+              entityType: 'Booking',
+              entityId: serviceId,
+              action: 'BOOKING_REJECTED_POLICY',
+              fieldChanged: 'reason',
+              newValue:
+                'You already have another appointment during this time.' as Prisma.InputJsonValue,
+              oldValue: Prisma.JsonNull,
+              performedById,
+            },
+          })
+        }
+        throw createApiError(
+          'You already have another appointment during this time.',
+          409,
+          'conflict'
+        )
+      }
+
+      const minNotice = service.minimumNoticeMinutes ?? 0
+      const maxFuture = service.maxFutureBookingDays ?? 365
+
+      try {
+        checkMinimumNotice(startDate, minNotice, clinicId, serviceId, performedById)
+      } catch (err) {
+        if (performedById) {
+          await tx.auditLog.create({
+            data: {
+              clinicId,
+              entityType: 'Booking',
+              entityId: serviceId,
+              action: 'BOOKING_REJECTED_POLICY',
+              fieldChanged: 'reason',
+              newValue: (err as Error).message as unknown as Prisma.InputJsonValue,
+              oldValue: Prisma.JsonNull,
+              performedById,
+            },
+          })
+        }
+        throw err
+      }
+
+      try {
+        checkMaxFutureBooking(startDate, maxFuture, clinicId, serviceId, performedById)
+      } catch (err) {
+        if (performedById) {
+          await tx.auditLog.create({
+            data: {
+              clinicId,
+              entityType: 'Booking',
+              entityId: serviceId,
+              action: 'BOOKING_REJECTED_POLICY',
+              fieldChanged: 'reason',
+              newValue: (err as Error).message as unknown as Prisma.InputJsonValue,
+              oldValue: Prisma.JsonNull,
+              performedById,
+            },
+          })
+        }
+        throw err
+      }
+
+      const doubleBookConflict = await tx.appointment.findFirst({
+        where: {
+          providerId,
+          clinicId,
+          status: { in: ACTIVE_APPOINTMENT_STATUSES },
+          startTime: { lt: endDate },
+          endTime: { gt: startDate },
+          ...(excludeAppointmentId ? { id: { not: excludeAppointmentId } } : {}),
+        },
+      })
+      if (doubleBookConflict) {
+        throw createApiError(
+          'Provider has a conflicting appointment in this time slot',
+          409,
+          'conflict'
+        )
+      }
+
+      const activeHoldConflict = await tx.slotHold.findFirst({
+        where: {
+          providerId,
           clinicId,
           status: 'ACTIVE',
+          expiresAt: { gt: new Date() },
+          startTime: { lt: endDate },
+          endTime: { gt: startDate },
+          ...(slotHoldId ? { id: { not: slotHoldId } } : {}),
         },
       })
-      if (pkg && pkg.usedSessions < pkg.totalSessions) {
-        usingPackage = true
-      } else {
+      if (activeHoldConflict) {
         throw createApiError(
-          'Selected package is not available or exhausted',
-          400,
-          'invalid_package'
+          'This slot is temporarily reserved. Please choose another slot.',
+          409,
+          'conflict'
         )
       }
-    }
 
-    let membershipBenefit = null
-    if (!usingPackage) {
-      try {
-        membershipBenefit = await membershipService.getActiveMembershipBenefit(clinicId, patientId)
-      } catch (err) {
-        console.error(
-          'Demo Warning: Failed to fetch membership benefits, proceeding without discount.',
-          err
-        )
-      }
-    }
+      const standardPriceAtBooking = assignment.priceOverride ?? assignment.service.defaultPrice
 
-    const membershipDiscountPercent = membershipBenefit
-      ? new Prisma.Decimal(membershipBenefit.membership.serviceDiscountPercent)
-      : ZERO
-    const membershipDiscountAmount = membershipBenefit
-      ? standardPriceAtBooking.mul(membershipDiscountPercent).div(100).toDecimalPlaces(2)
-      : ZERO
-    const discountedPriceAtBooking = membershipBenefit
-      ? standardPriceAtBooking.minus(membershipDiscountAmount).toDecimalPlaces(2)
-      : standardPriceAtBooking
-    const priceAtBooking = usingPackage ? ZERO : discountedPriceAtBooking
-
-    const paymentRequirementType = usingPackage
-      ? PaymentRequirementType.NONE
-      : service.requirePrepayment && service.prepaymentType === 'DEPOSIT'
-        ? PaymentRequirementType.DEPOSIT
-        : service.requirePrepayment
-          ? PaymentRequirementType.FULL
-          : PaymentRequirementType.NONE
-
-    const requirePrepayment = paymentRequirementType !== PaymentRequirementType.NONE
-    const now = new Date()
-    const slotHoldMinutes = 10
-    const slotHeldUntil = requirePrepayment
-      ? new Date(now.getTime() + slotHoldMinutes * 60 * 1000)
-      : null
-    const lifecycle = resolveAppointmentLifecycle({
-      requiresProviderApproval: service.requireProviderApproval,
-      paymentRequirementType,
-    })
-
-    const appointmentData = {
-      clinicId,
-      locationId: resolvedLocation.id,
-      providerId,
-      serviceId,
-      disciplineId: service.disciplineId ?? null,
-      patientId,
-      timezone: resolvedLocation.timezone,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
-      status: lifecycle.status,
-      priceAtBooking,
-      paymentStatus: usingPackage ? PaymentStatus.PAID : lifecycle.paymentStatus,
-      paymentRequirementType,
-      approvalStatus: lifecycle.approvalStatus,
-      bookingSource,
-      depositAmount:
-        paymentRequirementType === PaymentRequirementType.DEPOSIT
-          ? service.depositAmount
-            ? service.depositAmount.lte(priceAtBooking)
-              ? service.depositAmount
-              : priceAtBooking
-            : null
-          : paymentRequirementType === PaymentRequirementType.FULL
-            ? priceAtBooking
-            : null,
-      paymentDueAt: requirePrepayment ? slotHeldUntil! : null,
-      slotHeldUntil,
-      bookingHoldExpiresAt: slotHeldUntil,
-      meetLink: null, // Video calls are handled via Jitsi in the consultation room
-      notes: context?.notes ?? null,
-      createdById: performedById ?? null,
-      updatedById: performedById ?? null,
-      recurringSeriesId: context?.recurringSeriesId ?? null,
-      aiScribeConsentGrantedAt: data.aiScribeConsent ? new Date() : null,
-    }
-
-    const appointment = await tx.appointment.create({
-      data: appointmentData,
-      include: {
-        clinic: { select: { id: true, name: true } },
-        location: { select: { id: true, name: true } },
-        provider: {
-          include: {
-            disciplines: { include: { discipline: { select: { id: true, name: true } } } },
-            user: { select: { id: true, name: true } },
+      // Check for package usage
+      let usingPackage = false
+      if (context?.patientPackageId) {
+        const pkg = await tx.patientPackage.findFirst({
+          where: {
+            id: context.patientPackageId,
+            patientId,
+            clinicId,
+            status: 'ACTIVE',
           },
-        },
-        service: { select: { id: true, name: true, duration: true } },
-        patient: { select: { id: true, name: true, email: true } },
-      },
-    })
+        })
+        if (pkg && pkg.usedSessions < pkg.totalSessions) {
+          usingPackage = true
+        } else {
+          throw createApiError(
+            'Selected package is not available or exhausted',
+            400,
+            'invalid_package'
+          )
+        }
+      }
 
-    if (usingPackage && context?.patientPackageId && !context.skipPackageSessionConsumption) {
-      const updatedPkg = await tx.patientPackage.update({
-        where: { id: context.patientPackageId },
-        data: {
-          usedSessions: { increment: 1 },
+      let membershipBenefit = null
+      if (!usingPackage) {
+        try {
+          membershipBenefit = await membershipService.getActiveMembershipBenefitWithExecutor(
+            tx,
+            clinicId,
+            patientId
+          )
+        } catch (err) {
+          console.error(
+            'Demo Warning: Failed to fetch membership benefits, proceeding without discount.',
+            err
+          )
+        }
+      }
+
+      const membershipDiscountPercent = membershipBenefit
+        ? new Prisma.Decimal(membershipBenefit.membership.serviceDiscountPercent)
+        : ZERO
+      const membershipDiscountAmount = membershipBenefit
+        ? standardPriceAtBooking.mul(membershipDiscountPercent).div(100).toDecimalPlaces(2)
+        : ZERO
+      const discountedPriceAtBooking = membershipBenefit
+        ? standardPriceAtBooking.minus(membershipDiscountAmount).toDecimalPlaces(2)
+        : standardPriceAtBooking
+      const priceAtBooking = usingPackage ? ZERO : discountedPriceAtBooking
+
+      const paymentRequirementType = usingPackage
+        ? PaymentRequirementType.NONE
+        : service.requirePrepayment && service.prepaymentType === 'DEPOSIT'
+          ? PaymentRequirementType.DEPOSIT
+          : service.requirePrepayment
+            ? PaymentRequirementType.FULL
+            : PaymentRequirementType.NONE
+
+      const requirePrepayment = paymentRequirementType !== PaymentRequirementType.NONE
+      const now = new Date()
+      const slotHoldMinutes = 10
+      const slotHeldUntil = requirePrepayment
+        ? new Date(now.getTime() + slotHoldMinutes * 60 * 1000)
+        : null
+      const lifecycle = resolveAppointmentLifecycle({
+        requiresProviderApproval: service.requireProviderApproval,
+        paymentRequirementType,
+      })
+
+      const appointmentData = {
+        clinicId,
+        locationId: resolvedLocation.id,
+        providerId,
+        serviceId,
+        disciplineId: service.disciplineId ?? null,
+        patientId,
+        timezone: resolvedLocation.timezone,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        status: lifecycle.status,
+        priceAtBooking,
+        paymentStatus: usingPackage ? PaymentStatus.PAID : lifecycle.paymentStatus,
+        paymentRequirementType,
+        approvalStatus: lifecycle.approvalStatus,
+        bookingSource,
+        depositAmount:
+          paymentRequirementType === PaymentRequirementType.DEPOSIT
+            ? service.depositAmount
+              ? service.depositAmount.lte(priceAtBooking)
+                ? service.depositAmount
+                : priceAtBooking
+              : null
+            : paymentRequirementType === PaymentRequirementType.FULL
+              ? priceAtBooking
+              : null,
+        paymentDueAt: requirePrepayment ? slotHeldUntil! : null,
+        slotHeldUntil,
+        bookingHoldExpiresAt: slotHeldUntil,
+        meetLink: null, // Video calls are handled via Jitsi in the consultation room
+        notes: context?.notes ?? null,
+        createdById: performedById ?? null,
+        updatedById: performedById ?? null,
+        recurringSeriesId: context?.recurringSeriesId ?? null,
+        aiScribeConsentGrantedAt: data.aiScribeConsent ? new Date() : null,
+      }
+
+      const appointment = await tx.appointment.create({
+        data: appointmentData,
+        include: {
+          clinic: { select: { id: true, name: true } },
+          location: { select: { id: true, name: true } },
+          provider: {
+            include: {
+              disciplines: { include: { discipline: { select: { id: true, name: true } } } },
+              user: { select: { id: true, name: true } },
+            },
+          },
+          service: { select: { id: true, name: true, duration: true } },
+          patient: { select: { id: true, name: true, email: true } },
         },
       })
 
-      if (updatedPkg.usedSessions >= updatedPkg.totalSessions) {
-        await tx.patientPackage.update({
-          where: { id: updatedPkg.id },
-          data: { status: 'EXHAUSTED' },
+      if (usingPackage && context?.patientPackageId && !context.skipPackageSessionConsumption) {
+        const updatedPkg = await tx.patientPackage.update({
+          where: { id: context.patientPackageId, clinicId },
+          data: {
+            usedSessions: { increment: 1 },
+          },
+        })
+
+        if (updatedPkg.usedSessions >= updatedPkg.totalSessions) {
+          await tx.patientPackage.update({
+            where: { id: updatedPkg.id, clinicId },
+            data: { status: 'EXHAUSTED' },
+          })
+        }
+
+        await tx.packageSessionUsage.create({
+          data: {
+            patientPackageId: context.patientPackageId,
+            appointmentId: appointment.id,
+          },
+        })
+
+        await tx.auditLog.create({
+          data: {
+            clinicId,
+            entityType: 'Appointment',
+            entityId: appointment.id,
+            action: 'PACKAGE_SESSION_CONSUMED',
+            newValue: { patientPackageId: context.patientPackageId } as Prisma.InputJsonValue,
+            performedById: performedById ?? patientId,
+          },
         })
       }
 
-      await tx.packageSessionUsage.create({
-        data: {
-          patientPackageId: context.patientPackageId,
-          appointmentId: appointment.id,
-        },
-      })
+      if (requirePrepayment && performedById) {
+        await tx.auditLog.create({
+          data: {
+            clinicId,
+            entityType: 'Appointment',
+            entityId: appointment.id,
+            action: 'PAYMENT_INITIATED',
+            fieldChanged: null,
+            oldValue: Prisma.JsonNull,
+            newValue: {
+              slotHeldUntil: slotHeldUntil?.toISOString(),
+              amount: Number(priceAtBooking),
+              standardAmount: Number(standardPriceAtBooking),
+              membershipDiscountPercent: Number(membershipDiscountPercent),
+            } as Prisma.InputJsonValue,
+            performedById,
+          },
+        })
+      }
+
+      if (slotHoldId) {
+        await tx.slotHold.update({
+          where: { id: slotHoldId, clinicId },
+          data: {
+            convertedToAppointmentId: appointment.id,
+          },
+        })
+      }
 
       await tx.auditLog.create({
         data: {
           clinicId,
           entityType: 'Appointment',
           entityId: appointment.id,
-          action: 'PACKAGE_SESSION_CONSUMED',
-          newValue: { patientPackageId: context.patientPackageId } as Prisma.InputJsonValue,
+          action: 'APPOINTMENT_CREATED',
+          newValue: {
+            providerId,
+            patientId,
+            locationId: resolvedLocation.id,
+            status: appointment.status,
+            bookingSource,
+            timezone: resolvedLocation.timezone,
+            priceAtBooking: Number(priceAtBooking),
+            packageApplied: usingPackage,
+            membershipDiscountPercent: Number(membershipDiscountPercent),
+          } as Prisma.InputJsonValue,
+          oldValue: Prisma.JsonNull,
           performedById: performedById ?? patientId,
         },
       })
-    }
 
-    if (requirePrepayment && performedById) {
-      await tx.auditLog.create({
-        data: {
-          clinicId,
-          entityType: 'Appointment',
-          entityId: appointment.id,
-          action: 'PAYMENT_INITIATED',
-          fieldChanged: null,
-          oldValue: Prisma.JsonNull,
-          newValue: {
-            slotHeldUntil: slotHeldUntil?.toISOString(),
-            amount: Number(priceAtBooking),
-            standardAmount: Number(standardPriceAtBooking),
-            membershipDiscountPercent: Number(membershipDiscountPercent),
-          } as Prisma.InputJsonValue,
-          performedById,
-        },
-      })
-    }
+      let clientSecret: string | undefined = undefined
 
-    if (slotHoldId) {
-      await tx.slotHold.update({
-        where: { id: slotHoldId },
-        data: {
-          convertedToAppointmentId: appointment.id,
-        },
-      })
-    }
+      if (requirePrepayment) {
+        const amountToCharge =
+          paymentRequirementType === PaymentRequirementType.DEPOSIT
+            ? Number(service.depositAmount)
+            : Number(priceAtBooking)
 
-    await tx.auditLog.create({
-      data: {
-        clinicId,
-        entityType: 'Appointment',
-        entityId: appointment.id,
-        action: 'APPOINTMENT_CREATED',
-        newValue: {
-          providerId,
-          patientId,
-          locationId: resolvedLocation.id,
-          status: appointment.status,
-          bookingSource,
-          timezone: resolvedLocation.timezone,
-          priceAtBooking: Number(priceAtBooking),
-          packageApplied: usingPackage,
-          membershipDiscountPercent: Number(membershipDiscountPercent),
-        } as Prisma.InputJsonValue,
-        oldValue: Prisma.JsonNull,
-        performedById: performedById ?? patientId,
-      },
-    })
+        const amountInCents = Math.round(amountToCharge * 100)
 
-    let clientSecret: string | undefined = undefined
+        try {
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: amountInCents,
+            currency: 'usd',
+            metadata: {
+              appointmentId: appointment.id,
+              clinicId,
+              patientId,
+              type: 'APPOINTMENT',
+            },
+          })
+          clientSecret = paymentIntent.client_secret ?? undefined
 
-    if (requirePrepayment) {
-      const amountToCharge =
-        paymentRequirementType === PaymentRequirementType.DEPOSIT
-          ? Number(service.depositAmount)
-          : Number(priceAtBooking)
-
-      const amountInCents = Math.round(amountToCharge * 100)
-
-      try {
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: amountInCents,
-          currency: 'usd',
-          metadata: {
-            appointmentId: appointment.id,
-            clinicId,
-            patientId,
-            type: 'APPOINTMENT',
-          },
-        })
-        clientSecret = paymentIntent.client_secret ?? undefined
-
-        await tx.payment.create({
-          data: {
-            clinicId,
-            providerId,
-            appointmentId: appointment.id,
-            patientId,
-            amount: amountToCharge,
-            status: PaymentStatus.PENDING,
-            stripePaymentIntentId: paymentIntent.id,
-            stripeClientSecret: paymentIntent.client_secret ?? null,
-            paymentChannel: 'STRIPE',
-            paymentMethod: 'CARD',
-          },
-        })
-      } catch (err) {
-        console.error('Stripe PaymentIntent Error:', err)
-        // We still created the appointment in PENDING_PAYMENT state
+          await tx.payment.create({
+            data: {
+              clinicId,
+              providerId,
+              appointmentId: appointment.id,
+              patientId,
+              amount: amountToCharge,
+              status: PaymentStatus.PENDING,
+              stripePaymentIntentId: paymentIntent.id,
+              stripeClientSecret: paymentIntent.client_secret ?? null,
+              paymentChannel: 'STRIPE',
+              paymentMethod: 'CARD',
+            },
+          })
+        } catch (err) {
+          console.error('Stripe PaymentIntent Error:', err)
+          // We still created the appointment in PENDING_PAYMENT state
+        }
       }
-    }
 
-    return { appointment, clientSecret }
-  })
+      return { appointment, clientSecret }
+    })
+  )
 }
 
 export interface CreateRecurringSeriesInput {
@@ -814,8 +705,16 @@ export interface RecurringConflict {
 export const createRecurringSeries = async (
   input: CreateRecurringSeriesInput,
   performedById: string
+) =>
+  withPatientSelfEnrollScope(input.clinicId, input.patientId, () =>
+    createRecurringSeriesInScope(input, performedById)
+  )
+
+const createRecurringSeriesInScope = async (
+  input: CreateRecurringSeriesInput,
+  performedById: string
 ): Promise<{
-  appointments: Awaited<ReturnType<typeof createAppointment>>[]
+  appointments: Awaited<ReturnType<typeof createAppointment>>['appointment'][]
   conflicts: RecurringConflict[]
 }> => {
   const firstStart = new Date(input.firstStartTime)
@@ -864,7 +763,7 @@ export const createRecurringSeries = async (
     occurrences.push({ start, end })
   }
 
-  const appointments: any[] = []
+  const appointments: Awaited<ReturnType<typeof createAppointment>>['appointment'][] = []
   const conflicts: RecurringConflict[] = []
 
   for (const { start, end } of occurrences) {
@@ -923,7 +822,7 @@ export const cancelAppointment = async (
   where: { clinicId?: string; patientId?: string; providerId?: string } = {}
 ): Promise<CancelAppointmentResult> => {
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, ...where },
+    where: { id: appointmentId, ...clinicScope(), ...where },
     include: { service: true },
   })
   if (!appointment) {
@@ -952,7 +851,7 @@ export const cancelAppointment = async (
     }
   }
   const updated = await prisma.appointment.update({
-    where: { id: appointmentId },
+    where: { id: appointmentId, clinicId: appointment.clinicId },
     data: {
       status: 'CANCELLED',
       cancelledAt: now,
@@ -1045,7 +944,7 @@ export const rescheduleAppointment = async (
   where: { clinicId?: string; patientId?: string; providerId?: string } = {}
 ) => {
   const oldAppointment = await prisma.appointment.findFirst({
-    where: { id: oldAppointmentId, ...where },
+    where: { id: oldAppointmentId, ...clinicScope(), ...where },
     include: { service: true },
   })
   if (!oldAppointment) {
@@ -1089,7 +988,7 @@ export const rescheduleAppointment = async (
   )
   await prisma.$transaction([
     prisma.appointment.update({
-      where: { id: oldAppointmentId },
+      where: { id: oldAppointmentId, clinicId: oldAppointment.clinicId },
       data: {
         status: 'RESCHEDULED',
         rescheduledToId: newAppointment.id,
@@ -1097,12 +996,12 @@ export const rescheduleAppointment = async (
       },
     }),
     prisma.appointment.update({
-      where: { id: newAppointment.id },
+      where: { id: newAppointment.id, clinicId: oldAppointment.clinicId },
       data: { rescheduledFromId: oldAppointmentId, updatedById: performedById },
     }),
   ])
   const updatedOld = await prisma.appointment.findUnique({
-    where: { id: oldAppointmentId },
+    where: { id: oldAppointmentId, clinicId: oldAppointment.clinicId },
     include: {
       clinic: { select: { id: true, name: true } },
       location: { select: { id: true, name: true } },
@@ -1168,7 +1067,7 @@ export const getAppointmentsByPatient = async (
   clinicId?: string | null,
   options?: { startDate?: Date; endDate?: Date }
 ) => {
-  const where: Record<string, unknown> = { patientId }
+  const where: Record<string, unknown> = { patientId, ...clinicScope() }
   if (clinicId) where.clinicId = clinicId
   if (options?.startDate || options?.endDate) {
     where.startTime = {}
@@ -1196,7 +1095,7 @@ export const getAppointmentsByProvider = async (
   clinicId?: string | null,
   options?: { startDate?: Date; endDate?: Date }
 ) => {
-  const where: Record<string, unknown> = { providerId }
+  const where: Record<string, unknown> = { providerId, ...clinicScope() }
   if (clinicId) where.clinicId = clinicId
   if (options?.startDate || options?.endDate) {
     where.startTime = {}
@@ -1246,7 +1145,7 @@ export const getAppointmentById = async (
   where: { clinicId?: string; patientId?: string; providerId?: string } = {}
 ) => {
   return prisma.appointment.findFirst({
-    where: { id, ...where } as {
+    where: { id, ...clinicScope(), ...where } as {
       id: string
       clinicId?: string
       patientId?: string
@@ -1270,7 +1169,7 @@ export const getAppointmentById = async (
 export interface AppointmentTimelineEvent {
   timestamp: Date
   action: string
-  performedById: string
+  performedById: string | null
   details: { oldValue?: unknown; newValue?: unknown }
 }
 
@@ -1279,8 +1178,8 @@ export const getAppointmentTimeline = async (
   where: { clinicId?: string; patientId?: string; providerId?: string } = {}
 ): Promise<{ appointmentId: string; events: AppointmentTimelineEvent[] }> => {
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, ...where },
-    select: { id: true },
+    where: { id: appointmentId, ...clinicScope(), ...where },
+    select: { id: true, clinicId: true },
   })
   if (!appointment) {
     const err = new Error('Appointment not found') as ApiError
@@ -1290,6 +1189,7 @@ export const getAppointmentTimeline = async (
 
   const logs = await prisma.auditLog.findMany({
     where: {
+      clinicId: appointment.clinicId,
       entityType: 'Appointment',
       entityId: appointmentId,
     },
@@ -1323,7 +1223,7 @@ export const getAppointmentTimeline = async (
 
 export const getProviderByUserId = async (userId: string) => {
   return prisma.provider.findFirst({
-    where: { userId },
+    where: { userId, ...clinicScope() },
   })
 }
 
@@ -1332,7 +1232,7 @@ export const updateAppointmentStatus = async (
   status: AppointmentStatus,
   req: Request
 ) => {
-  const appointment = await prisma.appointment.findUnique({ where: { id } })
+  const appointment = await prisma.appointment.findUnique({ where: { id, ...clinicScope() } })
   if (!appointment) {
     const err = new Error('Appointment not found') as ApiError
     err.statusCode = 404
@@ -1391,7 +1291,7 @@ export const updateAppointmentStatus = async (
   }
 
   const updated = await prisma.appointment.update({
-    where: { id },
+    where: { id, clinicId: appointment.clinicId },
     data: {
       status,
       ...(status === AppointmentStatus.CONFIRMED &&

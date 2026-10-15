@@ -3,6 +3,7 @@ import * as publicController from '../controllers/publicController'
 import * as sitePageService from '../services/sitePageService'
 import { validateRequest } from '../middleware/validateRequest'
 import { withPublicScope } from '../middleware/auth'
+import { publicLookupRateLimit } from '../middleware/rateLimit'
 import { asyncHandler } from '../utils/asyncHandler'
 import { successResponse } from '../utils/apiResponse'
 import { publicAvailabilitySchema, publicSlotHoldSchema } from '../validation/module2Schemas'
@@ -38,7 +39,7 @@ router.get(
   })
 )
 router.get('/products/:id', publicController.getProduct)
-router.get('/patients/check', publicController.checkPatientExists)
+router.get('/patients/check', publicLookupRateLimit, publicController.checkPatientExists)
 router.get(
   '/availability',
   validateRequest(publicAvailabilitySchema),

@@ -52,7 +52,10 @@ router.put(
   authorize(Role.PROVIDER, Role.SUPER_ADMIN),
   validateRequest(profileUpdateSchema),
   asyncHandler(async (req, res) => {
-    const profile = await providerProfileService.updateMyProfile(req.user!.id, req.body)
+    const profile = await providerProfileService.updateMyProfile(
+      req.user!.id,
+      req.body as providerProfileService.ProviderProfileUpdate
+    )
     successResponse(res, 200, 'Profile updated', profile)
   })
 )

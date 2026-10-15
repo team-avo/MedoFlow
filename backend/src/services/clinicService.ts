@@ -1,6 +1,6 @@
 import prisma from '../config/prisma'
-import { Clinic } from '@prisma/client'
-import { ApiError } from '../types/errors'
+import type { Clinic } from '@prisma/client'
+import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 
 export interface CreateClinicData {
@@ -315,7 +315,7 @@ export const upsertLaunchLocation = async (
   }
 
   const updated = await prisma.location.update({
-    where: { id: existingLocation.id },
+    where: { id: existingLocation.id, clinicId },
     data: {
       name: data.name.trim(),
       address: data.address?.trim() || null,

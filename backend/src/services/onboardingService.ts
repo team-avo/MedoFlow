@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { logAudit } from './auditService'
 import { sendClinicAgreementConfirmation } from './emailService'
 

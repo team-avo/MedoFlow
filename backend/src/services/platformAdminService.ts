@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { createPasswordSetupToken } from './passwordSetupService'
 import { sendStaffInviteEmail } from './emailService'
 

@@ -9,8 +9,14 @@ import {
   handleCartCheckoutPaymentIntentSucceeded,
 } from '../controllers/webhookController'
 
+// Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
-  object[key] = value
+  Object.defineProperty(object, key, {
+    value,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +99,6 @@ test('handleAppointmentPaymentIntentSucceeded returns early if payment already P
       provider: { firstName: 'Dr', lastName: 'Smith' },
       location: null,
     })
-
     ;(prisma.invoice.findFirst as any) = async () => ({
       id: 'inv-1',
       status: 'PAID',
@@ -106,9 +111,7 @@ test('handleAppointmentPaymentIntentSucceeded returns early if payment already P
       }
       return null
     }
-
     ;(prisma.payment.findFirst as any) = async () => null
-
     ;(prisma.payment.create as any) = async () => {
       paymentCreateCalled = true
       return {}
@@ -177,7 +180,6 @@ test('handleCartCheckoutPaymentIntentSucceeded returns early if payment already 
       id: 'pay-cart-1',
       status: PaymentStatus.PAID,
     })
-
     ;(prisma.invoice.findUnique as any) = async () => {
       invoiceQueried = true
       return null
@@ -211,7 +213,6 @@ test('commission getRecords for PROVIDER always uses the providers own ID', asyn
       assert.equal(where.userId, 'user-provider-1')
       return { id: 'provider-self' }
     }
-
     ;(prisma.commissionRecord.findMany as any) = async ({ where }: any) => {
       capturedWhere = where ?? {}
       return []

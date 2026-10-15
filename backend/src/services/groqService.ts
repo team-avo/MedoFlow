@@ -10,7 +10,7 @@
  * Llama-class model, which gives us sub-second response time per turn.
  */
 
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 
 const GROQ_BASE = 'https://api.groq.com/openai/v1'
 const GROQ_STT_MODEL = 'whisper-large-v3-turbo'

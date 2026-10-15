@@ -10,8 +10,14 @@ import * as visitService from '../services/visitService'
 import * as openaiService from '../services/openaiService'
 import * as auditService from '../services/auditService'
 
+// Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
-  object[key] = value
+  Object.defineProperty(object, key, {
+    value,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  })
 }
 
 test('approving a note finalizes it without auto-publishing patient summary', async () => {
@@ -46,12 +52,12 @@ test('approving a note finalizes it without auto-publishing patient summary', as
       },
       provider: { userId: 'user-1' },
     })
-    ;(visitService.getProviderByUserId as any) = async () => ({ id: 'provider-1' })
-    ;(openaiService.generatePatientSummary as any) = async () => ({
+    restore(visitService, 'getProviderByUserId', (async () => ({ id: 'provider-1' })) as any)
+    restore(openaiService, 'generatePatientSummary', (async () => ({
       diagnosis: 'Dx',
       treatmentPlan: 'Tx',
       nextSteps: 'Nx',
-    })
+    })) as any)
     ;(prisma.$transaction as any) = async (callback: (tx: any) => Promise<void>) =>
       callback({
         visitNoteVersion: {
@@ -77,7 +83,7 @@ test('approving a note finalizes it without auto-publishing patient summary', as
         currentVersion: { id: 'version-1' },
       },
     })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const session = await aiScribeService.approveDraft(
       'session-1',
@@ -145,7 +151,7 @@ test('explicit publish is still required before patient summary becomes visible'
       patientSummaryPublished: true,
       visitRecord: { id: 'visit-1' },
     })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const published = await aiScribeService.publishPatientSummary(
       'session-1',
@@ -344,7 +350,7 @@ test('explicit payment intent creation creates a pending payment when none exist
       id: 'pi_created',
       client_secret: 'pi_secret_created',
     })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const result = await paymentService.ensurePaymentIntent('appointment-1', 'patient-1', {
       patientId: 'patient-1',
@@ -385,7 +391,7 @@ test('appointment detail read no longer injects a payment client secret', async 
   } as any
 
   try {
-    ;(appointmentService.getAppointmentById as any) = async () => ({
+    restore(appointmentService, 'getAppointmentById', (async () => ({
       id: 'appointment-1',
       clinicId: 'clinic-1',
       patientId: 'patient-1',
@@ -400,12 +406,16 @@ test('appointment detail read no longer injects a payment client secret', async 
       priceAtBooking: '120.00',
       provider: { firstName: 'Abhinav', lastName: 'Verma' },
       service: { name: 'Consultation' },
-    })
+    })) as any)
     ;(prisma.googleCalendarEvent.findFirst as any) = async () => ({ meetLink: null })
 
-    await appointmentController.getById(req, res, (err?: unknown) => {
-      if (err) throw err
+    // asyncHandler returns void; let the wrapped handler settle before asserting.
+    let nextErr: unknown
+    appointmentController.getById(req, res, (err?: unknown) => {
+      nextErr = err
     })
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    assert.ifError(nextErr)
 
     assert.equal(responsePayload.appointment?.clientSecret, undefined)
   } finally {

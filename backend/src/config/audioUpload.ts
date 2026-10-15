@@ -1,9 +1,9 @@
-import multer from 'multer';
-import { ApiError } from '../types/errors';
+import multer from 'multer'
+import type { ApiError } from '../types/errors'
 
-export const AUDIO_SIZE_LIMIT = 50 * 1024 * 1024; // 50MB for audio
+export const AUDIO_SIZE_LIMIT = 50 * 1024 * 1024 // 50MB for audio
 
-export const AUDIO_SIZE_LIMIT_MB = 50;
+export const AUDIO_SIZE_LIMIT_MB = 50
 
 const AUDIO_MIME = [
   'audio/webm',
@@ -13,23 +13,21 @@ const AUDIO_MIME = [
   'audio/m4a',
   'audio/wav',
   'audio/ogg',
-];
+]
 
 export const audioUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: AUDIO_SIZE_LIMIT },
   fileFilter: (_req, file, cb) => {
     const allowed = AUDIO_MIME.some(
-      (m) =>
-        file.mimetype.toLowerCase() === m ||
-        file.mimetype.toLowerCase().startsWith('audio/')
-    );
+      (m) => file.mimetype.toLowerCase() === m || file.mimetype.toLowerCase().startsWith('audio/')
+    )
     if (allowed) {
-      cb(null, true);
+      cb(null, true)
     } else {
-      const err = new Error('Audio file type not allowed') as ApiError;
-      err.statusCode = 400;
-      cb(err);
+      const err = new Error('Audio file type not allowed') as ApiError
+      err.statusCode = 400
+      cb(err)
     }
   },
-});
+})

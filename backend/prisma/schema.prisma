@@ -254,7 +254,7 @@ model Clinic {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  tenant                    Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant                    Tenant                     @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   users                     User[]
   disciplines               Discipline[]
   providers                 Provider[]
@@ -290,6 +290,7 @@ model Clinic {
   sitePages                 SitePage[]
   voiceAgentConfig          VoiceAgentConfig?
   voiceCalls                VoiceCall[]
+  breakGlassGrants          BreakGlassGrant[]
 
   @@index([tenantId])
 }
@@ -301,18 +302,18 @@ model Clinic {
 // writes to; sectionsJson is what the public site renders. Publishing
 // copies draft → published.
 model SitePage {
-  id                  String    @id @default(cuid())
-  clinicId            String
-  slug                String
-  title               String
-  status              SitePageStatus @default(DRAFT)
-  sectionsJson        Json      @default("[]")
-  draftSectionsJson   Json      @default("[]")
-  seoTitle            String?
-  seoDescription      String?
-  publishedAt         DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                String         @id @default(cuid())
+  clinicId          String
+  slug              String
+  title             String
+  status            SitePageStatus @default(DRAFT)
+  sectionsJson      Json           @default("[]")
+  draftSectionsJson Json           @default("[]")
+  seoTitle          String?
+  seoDescription    String?
+  publishedAt       DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
@@ -332,7 +333,7 @@ model CustomRole {
   name        String
   description String?
   isPreset    Boolean  @default(false)
-  permissions Json     // Array of permission keys: ["appointments.view", "billing.manage"]
+  permissions Json // Array of permission keys: ["appointments.view", "billing.manage"]
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -345,27 +346,37 @@ model CustomRole {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  clinicId     String?
-  name         String
-  email        String   @unique
-  password     String
-  role         Role
-  customRoleId String?
-  permissions  Json?
-  preferences  Json?
-  hasSeenTour  Boolean  @default(false)
-  tourCompletedAt DateTime?
-  isActive     Boolean  @default(true)
-  hasSeenPatientTour Boolean @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  clinicId           String?
+  name               String
+  email              String    @unique
+  password           String
+  role               Role
+  customRoleId       String?
+  permissions        Json?
+  preferences        Json?
+  hasSeenTour        Boolean   @default(false)
+  tourCompletedAt    DateTime?
+  isActive           Boolean   @default(true)
+  hasSeenPatientTour Boolean   @default(false)
+  // MFA (B0.2.2): TOTP secret is AES-256-GCM encrypted; recovery codes are sha256 hashes.
+  mfaEnabled         Boolean   @default(false)
+  mfaSecret          String?
+  mfaPendingSecret   String?
+  mfaEnrolledAt      DateTime?
+  mfaRecoveryCodes   Json?
+  mfaLastUsedStep    Int?
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   clinic                        Clinic?                    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   customRole                    CustomRole?                @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   provider                      Provider?
   passwordSetupTokens           PasswordSetupToken[]
   refreshTokens                 RefreshToken[]
+  sessions                      UserSession[]
+  breakGlassGrants              BreakGlassGrant[]
   appointments                  Appointment[]
   appointmentSeries             AppointmentSeries[]
   visitRecords                  VisitRecord[]
@@ -422,25 +433,25 @@ model ProviderDiscipline {
 }
 
 model Provider {
-  id              String   @id @default(cuid())
-  clinicId        String
-  userId          String?  @unique
-  firstName       String
-  lastName        String
-  email           String?
-  phone           String?
-  bufferMinutes   Int      @default(0)
-  bio             String?
-  headshotUrl     String?
-  signatureUrl    String?
-  licenseNumber   String?
-  languages       String[] @default([])
-  scribeTemplateId String?
-  scribeTone      ScribeTone @default(CONCISE)
-  scribeIncludeCoding Boolean @default(true)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String     @id @default(cuid())
+  clinicId            String
+  userId              String?    @unique
+  firstName           String
+  lastName            String
+  email               String?
+  phone               String?
+  bufferMinutes       Int        @default(0)
+  bio                 String?
+  headshotUrl         String?
+  signatureUrl        String?
+  licenseNumber       String?
+  languages           String[]   @default([])
+  scribeTemplateId    String?
+  scribeTone          ScribeTone @default(CONCISE)
+  scribeIncludeCoding Boolean    @default(true)
+  isActive            Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
 
   clinic                 Clinic                       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   disciplines            ProviderDiscipline[]
@@ -636,18 +647,18 @@ model Service {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 
-  clinic            Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  discipline        Discipline          @relation(fields: [disciplineId], references: [id], onDelete: Restrict)
-  providerServices  ProviderService[]
-  appointments      Appointment[]
-  appointmentSeries AppointmentSeries[]
-  waitlistEntries   WaitlistEntry[]
-  slotHolds         SlotHold[]
-  formTemplates     FormTemplate[]
-  invoiceItems      InvoiceItem[]
-  cartItems         CartItem[]
-  commissionRules   CommissionRule[]
-  recommendedProducts Product[] @relation("ServiceRecommendations")
+  clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  discipline          Discipline          @relation(fields: [disciplineId], references: [id], onDelete: Restrict)
+  providerServices    ProviderService[]
+  appointments        Appointment[]
+  appointmentSeries   AppointmentSeries[]
+  waitlistEntries     WaitlistEntry[]
+  slotHolds           SlotHold[]
+  formTemplates       FormTemplate[]
+  invoiceItems        InvoiceItem[]
+  cartItems           CartItem[]
+  commissionRules     CommissionRule[]
+  recommendedProducts Product[]           @relation("ServiceRecommendations")
 
   @@unique([clinicId, name])
   @@index([clinicId])
@@ -669,19 +680,19 @@ model ProviderService {
 }
 
 model Invoice {
-  id            String        @id @default(cuid())
-  clinicId      String
-  locationId    String?
-  appointmentId String?
-  patientId     String
-  providerId    String?
+  id              String        @id @default(cuid())
+  clinicId        String
+  locationId      String?
+  appointmentId   String?
+  patientId       String
+  providerId      String?
   stripeInvoiceId String?
-  status        InvoiceStatus @default(DRAFT)
-  subtotal      Decimal       @db.Decimal(10, 2)
-  taxAmount     Decimal       @db.Decimal(10, 2)
-  totalAmount   Decimal       @db.Decimal(10, 2)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Decimal       @db.Decimal(10, 2)
+  taxAmount       Decimal       @db.Decimal(10, 2)
+  totalAmount     Decimal       @db.Decimal(10, 2)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   clinic            Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   appointment       Appointment?       @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
@@ -730,36 +741,36 @@ model InvoiceItem {
 }
 
 model Appointment {
-  id                     String                 @id @default(cuid())
-  clinicId               String
-  locationId             String?
-  providerId             String
-  serviceId              String
-  disciplineId           String?
-  patientId              String
-  timezone               String                 @default("UTC")
-  startTime              DateTime
-  endTime                DateTime
-  status                 AppointmentStatus      @default(CONFIRMED)
-  priceAtBooking         Decimal                @db.Decimal(10, 2)
-  paymentStatus          PaymentStatus          @default(NONE)
-  paymentRequirementType PaymentRequirementType @default(NONE)
-  approvalStatus         ApprovalStatus         @default(NOT_REQUIRED)
-  bookingSource          BookingSource          @default(PUBLIC)
-  depositAmount          Decimal?               @db.Decimal(10, 2)
-  paymentDueAt           DateTime?
-  slotHeldUntil          DateTime?
-  bookingHoldExpiresAt   DateTime?
-  cancelledAt            DateTime?
-  cancellationReason     String?
-  notes                  String?                @db.Text
-  createdById            String?
-  updatedById            String?
-  reminderSent           Boolean                @default(false)
-  recurringSeriesId      String?
-  rescheduledFromId      String?                @unique
-  rescheduledToId        String?
-  meetLink               String?
+  id                       String                 @id @default(cuid())
+  clinicId                 String
+  locationId               String?
+  providerId               String
+  serviceId                String
+  disciplineId             String?
+  patientId                String
+  timezone                 String                 @default("UTC")
+  startTime                DateTime
+  endTime                  DateTime
+  status                   AppointmentStatus      @default(CONFIRMED)
+  priceAtBooking           Decimal                @db.Decimal(10, 2)
+  paymentStatus            PaymentStatus          @default(NONE)
+  paymentRequirementType   PaymentRequirementType @default(NONE)
+  approvalStatus           ApprovalStatus         @default(NOT_REQUIRED)
+  bookingSource            BookingSource          @default(PUBLIC)
+  depositAmount            Decimal?               @db.Decimal(10, 2)
+  paymentDueAt             DateTime?
+  slotHeldUntil            DateTime?
+  bookingHoldExpiresAt     DateTime?
+  cancelledAt              DateTime?
+  cancellationReason       String?
+  notes                    String?                @db.Text
+  createdById              String?
+  updatedById              String?
+  reminderSent             Boolean                @default(false)
+  recurringSeriesId        String?
+  rescheduledFromId        String?                @unique
+  rescheduledToId          String?
+  meetLink                 String?
   /**
    * Booking-time AI-Scribe consent. When set, the patient opted in to
    * automated note-taking while booking. The ConsultationSession created for
@@ -767,8 +778,8 @@ model Appointment {
    * doesn't need to re-prompt mid-visit.
    */
   aiScribeConsentGrantedAt DateTime?
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
 
   clinic          Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   location        Location?          @relation(fields: [locationId], references: [id], onDelete: Restrict)
@@ -802,25 +813,25 @@ model Appointment {
 }
 
 model Payment {
-  id                 String        @id @default(cuid())
-  clinicId           String
-  providerId         String?
-  invoiceId          String?
-  appointmentId      String?
-  patientId          String
-  refundForPaymentId String?
-  stripePaymentIntentId String?    @unique
-  stripeRefundId        String?    @unique
+  id                    String        @id @default(cuid())
+  clinicId              String
+  providerId            String?
+  invoiceId             String?
+  appointmentId         String?
+  patientId             String
+  refundForPaymentId    String?
+  stripePaymentIntentId String?       @unique
+  stripeRefundId        String?       @unique
   stripeClientSecret    String?
-  paymentChannel     String?
-  paymentMethod      String?
-  recordedById       String?
-  recordedAt         DateTime?
-  notes              String?
-  amount             Decimal       @db.Decimal(10, 2)
-  status             PaymentStatus
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  paymentChannel        String?
+  paymentMethod         String?
+  recordedById          String?
+  recordedAt            DateTime?
+  notes                 String?
+  amount                Decimal       @db.Decimal(10, 2)
+  status                PaymentStatus
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   invoice     Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -834,23 +845,23 @@ model Payment {
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  clinicId    String
-  name        String
-  description String?
-  sku         String?
-  price       Decimal  @db.Decimal(10, 2)
+  id            String   @id @default(cuid())
+  clinicId      String
+  name          String
+  description   String?
+  sku           String?
+  price         Decimal  @db.Decimal(10, 2)
   taxApplicable Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  inventoryItem   InventoryItem?
-  cartItems       CartItem[]
-  commissionRules CommissionRule[]
-  invoiceItems    InvoiceItem[]
-  recommendedForServices Service[] @relation("ServiceRecommendations")
+  clinic                 Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  inventoryItem          InventoryItem?
+  cartItems              CartItem[]
+  commissionRules        CommissionRule[]
+  invoiceItems           InvoiceItem[]
+  recommendedForServices Service[]        @relation("ServiceRecommendations")
 
   @@unique([clinicId, name])
   @@index([clinicId])
@@ -899,16 +910,16 @@ model Package {
 }
 
 model Membership {
-  id            String   @id @default(cuid())
-  clinicId      String
-  name          String
-  description   String?
-  monthlyPrice  Decimal  @db.Decimal(10, 2)
-  serviceDiscountPercent Decimal @default(0) @db.Decimal(5, 2)
-  billingPeriod String   @default("MONTHLY")
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                     String   @id @default(cuid())
+  clinicId               String
+  name                   String
+  description            String?
+  monthlyPrice           Decimal  @db.Decimal(10, 2)
+  serviceDiscountPercent Decimal  @default(0) @db.Decimal(5, 2)
+  billingPeriod          String   @default("MONTHLY")
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   clinic               Clinic                @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   cartItems            CartItem[]
@@ -1065,12 +1076,64 @@ model Prescription {
 model RefreshToken {
   id        String   @id @default(cuid())
   userId    String
+  sessionId String?
   token     String
   expiresAt DateTime
   revoked   Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session UserSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([sessionId])
+}
+
+/// Server-side login session (B0.2.1 / B0.2.3). Access tokens carry its id as
+/// `sid`; logout, idle timeout and refresh-token reuse revoke it, after which
+/// every token bound to it is rejected.
+model UserSession {
+  id             String    @id @default(cuid())
+  userId         String
+  createdAt      DateTime  @default(now())
+  lastActivityAt DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  revokedReason  String?
+  mfaVerifiedAt  DateTime?
+  ipAddress      String?
+  userAgent      String?
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([userId])
+}
+
+/// Emergency ("break-glass") access (B0.2.6): time-boxed, justified, audited.
+model BreakGlassGrant {
+  id          String    @id @default(cuid())
+  userId      String
+  clinicId    String
+  reason      String
+  patientId   String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  endedAt     DateTime?
+  endedReason String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@index([userId, expiresAt])
+  @@index([clinicId])
+}
+
+/// Stripe event ids already handled (webhook idempotency, used by B0.5.3).
+model ProcessedStripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model PasswordSetupToken {
@@ -1086,24 +1149,32 @@ model PasswordSetupToken {
   @@index([userId])
 }
 
+/// Append-only (B0.3.3): a trigger rejects UPDATE, TRUNCATE and any DELETE
+/// inside the 6-year retention window; the app role has no UPDATE/DELETE grant.
+/// clinicId / performedById are null only for auth events with no clinic or
+/// no known user (e.g. a failed login for an unknown email).
 model AuditLog {
   id            String   @id @default(cuid())
-  clinicId      String
+  clinicId      String?
   entityType    String
   entityId      String
   action        String
   fieldChanged  String?
   oldValue      Json?
   newValue      Json?
-  performedById String
+  performedById String?
+  severity      String   @default("info")
+  ipAddress     String?
+  userAgent     String?
   createdAt     DateTime @default(now())
 
-  clinic      Clinic @relation(fields: [clinicId], references: [id])
-  performedBy User   @relation(fields: [performedById], references: [id])
+  clinic      Clinic? @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  performedBy User?   @relation(fields: [performedById], references: [id], onDelete: Restrict)
 
   @@index([clinicId])
   @@index([entityType])
   @@index([entityId])
+  @@index([createdAt])
 }
 
 model WaitlistEntry {
@@ -1254,28 +1325,28 @@ model FormResponse {
 }
 
 model ConsultationSession {
-  id                String             @id @default(cuid())
-  clinicId          String
-  appointmentId     String
-  providerId        String
-  patientId         String
-  status            ConsultationStatus @default(NOT_STARTED)
-  recordingStatus   RecordingStatus    @default(NOT_STARTED)
-  consentStatus     ConsentStatus      @default(PENDING)
-  consentGrantedAt  DateTime?
-  joinToken         String             @unique
+  id                 String             @id @default(cuid())
+  clinicId           String
+  appointmentId      String
+  providerId         String
+  patientId          String
+  status             ConsultationStatus @default(NOT_STARTED)
+  recordingStatus    RecordingStatus    @default(NOT_STARTED)
+  consentStatus      ConsentStatus      @default(PENDING)
+  consentGrantedAt   DateTime?
+  joinToken          String             @unique
   joinTokenExpiresAt DateTime
-  recordingUrl      String?
-  transcriptText    String?            @db.Text
-  transcriptStatus  String             @default("NOT_STARTED")
-  aiScribeSessionId String?            @unique
-  meetingRoomUrl    String?
-  meetingRoomName   String?
-  startedAt         DateTime?
-  endedAt           DateTime?
-  errorMessage      String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  recordingUrl       String?
+  transcriptText     String?            @db.Text
+  transcriptStatus   String             @default("NOT_STARTED")
+  aiScribeSessionId  String?            @unique
+  meetingRoomUrl     String?
+  meetingRoomName    String?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  errorMessage       String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
   clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   appointment     Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
@@ -1466,8 +1537,8 @@ enum VoiceCallStatus {
 }
 
 enum VoiceCallChannel {
-  BROWSER     // in-app voice test
-  PHONE       // real phone via Twilio
+  BROWSER // in-app voice test
+  PHONE // real phone via Twilio
 }
 
 enum VoiceCallOutcome {
@@ -1482,49 +1553,49 @@ enum VoiceCallOutcome {
 }
 
 enum VoicePersona {
-  WARM        // friendly, conversational (default for primary care)
+  WARM // friendly, conversational (default for primary care)
   PROFESSIONAL // clinical, concise (default for specialists)
-  UPBEAT      // energetic (default for wellness/aesthetics)
+  UPBEAT // energetic (default for wellness/aesthetics)
 }
 
 model VoiceAgentConfig {
-  id           String   @id @default(cuid())
-  clinicId     String   @unique
-  enabled      Boolean  @default(false)
-  greeting     String   @default("Hi! Thanks for calling. I'm an AI assistant who can help with booking, rescheduling, and answering questions about the clinic. How can I help you today?")
-  persona      VoicePersona @default(WARM)
-  voice        String   @default("alloy") // OpenAI Realtime voice: alloy, ash, ballad, coral, echo, sage, shimmer, verse
-  businessHours Json?   // { mon: { open: "09:00", close: "17:00" }, ... }
-  afterHoursMessage String @default("We're closed right now. I can take a message and a staff member will get back to you on the next business day. Or, would you like to book online?")
-  escalationPhone String? // forward to human when needed
-  capabilities Json    @default("{\"book\":true,\"reschedule\":true,\"cancel\":true,\"refill\":true,\"messages\":true,\"transfer\":true,\"info\":true}")
+  id                String       @id @default(cuid())
+  clinicId          String       @unique
+  enabled           Boolean      @default(false)
+  greeting          String       @default("Hi! Thanks for calling. I'm an AI assistant who can help with booking, rescheduling, and answering questions about the clinic. How can I help you today?")
+  persona           VoicePersona @default(WARM)
+  voice             String       @default("alloy") // OpenAI Realtime voice: alloy, ash, ballad, coral, echo, sage, shimmer, verse
+  businessHours     Json? // { mon: { open: "09:00", close: "17:00" }, ... }
+  afterHoursMessage String       @default("We're closed right now. I can take a message and a staff member will get back to you on the next business day. Or, would you like to book online?")
+  escalationPhone   String? // forward to human when needed
+  capabilities      Json         @default("{\"book\":true,\"reschedule\":true,\"cancel\":true,\"refill\":true,\"messages\":true,\"transfer\":true,\"info\":true}")
   systemPromptExtra String? // clinic-specific instructions appended to system prompt
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }
 
 model VoiceCall {
-  id           String           @id @default(cuid())
+  id           String            @id @default(cuid())
   clinicId     String
-  channel      VoiceCallChannel @default(BROWSER)
-  status       VoiceCallStatus  @default(IN_PROGRESS)
+  channel      VoiceCallChannel  @default(BROWSER)
+  status       VoiceCallStatus   @default(IN_PROGRESS)
   outcome      VoiceCallOutcome?
   callerPhone  String?
   callerName   String?
   patientId    String?
-  startedAt    DateTime         @default(now())
+  startedAt    DateTime          @default(now())
   endedAt      DateTime?
-  durationSec  Int              @default(0)
-  transcript   Json             @default("[]") // [{role, content, ts}, ...]
+  durationSec  Int               @default(0)
+  transcript   Json              @default("[]") // [{role, content, ts}, ...]
   summary      String?
   recordingUrl String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
-  clinic  Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  events  VoiceCallEvent[]
+  clinic Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  events VoiceCallEvent[]
 
   @@index([clinicId])
   @@index([status])
@@ -1533,14 +1604,14 @@ model VoiceCall {
 }
 
 model VoiceCallEvent {
-  id        String   @id @default(cuid())
-  callId    String
-  type      String   // "tool_call", "transfer", "error", "interrupt"
-  toolName  String?
-  argsJson  Json?
-  resultJson Json?
+  id           String   @id @default(cuid())
+  callId       String
+  type         String // "tool_call", "transfer", "error", "interrupt"
+  toolName     String?
+  argsJson     Json?
+  resultJson   Json?
   errorMessage String?
-  ts        DateTime @default(now())
+  ts           DateTime @default(now())
 
   call VoiceCall @relation(fields: [callId], references: [id], onDelete: Cascade)
 

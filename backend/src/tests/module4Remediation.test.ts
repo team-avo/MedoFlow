@@ -12,8 +12,14 @@ import * as webhookController from '../controllers/webhookController'
 import * as commissionService from '../services/commissionService'
 import * as emailService from '../services/emailService'
 
+// Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
-  object[key] = value
+  Object.defineProperty(object, key, {
+    value,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  })
 }
 
 test('invoice finalize and pay path updates statuses cleanly', async () => {
@@ -87,7 +93,7 @@ test('invoice finalize and pay path updates statuses cleanly', async () => {
           update: async () => null,
         },
       })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const finalized = await invoiceService.finalizeInvoice('invoice-1', 'clinic-1', 'user-1')
     assert.equal(finalized.status, 'FINALIZED')
@@ -108,10 +114,11 @@ test('invoice finalize and pay path updates statuses cleanly', async () => {
 })
 
 test('membership cart add is rejected because recurring linkage is not supported', async () => {
-  const originalGetOrCreateCart = cartService.getOrCreateCart
+  const originalCartFindFirst = prisma.cart.findFirst
 
   try {
-    ;(cartService.getOrCreateCart as any) = async () => ({ id: 'cart-1' })
+    // getOrCreateCart is called inside cartService, so mock the query it makes.
+    ;(prisma.cart.findFirst as any) = async () => ({ id: 'cart-1', items: [] })
 
     await assert.rejects(
       () =>
@@ -122,7 +129,7 @@ test('membership cart add is rejected because recurring linkage is not supported
       (err: any) => err?.statusCode === 400 && err?.code === 'membership_checkout_unsupported'
     )
   } finally {
-    restore(cartService, 'getOrCreateCart', originalGetOrCreateCart)
+    restore(prisma.cart, 'findFirst', originalCartFindFirst)
   }
 })
 
@@ -136,6 +143,7 @@ test('cart checkout creates a finalized invoice and pending payment ledger row',
   const originalInvoiceUpdate = prisma.invoice.update
   const originalPaymentCreate = prisma.payment.create
   const originalCartUpdate = prisma.cart.update
+  const originalProviderFindFirst = prisma.provider.findFirst
 
   let createdInvoiceProviderId: string | null | undefined
   let invoiceFinalized = false
@@ -165,7 +173,7 @@ test('cart checkout creates a finalized invoice and pending payment ledger row',
       createdInvoiceProviderId = data.providerId
       return { id: 'invoice-1' }
     }
-    ;(invoiceService.recalculateInvoiceTotals as any) = async () => {}
+    restore(invoiceService, 'recalculateInvoiceTotals', (async () => {}) as any)
     ;(prisma.invoice.findUnique as any) = async () => ({
       id: 'invoice-1',
       totalAmount: { toNumber: () => 100 },
@@ -187,10 +195,12 @@ test('cart checkout creates a finalized invoice and pending payment ledger row',
       return { id: 'cart-1' }
     }
     ;(prisma.$transaction as any) = async (operations: any[]) => Promise.all(operations)
+    // Invoices require a provider; cart checkout bills the clinic's first active provider.
+    ;(prisma.provider.findFirst as any) = async () => ({ id: 'provider-1' })
 
     const result = await cartService.checkoutCart('clinic-1', 'patient-1')
 
-    assert.equal(createdInvoiceProviderId, undefined)
+    assert.equal(createdInvoiceProviderId, 'provider-1')
     assert.equal(result.clientSecret, 'secret_1')
     assert.equal(invoiceFinalized, true)
     assert.equal(paymentCreateCount, 1)
@@ -205,6 +215,7 @@ test('cart checkout creates a finalized invoice and pending payment ledger row',
     restore(prisma.invoice, 'update', originalInvoiceUpdate)
     restore(prisma.payment, 'create', originalPaymentCreate)
     restore(prisma.cart, 'update', originalCartUpdate)
+    restore(prisma.provider, 'findFirst', originalProviderFindFirst)
   }
 })
 
@@ -280,12 +291,12 @@ test('cart webhook payment handling is idempotent and provisions sale side effec
       patientPackageCreates += 1
       return { id: 'pp-1' }
     }
-    ;(commissionService.calculateCommissions as any) = async () => {
+    restore(commissionService, 'calculateCommissions', (async () => {
       commissionCalls += 1
-    }
-    ;(emailService.sendInvoiceEmail as any) = async () => {
+    }) as any)
+    restore(emailService, 'sendInvoiceEmail', (async () => {
       emailCalls += 1
-    }
+    }) as any)
 
     const event = {
       id: 'evt_1',
@@ -429,7 +440,7 @@ test('stripe-backed refund updates local ledger and restocks inventory', async (
           },
         },
       })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const result = await paymentService.refundPayment('payment-1', 'user-1', undefined, {
       clinicId: 'clinic-1',
@@ -584,7 +595,7 @@ test('partial refund succeeds within remaining refundable amount for service-onl
           },
         },
       })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const result = await paymentService.refundPayment('payment-1', 'user-1', 30, {
       clinicId: 'clinic-1',
@@ -689,7 +700,7 @@ test('manual invoice payment records ledger state and leaves partial balance vis
           update: async () => null,
         },
       })
-    ;(auditService.logAudit as any) = async () => {}
+    restore(auditService, 'logAudit', (async () => {}) as any)
 
     const result = await invoiceService.recordInvoiceManualPayment(
       'invoice-1',
@@ -827,12 +838,12 @@ test('appointment payment webhook is idempotent across repeated success events',
       invoiceUpdates += 1
       return { id: 'invoice-1' }
     }
-    ;(emailService.sendAppointmentConfirmation as any) = async () => {
+    restore(emailService, 'sendAppointmentConfirmation', (async () => {
       emailCalls += 1
-    }
-    ;(commissionService.calculateCommissions as any) = async () => {
+    }) as any)
+    restore(commissionService, 'calculateCommissions', (async () => {
       commissionCalls += 1
-    }
+    }) as any)
 
     await webhookController.handleAppointmentPaymentIntentSucceeded({
       id: 'pi_1',
@@ -871,14 +882,14 @@ test('appointment controller forwards patientPackageId into booking context', as
   let receivedContext: any = null
 
   try {
-    ;(appointmentService.createAppointment as any) = async (
+    restore(appointmentService, 'createAppointment', (async (
       _data: any,
       _clinicId: string,
       context: any
     ) => {
       receivedContext = context
       return { appointment: { id: 'appointment-1' } }
-    }
+    }) as any)
 
     const req: any = {
       clinicId: 'clinic-1',
@@ -905,7 +916,9 @@ test('appointment controller forwards patientPackageId into booking context', as
       },
     }
 
-    await appointmentController.create(req, res, () => {})
+    // asyncHandler returns void; let the wrapped handler settle before asserting.
+    appointmentController.create(req, res, () => {})
+    await new Promise<void>((resolve) => setImmediate(resolve))
     assert.equal(receivedContext?.patientPackageId, 'package-use-1')
   } finally {
     restore(appointmentService, 'createAppointment', originalCreateAppointment)

@@ -1,21 +1,21 @@
-import prisma from '../config/prisma';
-import { ApiError } from '../types/errors';
-import * as availabilityService from './availabilityService';
-import * as auditService from './auditService';
-import { buildSlotFingerprint } from './schedulingCore';
+import prisma from '../config/prisma'
+import type { ApiError } from '../types/errors'
+import * as availabilityService from './availabilityService'
+import * as auditService from './auditService'
+import { buildSlotFingerprint } from './schedulingCore'
 
-const HOLD_DURATION_MINUTES = 3;
+const HOLD_DURATION_MINUTES = 3
 
 export interface CreateSlotHoldInput {
-  clinicId: string;
-  providerId: string;
-  serviceId: string;
-  locationId?: string | null;
-  timezone: string;
-  startTime: Date;
-  endTime: Date;
-  patientId?: string;
-  performedById?: string;
+  clinicId: string
+  providerId: string
+  serviceId: string
+  locationId?: string | null
+  timezone: string
+  startTime: Date
+  endTime: Date
+  patientId?: string
+  performedById?: string
 }
 
 /**
@@ -23,43 +23,45 @@ export interface CreateSlotHoldInput {
  * Release hold automatically if booking not completed.
  */
 export const createSlotHold = async (input: CreateSlotHoldInput) => {
-  const expiresAt = new Date(Date.now() + HOLD_DURATION_MINUTES * 60 * 1000);
-  const date = input.startTime.toISOString().slice(0, 10);
+  const expiresAt = new Date(Date.now() + HOLD_DURATION_MINUTES * 60 * 1000)
+  const date = input.startTime.toISOString().slice(0, 10)
 
   return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`slot-hold:${input.providerId}`}))`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`slot-hold:${input.providerId}`}))`
 
     const availableSlots = await availabilityService.getAvailableSlots({
       providerId: input.providerId,
       serviceId: input.serviceId,
       locationId: input.locationId ?? null,
       serviceDurationMinutes:
-        (await tx.service.findUnique({
-          where: { id: input.serviceId },
-          select: { duration: true },
-        }))?.duration ?? Math.round(
-          (input.endTime.getTime() - input.startTime.getTime()) / 60000
-        ),
+        (
+          await tx.service.findUnique({
+            where: { id: input.serviceId, clinicId: input.clinicId },
+            select: { duration: true },
+          })
+        )?.duration ?? Math.round((input.endTime.getTime() - input.startTime.getTime()) / 60000),
       date,
       clinicId: input.clinicId,
-    });
+    })
 
     const requestedFingerprint = buildSlotFingerprint({
       providerId: input.providerId,
       locationId: input.locationId ?? null,
       start: input.startTime,
       end: input.endTime,
-    });
+    })
 
     const matchingSlot = availableSlots.find(
       (slot) => buildSlotFingerprint(slot) === requestedFingerprint
-    );
+    )
 
     if (!matchingSlot) {
-      const err = new Error('Selected slot is no longer available. Please choose another.') as ApiError;
-      err.statusCode = 409;
-      err.code = 'invalid_slot';
-      throw err;
+      const err = new Error(
+        'Selected slot is no longer available. Please choose another.'
+      ) as ApiError
+      err.statusCode = 409
+      err.code = 'invalid_slot'
+      throw err
     }
 
     const hold = await tx.slotHold.create({
@@ -75,7 +77,7 @@ export const createSlotHold = async (input: CreateSlotHoldInput) => {
         expiresAt,
         status: 'ACTIVE',
       },
-    });
+    })
 
     if (input.performedById) {
       await auditService.logAudit({
@@ -91,30 +93,26 @@ export const createSlotHold = async (input: CreateSlotHoldInput) => {
           expiresAt: expiresAt.toISOString(),
         },
         performedById: input.performedById,
-      });
+      })
     }
 
-    return hold;
-  });
-};
+    return hold
+  })
+}
 
-export const releaseSlotHold = async (
-  holdId: string,
-  clinicId: string,
-  performedById?: string
-) => {
+export const releaseSlotHold = async (holdId: string, clinicId: string, performedById?: string) => {
   const hold = await prisma.slotHold.findFirst({
     where: { id: holdId, clinicId, status: 'ACTIVE' },
-  });
-  if (!hold) return false;
+  })
+  if (!hold) return false
 
   await prisma.slotHold.update({
-    where: { id: holdId },
+    where: { id: holdId, clinicId },
     data: {
       status: 'RELEASED',
       releasedAt: new Date(),
     },
-  });
+  })
 
   if (performedById) {
     await auditService.logAudit({
@@ -125,11 +123,11 @@ export const releaseSlotHold = async (
       oldValue: { status: hold.status },
       newValue: { status: 'RELEASED' },
       performedById,
-    });
+    })
   }
 
-  return true;
-};
+  return true
+}
 
 export const validateAndConsumeSlotHold = async (
   holdId: string,
@@ -142,36 +140,36 @@ export const validateAndConsumeSlotHold = async (
 ) => {
   const hold = await prisma.slotHold.findFirst({
     where: { id: holdId, clinicId, status: 'ACTIVE' },
-  });
-  if (!hold) return false;
+  })
+  if (!hold) return false
   if (hold.expiresAt < new Date()) {
     await prisma.slotHold.update({
-      where: { id: hold.id },
+      where: { id: hold.id, clinicId },
       data: {
         status: 'EXPIRED',
         expiredAt: new Date(),
       },
-    });
-    return false;
+    })
+    return false
   }
   if (
     hold.providerId !== providerId ||
     hold.serviceId !== serviceId ||
     (hold.locationId ?? null) !== (locationId ?? null)
   )
-    return false;
+    return false
   if (
     hold.startTime.getTime() !== startTime.getTime() ||
     hold.endTime.getTime() !== endTime.getTime()
   )
-    return false;
+    return false
 
   await prisma.slotHold.update({
-    where: { id: holdId },
+    where: { id: holdId, clinicId },
     data: { status: 'CONVERTED' },
-  });
-  return true;
-};
+  })
+  return true
+}
 
 /**
  * Expire old slot holds. Call from cron or periodically.
@@ -186,6 +184,6 @@ export const expireSlotHolds = async (): Promise<number> => {
       status: 'EXPIRED',
       expiredAt: new Date(),
     },
-  });
-  return result.count;
-};
+  })
+  return result.count
+}

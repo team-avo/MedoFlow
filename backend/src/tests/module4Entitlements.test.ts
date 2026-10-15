@@ -10,8 +10,14 @@ import * as auditService from '../services/auditService'
 import * as emailService from '../services/emailService'
 import * as waitlistService from '../services/waitlistService'
 
+// Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
-  object[key] = value
+  Object.defineProperty(object, key, {
+    value,
+    configurable: true,
+    writable: true,
+    enumerable: true,
+  })
 }
 
 test('membership purchase creates a real Stripe-linked local subscription record', async () => {
@@ -307,7 +313,7 @@ test('package remaining sessions are exposed in entitlement summary', async () =
 
     const result = await membershipService.getPatientEntitlementSummary('clinic-1', 'patient-1')
 
-    assert.equal(result.packages[0].remainingSessions, 4)
+    assert.equal(result.packages[0]?.remainingSessions, 4)
     assert.equal(result.activeMembershipBenefit, null)
   } finally {
     restore(prisma.patientPackage, 'findMany', originalPackageFindMany)
@@ -692,13 +698,13 @@ test('package session is restored on appointment cancellation', async () => {
       startTime: new Date('2026-03-20T10:00:00.000Z'),
       status: 'CANCELLED',
     })
-    ;(auditService.logAudit as any) = async () => {}
-    ;(emailService.sendAppointmentCancellation as any) = async () => {}
-    ;(waitlistService.offerSlotToWaitlist as any) = async () => {}
-    ;(packageUsageService.releasePackageSession as any) = async () => {
+    restore(auditService, 'logAudit', (async () => {}) as any)
+    restore(emailService, 'sendAppointmentCancellation', (async () => {}) as any)
+    restore(waitlistService, 'offerSlotToWaitlist', (async () => {}) as any)
+    restore(packageUsageService, 'releasePackageSession', (async () => {
       releaseCalls += 1
       return { id: 'patient-package-1' }
-    }
+    }) as any)
 
     await appointmentService.cancelAppointment(
       'appointment-1',

@@ -1,9 +1,9 @@
-import { AppointmentStatus, PaymentStatus, Prisma, Role } from '@prisma/client'
+import type { PaymentStatus, Prisma } from '@prisma/client'
+import { AppointmentStatus, Role } from '@prisma/client'
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import { computeInvoiceFinancials } from './invoiceService'
 
-const ZERO = new Prisma.Decimal(0)
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 const UPCOMING_LOAD_DAYS = 7
 const DROP_OFF_RISK_DAYS = 90
@@ -97,7 +97,7 @@ export const resolveAnalyticsScope = async ({
 }): Promise<AnalyticsScope> => {
   if (role === Role.PROVIDER) {
     const provider = await prisma.provider.findUnique({
-      where: { userId },
+      where: { userId, clinicId },
       select: { id: true },
     })
     if (!provider) {
@@ -189,12 +189,6 @@ const buildInvoiceFinancial = (invoice: {
     financialStatus: financials.financialStatus,
   }
 }
-
-const isAppointmentInRange = (appointment: { startTime: Date }, range: AnalyticsDateRange) =>
-  appointment.startTime >= range.dateFrom && appointment.startTime <= range.dateTo
-
-const isInvoiceInRange = (invoice: { createdAt: Date }, range: AnalyticsDateRange) =>
-  invoice.createdAt >= range.dateFrom && invoice.createdAt <= range.dateTo
 
 const buildBaseWhere = (
   scope: AnalyticsScope,
@@ -517,13 +511,6 @@ export const aggregateAnalytics = async (
   const completedAppointments = appointments.filter(
     (appointment) => appointment.status === AppointmentStatus.COMPLETED
   )
-  const totalAppointmentMinutes = appointments
-    .filter((appointment) => ACTIVE_SCHEDULED_STATUSES.includes(appointment.status))
-    .reduce(
-      (sum, appointment) => sum + minutesBetween(appointment.startTime, appointment.endTime),
-      0
-    )
-
   const distinctPatients = uniqueCount(invoices.map((invoice) => invoice.patientId))
   const netCollectedRevenue = invoices.reduce((sum, invoice) => sum + invoice.netCollected, 0)
   const grossCollectedRevenue = invoices.reduce((sum, invoice) => sum + invoice.totalPaid, 0)

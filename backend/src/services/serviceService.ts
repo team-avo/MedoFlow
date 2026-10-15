@@ -1,51 +1,45 @@
-import prisma from '../config/prisma';
-import { ApiError } from '../types/errors';
-import * as auditService from './auditService';
+import prisma from '../config/prisma'
+import { clinicScope } from '../config/tenantContext'
+import type { ApiError } from '../types/errors'
+import * as auditService from './auditService'
 
 export interface CreateServiceData {
-  disciplineId: string;
-  name: string;
-  duration: number;
-  defaultPrice: number | string;
-  taxApplicable?: boolean;
-  recommendedProductIds?: string[];
+  disciplineId: string
+  name: string
+  duration: number
+  defaultPrice: number | string
+  taxApplicable?: boolean
+  recommendedProductIds?: string[]
 }
 
-type ClinicWhere = { clinicId?: string } | Record<string, never>;
+type ClinicWhere = { clinicId?: string } | Record<string, never>
 
-const validateDisciplineBelongsToClinic = async (
-  disciplineId: string,
-  clinicId: string
-) => {
+const validateDisciplineBelongsToClinic = async (disciplineId: string, clinicId: string) => {
   const discipline = await prisma.discipline.findFirst({
     where: { id: disciplineId, clinicId },
-  });
+  })
   if (!discipline) {
-    const err = new Error(
-      'Discipline not found or does not belong to this clinic'
-    ) as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Discipline not found or does not belong to this clinic') as ApiError
+    err.statusCode = 404
+    throw err
   }
-  return discipline;
-};
+  return discipline
+}
 
 export const createService = async (
   data: CreateServiceData,
   clinicId: string,
   performedById: string
 ) => {
-  await validateDisciplineBelongsToClinic(data.disciplineId, clinicId);
+  await validateDisciplineBelongsToClinic(data.disciplineId, clinicId)
 
   const existing = await prisma.service.findFirst({
     where: { clinicId, name: data.name },
-  });
+  })
   if (existing) {
-    const err = new Error(
-      'Service with this name already exists in this clinic'
-    ) as ApiError;
-    err.statusCode = 409;
-    throw err;
+    const err = new Error('Service with this name already exists in this clinic') as ApiError
+    err.statusCode = 409
+    throw err
   }
 
   const service = await prisma.service.create({
@@ -64,7 +58,7 @@ export const createService = async (
       discipline: { select: { id: true, name: true } },
       recommendedProducts: true,
     },
-  });
+  })
 
   await auditService.logAudit({
     clinicId,
@@ -77,33 +71,33 @@ export const createService = async (
       disciplineId: service.discipline.id,
     },
     performedById,
-  });
+  })
 
-  return service;
-};
+  return service
+}
 
 export const getServices = async (where: ClinicWhere) => {
-  const whereClause = Object.keys(where).length === 0 ? { isActive: true } : { ...where, isActive: true };
+  const whereClause = { ...clinicScope(), ...where, isActive: true }
   return prisma.service.findMany({
-    where: whereClause as { isActive: boolean; clinicId?: string },
+    where: whereClause as { isActive: boolean; clinicId?: string | { in: string[] } },
     orderBy: { name: 'asc' },
     include: {
       discipline: { select: { id: true, name: true } },
       _count: { select: { providerServices: true } },
     },
-  });
-};
+  })
+}
 
 export const getServiceById = async (id: string, where: ClinicWhere = {}) => {
-  const whereClause = Object.keys(where).length === 0 ? { id } : { id, ...where };
+  const whereClause = { id, ...clinicScope(), ...where }
   return prisma.service.findFirst({
-    where: whereClause as { id: string; clinicId?: string },
+    where: whereClause as { id: string; clinicId?: string | { in: string[] } },
     include: {
       discipline: { select: { id: true, name: true } },
       recommendedProducts: true,
     },
-  });
-};
+  })
+}
 
 export const updateService = async (
   id: string,
@@ -111,13 +105,13 @@ export const updateService = async (
   where: ClinicWhere,
   performedById: string
 ) => {
-  const service = await prisma.service.findUnique({ where: { id } });
+  const service = await prisma.service.findUnique({ where: { id, ...clinicScope(), ...where } })
   if (!service) {
-    const err = new Error('Service not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Service not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
-  const clinicId = 'clinicId' in where ? where.clinicId : service.clinicId;
+  const clinicId = 'clinicId' in where ? where.clinicId : service.clinicId
 
   if (data.name) {
     const existing = await prisma.service.findFirst({
@@ -126,22 +120,20 @@ export const updateService = async (
         name: data.name,
         NOT: { id },
       },
-    });
+    })
     if (existing) {
-      const err = new Error(
-        'Service with this name already exists in this clinic'
-      ) as ApiError;
-      err.statusCode = 409;
-      throw err;
+      const err = new Error('Service with this name already exists in this clinic') as ApiError
+      err.statusCode = 409
+      throw err
     }
   }
 
   if (data.disciplineId) {
-    await validateDisciplineBelongsToClinic(data.disciplineId, clinicId || service.clinicId);
+    await validateDisciplineBelongsToClinic(data.disciplineId, clinicId || service.clinicId)
   }
 
   const updated = await prisma.service.update({
-    where: { id },
+    where: { id, clinicId: service.clinicId },
     data: {
       ...(data.name && { name: data.name }),
       ...(data.duration !== undefined && { duration: data.duration }),
@@ -159,10 +151,13 @@ export const updateService = async (
       discipline: { select: { id: true, name: true } },
       recommendedProducts: true,
     },
-  });
+  })
 
-  const cid = clinicId || service.clinicId;
-  if (data.defaultPrice !== undefined && String(service.defaultPrice) !== String(data.defaultPrice)) {
+  const cid = clinicId || service.clinicId
+  if (
+    data.defaultPrice !== undefined &&
+    String(service.defaultPrice) !== String(data.defaultPrice)
+  ) {
     await auditService.logAudit({
       clinicId: cid,
       entityType: 'Service',
@@ -172,7 +167,7 @@ export const updateService = async (
       oldValue: service.defaultPrice.toString(),
       newValue: String(data.defaultPrice),
       performedById,
-    });
+    })
   }
 
   const auditFields: Array<'name' | 'duration' | 'disciplineId' | 'taxApplicable'> = [
@@ -180,7 +175,7 @@ export const updateService = async (
     'duration',
     'disciplineId',
     'taxApplicable',
-  ];
+  ]
   for (const field of auditFields) {
     if (data[field] !== undefined && service[field] !== updated[field]) {
       await auditService.logAudit({
@@ -192,45 +187,40 @@ export const updateService = async (
         oldValue: service[field] as string | number | boolean | null,
         newValue: updated[field] as string | number | boolean | null,
         performedById,
-      });
+      })
     }
   }
 
-  return updated;
-};
+  return updated
+}
 
-export const archiveService = async (
-  id: string,
-  where: ClinicWhere,
-  performedById: string
-) => {
-  const service = await getServiceById(id, where);
+export const archiveService = async (id: string, where: ClinicWhere, performedById: string) => {
+  const service = await getServiceById(id, where)
   if (!service) {
-    const err = new Error('Service not found') as ApiError;
-    err.statusCode = 404;
-    throw err;
+    const err = new Error('Service not found') as ApiError
+    err.statusCode = 404
+    throw err
   }
   const futureBookings = await prisma.appointment.count({
     where: {
       serviceId: id,
+      clinicId: service.clinicId,
       startTime: { gt: new Date() },
       status: { notIn: ['CANCELLED', 'RESCHEDULED'] },
     },
-  });
+  })
   if (futureBookings > 0) {
-    const err = new Error(
-      'Cannot archive a service with upcoming appointments.'
-    ) as ApiError;
-    err.statusCode = 400;
-    throw err;
+    const err = new Error('Cannot archive a service with upcoming appointments.') as ApiError
+    err.statusCode = 400
+    throw err
   }
   const updated = await prisma.service.update({
-    where: { id },
+    where: { id, clinicId: service.clinicId },
     data: { isActive: false, isArchived: true },
     include: {
       discipline: { select: { id: true, name: true } },
     },
-  });
+  })
   if (service.isActive) {
     await auditService.logAudit({
       clinicId: service.clinicId,
@@ -241,7 +231,7 @@ export const archiveService = async (
       oldValue: true,
       newValue: false,
       performedById,
-    });
+    })
   }
-  return updated;
-};
+  return updated
+}

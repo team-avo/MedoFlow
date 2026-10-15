@@ -47,6 +47,11 @@ COPY --from=builder /app/tsconfig.json ./tsconfig.json
 # Expose port
 EXPOSE 3000
 
-# Run migrations, conditionally seed, then start server
-# Set SEED_ON_DEPLOY=true in Railway env vars to seed demo data on first deploy
-CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_ON_DEPLOY\" = \"true\" ]; then npx ts-node prisma/seed_demo.ts; fi && node dist/server.js"]
+# Run migrations, conditionally seed, then start server.
+# Migrations run as the table owner (MIGRATION_DATABASE_URL); the server runs
+# as the non-owner, non-BYPASSRLS medoflow_app role (DATABASE_URL) so Postgres
+# row-level security applies to it (B0.1.3). Without MIGRATION_DATABASE_URL
+# both use DATABASE_URL (local development only — production refuses to boot
+# on a role that bypasses RLS).
+# Set SEED_ON_DEPLOY=true to seed demo data on first deploy.
+CMD ["sh", "-c", "DATABASE_URL=\"${MIGRATION_DATABASE_URL:-$DATABASE_URL}\" npx prisma migrate deploy && if [ \"$SEED_ON_DEPLOY\" = \"true\" ]; then DATABASE_URL=\"${MIGRATION_DATABASE_URL:-$DATABASE_URL}\" npx ts-node prisma/seed_demo.ts; fi && node dist/server.js"]

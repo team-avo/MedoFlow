@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import type { Response } from 'express'
 
 export const successResponse = (
   res: Response,
@@ -10,5 +10,5 @@ export const successResponse = (
     success: true,
     message,
     data,
-  });
-};
+  })
+}

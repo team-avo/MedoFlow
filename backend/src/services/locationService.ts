@@ -1,4 +1,5 @@
 import prisma from '../config/prisma'
+import { clinicScope } from '../config/tenantContext'
 import * as auditService from './auditService'
 
 export interface CreateLocationData {
@@ -53,10 +54,9 @@ export const createLocation = async (
 }
 
 export const getLocations = async (where: ClinicWhere) => {
-  const whereClause =
-    Object.keys(where).length === 0 ? { isActive: true } : { ...where, isActive: true }
+  const whereClause = { ...clinicScope(), ...where, isActive: true }
   return prisma.location.findMany({
-    where: whereClause as { isActive: boolean; clinicId?: string },
+    where: whereClause as { isActive: boolean; clinicId?: string | { in: string[] } },
     orderBy: { name: 'asc' },
   })
 }

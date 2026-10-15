@@ -1,5 +1,5 @@
 import prisma from '../config/prisma'
-import { ApiError } from '../types/errors'
+import type { ApiError } from '../types/errors'
 import type { SitePageStatus } from '@prisma/client'
 import { chatCompletion } from './aiProviderService'
 
@@ -144,7 +144,7 @@ export async function aiBootstrapPage(
   let page
   if (existing) {
     page = await prisma.sitePage.update({
-      where: { id: existing.id },
+      where: { id: existing.id, clinicId },
       data: { draftSectionsJson: sections as unknown as object },
     })
   } else {
@@ -209,7 +209,7 @@ function validateSections(sections: unknown): SectionInput[] {
       throw err
     }
     return {
-      type: sec['type'] as string,
+      type: sec['type'],
       settings: (sec['settings'] as Record<string, unknown>) ?? {},
       blocks: Array.isArray(sec['blocks'])
         ? (sec['blocks'] as Array<{ type: string; settings?: Record<string, unknown> }>)
@@ -329,7 +329,7 @@ export async function updateDraft(
   if (input.seoDescription !== undefined) data['seoDescription'] = input.seoDescription
 
   return prisma.sitePage.update({
-    where: { id: page.id },
+    where: { id: page.id, clinicId },
     data,
   })
 }
@@ -344,7 +344,7 @@ export async function publish(clinicId: string, pageId: string) {
     throw err
   }
   return prisma.sitePage.update({
-    where: { id: page.id },
+    where: { id: page.id, clinicId },
     data: {
       sectionsJson: page.draftSectionsJson as unknown as object,
       status: 'PUBLISHED' as SitePageStatus,
@@ -364,7 +364,7 @@ export async function unpublish(clinicId: string, pageId: string) {
     throw err
   }
   return prisma.sitePage.update({
-    where: { id: page.id },
+    where: { id: page.id, clinicId },
     data: { status: 'DRAFT' as SitePageStatus, publishedAt: null },
   })
 }
@@ -379,5 +379,5 @@ export async function deletePage(clinicId: string, pageId: string) {
     err.statusCode = 404
     throw err
   }
-  await prisma.sitePage.delete({ where: { id: page.id } })
+  await prisma.sitePage.delete({ where: { id: page.id, clinicId } })
 }
