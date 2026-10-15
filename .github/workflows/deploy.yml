@@ -1,9 +1,13 @@
 # CI/CD for MedoFlow
 #
 #   pull request → development   quality gate + build gate (no secrets, no deploy)
-#   push / merge → development   quality gate + build gate → deploy backend to Render + frontend to Cloudflare Workers
-#                                (each app is redeployed only when its files changed) → smoke checks
-#   manual run                   Actions › "CI / Deploy" › Run workflow (deploys both apps)
+#   push / merge → development   quality gate + build gate → build + deploy frontend to Cloudflare Workers
+#                                (only when frontend files changed) → smoke check
+#   manual run                   Actions › "CI / Deploy" › Run workflow (deploys the frontend)
+#
+# The backend is deployed by Render itself (auto-deploy from team-avo/MedoFlow `development`).
+# The CI deploy-backend job below is commented out; re-enable it (and turn Render
+# auto-deploy off) to deploy only commits that passed the gates.
 #
 # Deploys only run in team-avo/MedoFlow (default branch `development`). Forks run the gates only.
 #
@@ -11,11 +15,13 @@
 # REQUIRED status checks on development
 # (Settings › Branches › Branch protection) so a failing check blocks the merge.
 #
-# Repository secrets (Settings › Secrets and variables › Actions › Secrets):
-#   RENDER_DEPLOY_HOOK_URL   Render › medoflow-backend › Settings › Deploy Hook
+# Deploy settings live in the GitHub environment `medoflow-dev-env`
+# (Settings › Environments › medoflow-dev-env), not at repository level.
+# Secrets:
 #   CLOUDFLARE_API_TOKEN     Cloudflare token with Workers Scripts: Edit
 #   CLOUDFLARE_ACCOUNT_ID    523c0186a1808be62e718907053c513b
-# Repository variables (… › Variables):
+#   RENDER_DEPLOY_HOOK_URL   only if deploy-backend is re-enabled (Render › medoflow-backend › Settings › Deploy Hook)
+# Variables:
 #   BACKEND_URL                          e.g. https://medoflow-backend.onrender.com (no trailing slash)
 #   FRONTEND_URL                         https://medoflow-web.advertout-medoflow.workers.dev
 #   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY   optional, pk_test_… / pk_live_…
@@ -199,49 +205,41 @@ jobs:
       - name: Backend — Docker image builds (what Render runs)
         run: docker build -t medoflow-backend:ci backend
 
+      # Build gate only. This job has no environment, so it cannot see the
+      # medoflow-dev-env values; deploy-frontend rebuilds with the real API URL.
       - name: Frontend — OpenNext build for Cloudflare Workers
         working-directory: frontend
         env:
-          # Public, build-time values (inlined into the browser bundle).
-          NEXT_PUBLIC_API_URL: ${{ vars.BACKEND_URL || 'http://localhost:3001' }}
-          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_API_URL: http://localhost:3001
         run: pnpm run cf:build
 
-      - uses: actions/upload-artifact@v4
-        if: github.event_name != 'pull_request'
-        with:
-          name: open-next
-          path: frontend/.open-next
-          include-hidden-files: true
-          retention-days: 3
-
-  deploy-backend:
-    needs: [changes, backend-quality, frontend-quality, build]
-    if: >-
-      github.repository == 'team-avo/MedoFlow' && github.event_name != 'pull_request' &&
-      (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Trigger Render deploy of this exact commit
-        env:
-          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        run: |
-          test -n "$HOOK" || { echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"; exit 1; }
-          curl -fsS -X POST "${HOOK}&ref=${GITHUB_SHA}"
-      - name: Wait until Render serves this commit
-        env:
-          BACKEND_URL: ${{ vars.BACKEND_URL }}
-        run: |
-          test -n "$BACKEND_URL" || { echo "::error::BACKEND_URL variable is not set"; exit 1; }
-          # Docker build + migrate + boot usually takes 3–8 minutes.
-          for i in $(seq 1 90); do
-            commit=$(curl -fsS "$BACKEND_URL/api/v1/health" | jq -r '.data.commit // empty' || true)
-            if [ "$commit" = "$GITHUB_SHA" ]; then echo "Render is serving $GITHUB_SHA"; exit 0; fi
-            echo "[$i] live commit: ${commit:-unknown}; waiting…"; sleep 10
-          done
-          echo "::error::Render did not start serving $GITHUB_SHA within 15 minutes — check the Render deploy logs"
-          exit 1
+  # deploy-backend:
+  #   needs: [changes, backend-quality, frontend-quality, build]
+  #   if: >-
+  #     github.repository == 'team-avo/MedoFlow' && github.event_name != 'pull_request' &&
+  #     (needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch')
+  #   runs-on: ubuntu-latest
+  #   environment: production
+  #   steps:
+  #     - name: Trigger Render deploy of this exact commit
+  #       env:
+  #         HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+  #       run: |
+  #         test -n "$HOOK" || { echo "::error::RENDER_DEPLOY_HOOK_URL secret is not set"; exit 1; }
+  #         curl -fsS -X POST "${HOOK}&ref=${GITHUB_SHA}"
+  #     - name: Wait until Render serves this commit
+  #       env:
+  #         BACKEND_URL: ${{ vars.BACKEND_URL }}
+  #       run: |
+  #         test -n "$BACKEND_URL" || { echo "::error::BACKEND_URL variable is not set"; exit 1; }
+  #         # Docker build + migrate + boot usually takes 3–8 minutes.
+  #         for i in $(seq 1 90); do
+  #           commit=$(curl -fsS "$BACKEND_URL/api/v1/health" | jq -r '.data.commit // empty' || true)
+  #           if [ "$commit" = "$GITHUB_SHA" ]; then echo "Render is serving $GITHUB_SHA"; exit 0; fi
+  #           echo "[$i] live commit: ${commit:-unknown}; waiting…"; sleep 10
+  #         done
+  #         echo "::error::Render did not start serving $GITHUB_SHA within 15 minutes — check the Render deploy logs"
+  #         exit 1
 
   deploy-frontend:
     needs: [changes, backend-quality, frontend-quality, build]
@@ -249,7 +247,7 @@ jobs:
       github.repository == 'team-avo/MedoFlow' && github.event_name != 'pull_request' &&
       (needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    environment: production
+    environment: medoflow-dev-env
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -259,19 +257,22 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-      - run: pnpm install --frozen-lockfile --filter medoflow-frontend
+      - run: pnpm install --frozen-lockfile
       - name: Refuse to ship a bundle without the real API URL
         run: test -n "${{ vars.BACKEND_URL }}" || { echo "::error::BACKEND_URL variable is not set"; exit 1; }
-      - uses: actions/download-artifact@v4
-        with:
-          name: open-next
-          path: frontend/.open-next
+      - name: OpenNext build for Cloudflare Workers
+        working-directory: frontend
+        env:
+          # Public, build-time values (inlined into the browser bundle).
+          NEXT_PUBLIC_API_URL: ${{ vars.BACKEND_URL }}
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+        run: pnpm run cf:build
       - name: Deploy to Cloudflare Workers
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # Deploy the built artifact as-is (otherwise wrangler hands off to `opennextjs-cloudflare deploy`).
+          # Deploy the bundle built above as-is (otherwise wrangler hands off to `opennextjs-cloudflare deploy`).
           OPEN_NEXT_DEPLOY: 'true'
         run: pnpm exec wrangler deploy --message "${GITHUB_SHA::7} via GitHub Actions"
       - name: Smoke check
