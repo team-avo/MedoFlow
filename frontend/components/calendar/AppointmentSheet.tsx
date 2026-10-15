@@ -1,35 +1,25 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetFooter,
-} from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { cancelAppointment, type ProviderAppointment } from '@/lib/patientApi';
-import { RescheduleDialog } from './RescheduleDialog';
-import { useAppToast } from '@/hooks/useAppToast';
-import { format } from 'date-fns';
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/common/StatusBadge'
+import { getAppointmentById, type ProviderAppointment } from '@/lib/patientApi'
+import { cancellationTerms, describeCancellationPolicy } from '@/lib/cancellationPolicy'
+import { CancelAppointmentDialog } from '@/components/appointments/CancelAppointmentDialog'
+import { CancelSeriesDialog } from '@/components/appointments/CancelSeriesDialog'
+import { RescheduleDialog } from './RescheduleDialog'
+import { useAppToast } from '@/hooks/useAppToast'
+import { format } from 'date-fns'
 
 interface AppointmentSheetProps {
-  appointment: ProviderAppointment | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  appointment: ProviderAppointment | null
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onSuccess: () => void
+  /** Front desk / admin may cancel a whole recurring series. */
+  canManageSeries?: boolean
 }
 
 export function AppointmentSheet({
@@ -37,46 +27,44 @@ export function AppointmentSheet({
   open,
   onOpenChange,
   onSuccess,
+  canManageSeries = false,
 }: AppointmentSheetProps) {
-  const toast = useAppToast();
-  const [rescheduleOpen, setRescheduleOpen] = useState(false);
-  const [cancelOpen, setCancelOpen] = useState(false);
-  const [isCancelling, setIsCancelling] = useState(false);
+  const toast = useAppToast()
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [seriesOpen, setSeriesOpen] = useState(false)
 
-  const canReschedule =
-    appointment &&
+  // The list view carries no policy fields; the detail does (F1.3).
+  const { data: detail } = useQuery({
+    queryKey: ['appointment-detail', appointment?.id],
+    queryFn: () => getAppointmentById(appointment!.id),
+    enabled: open && !!appointment?.id,
+  })
+
+  const isLive =
+    !!appointment &&
     appointment.status !== 'CANCELLED' &&
     appointment.status !== 'RESCHEDULED' &&
-    appointment.status !== 'COMPLETED';
-
-  const canCancel =
-    appointment &&
-    appointment.status !== 'CANCELLED' &&
-    appointment.status !== 'RESCHEDULED';
-
-  const handleCancel = async () => {
-    if (!appointment) return;
-    setIsCancelling(true);
-    try {
-      await cancelAppointment(appointment.id);
-      toast.success('Appointment cancelled');
-      onSuccess();
-      onOpenChange(false);
-      setCancelOpen(false);
-    } catch {
-      toast.error('Failed to cancel appointment');
-    } finally {
-      setIsCancelling(false);
-    }
-  };
+    appointment.status !== 'COMPLETED' &&
+    appointment.status !== 'NO_SHOW'
+  const canReschedule = isLive
+  const canCancel = isLive
+  const seriesId = appointment?.recurringSeriesId ?? detail?.recurringSeriesId ?? null
 
   const handleRescheduleSuccess = () => {
-    setRescheduleOpen(false);
-    onSuccess();
-    toast.success('Appointment rescheduled');
-  };
+    setRescheduleOpen(false)
+    onSuccess()
+    toast.success('Appointment rescheduled')
+  }
 
-  if (!appointment) return null;
+  if (!appointment) return null
+
+  const cancellable = {
+    id: appointment.id,
+    startTime: appointment.startTime,
+    priceAtBooking: appointment.priceAtBooking,
+    service: { ...appointment.service, ...(detail?.service ?? {}) },
+  }
 
   return (
     <>
@@ -107,8 +95,16 @@ export function AppointmentSheet({
               <p className="text-sm font-medium text-muted-foreground">Status</p>
               <StatusBadge status={appointment.status} variant="appointment" className="mt-1" />
             </div>
+            {seriesId && (
+              <p className="text-sm text-muted-foreground">Part of a weekly recurring series.</p>
+            )}
+            {isLive && detail && (
+              <p className="text-xs text-muted-foreground">
+                {describeCancellationPolicy(cancellationTerms(detail.service, cancellable))}
+              </p>
+            )}
           </div>
-          <SheetFooter className="mt-8 gap-2">
+          <SheetFooter className="mt-8 flex-wrap gap-2">
             {canReschedule && (
               <Button variant="outline" onClick={() => setRescheduleOpen(true)}>
                 Reschedule
@@ -119,41 +115,46 @@ export function AppointmentSheet({
                 Cancel
               </Button>
             )}
+            {canManageSeries && seriesId && (
+              <Button variant="outline" onClick={() => setSeriesOpen(true)}>
+                Cancel series
+              </Button>
+            )}
           </SheetFooter>
         </SheetContent>
       </Sheet>
 
-      <RescheduleDialog
-        appointment={appointment}
-        open={rescheduleOpen}
-        onOpenChange={setRescheduleOpen}
-        onSuccess={handleRescheduleSuccess}
+      {rescheduleOpen && (
+        <RescheduleDialog
+          appointment={appointment}
+          open={rescheduleOpen}
+          onOpenChange={setRescheduleOpen}
+          onSuccess={handleRescheduleSuccess}
+        />
+      )}
+
+      <CancelAppointmentDialog
+        appointment={cancellable}
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        forLabel={appointment.patient.name}
+        onCancelled={() => {
+          onSuccess()
+          onOpenChange(false)
+        }}
       />
 
-      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel appointment?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will cancel the appointment for {appointment.patient.name}. This action cannot be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleCancel();
-              }}
-              disabled={isCancelling}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isCancelling ? 'Cancelling...' : 'Cancel appointment'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {seriesId && (
+        <CancelSeriesDialog
+          seriesId={seriesId}
+          open={seriesOpen}
+          onOpenChange={setSeriesOpen}
+          onCancelled={() => {
+            onSuccess()
+            onOpenChange(false)
+          }}
+        />
+      )}
     </>
-  );
+  )
 }

@@ -1,51 +1,53 @@
-'use client';
+'use client'
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { getAppointmentById, type PatientAppointmentDetail } from '@/lib/patientApi';
+import React, { useEffect, useMemo, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import Link from 'next/link'
+import { getAppointmentById, type PatientAppointmentDetail } from '@/lib/patientApi'
 import {
   confirmPayment,
   failPayment,
   getOrCreatePaymentIntent,
   demoConfirmPayment,
-} from '@/lib/paymentApi';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
-import { StripePaymentForm } from '@/components/StripePaymentForm';
+} from '@/lib/paymentApi'
+import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import { StripePaymentForm } from '@/components/StripePaymentForm'
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder');
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder'
+)
 
-type PaymentStatus = 'NONE' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
+type PaymentStatus = 'NONE' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED'
 
 type PaymentAppointment = PatientAppointmentDetail & {
-  paymentStatus?: PaymentStatus;
-  bookingHoldExpiresAt?: string | null;
-  priceAtBooking: string;
-  service: PatientAppointmentDetail['service'] & { defaultPrice?: string };
-};
+  paymentStatus?: PaymentStatus
+  bookingHoldExpiresAt?: string | null
+  priceAtBooking: string
+  service: PatientAppointmentDetail['service'] & { defaultPrice?: string }
+}
 
 function formatDateTime(iso: string) {
-  const d = new Date(iso);
+  const d = new Date(iso)
   return d.toLocaleString(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  });
+  })
 }
 
 function formatAmount(amount: string | number | undefined | null) {
-  if (amount == null) return '-';
-  const num = typeof amount === 'string' ? Number(amount) : amount;
-  if (Number.isNaN(num)) return '-';
-  return num.toFixed(2);
+  if (amount == null) return '-'
+  const num = typeof amount === 'string' ? Number(amount) : amount
+  if (Number.isNaN(num)) return '-'
+  return num.toFixed(2)
 }
 
 export default function PaymentPage() {
-  const params = useParams();
-  const router = useRouter();
-  const appointmentId = params.appointmentId as string;
+  const params = useParams()
+  const router = useRouter()
+  const appointmentId = params.appointmentId as string
 
   const {
     data: rawAppointment,
@@ -55,66 +57,67 @@ export default function PaymentPage() {
     queryKey: ['payment', 'appointment', appointmentId],
     queryFn: () => getAppointmentById(appointmentId) as Promise<PaymentAppointment>,
     enabled: !!appointmentId,
-  });
+  })
 
-  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null)
 
-  const appointment = rawAppointment;
+  const appointment = rawAppointment
 
   const slotExpiry = useMemo(() => {
-    if (!appointment?.bookingHoldExpiresAt) return null;
-    const d = new Date(appointment.bookingHoldExpiresAt);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }, [appointment?.bookingHoldExpiresAt]);
+    if (!appointment?.bookingHoldExpiresAt) return null
+    const d = new Date(appointment.bookingHoldExpiresAt)
+    return Number.isNaN(d.getTime()) ? null : d
+  }, [appointment?.bookingHoldExpiresAt])
 
   useEffect(() => {
-    if (!slotExpiry) return;
+    if (!slotExpiry) return
 
     const updateRemaining = () => {
-      const now = new Date();
-      const diffMs = slotExpiry.getTime() - now.getTime();
-      setRemainingSeconds(diffMs > 0 ? Math.floor(diffMs / 1000) : 0);
-    };
+      const now = new Date()
+      const diffMs = slotExpiry.getTime() - now.getTime()
+      setRemainingSeconds(diffMs > 0 ? Math.floor(diffMs / 1000) : 0)
+    }
 
-    updateRemaining();
-    const id = setInterval(updateRemaining, 1000);
-    return () => clearInterval(id);
-  }, [slotExpiry]);
+    updateRemaining()
+    const id = setInterval(updateRemaining, 1000)
+    return () => clearInterval(id)
+  }, [slotExpiry])
 
-  const isExpired = remainingSeconds !== null && remainingSeconds <= 0;
+  const isExpired = remainingSeconds !== null && remainingSeconds <= 0
   const shouldLoadPaymentIntent =
     appointment?.paymentStatus === 'PENDING' &&
     appointment?.status === 'PENDING_PAYMENT' &&
-    !isExpired;
+    !isExpired
 
   const { data: paymentIntent, isLoading: paymentIntentLoading } = useQuery({
     queryKey: ['payment', 'intent', appointmentId],
     queryFn: () => getOrCreatePaymentIntent(appointmentId),
     enabled: !!appointmentId && !!shouldLoadPaymentIntent,
-  });
+  })
 
   const confirmMutation = useMutation({
     mutationFn: () => confirmPayment(appointmentId),
     onSuccess: () => {
-      router.push(`/intake/${appointmentId}`);
+      router.push(`/intake/${appointmentId}`)
     },
-  });
+  })
 
   const demoConfirmMutation = useMutation({
     mutationFn: () => demoConfirmPayment(appointmentId),
     onSuccess: () => {
-      router.push(`/intake/${appointmentId}`);
+      router.push(`/intake/${appointmentId}`)
     },
-  });
+  })
 
   const failMutation = useMutation({
     mutationFn: () => failPayment(appointmentId),
     onSuccess: () => {
-      router.push('/dashboard/appointments');
+      router.push('/dashboard/appointments')
     },
-  });
+  })
 
-  const isSubmitting = confirmMutation.isPending || failMutation.isPending || demoConfirmMutation.isPending;
+  const isSubmitting =
+    confirmMutation.isPending || failMutation.isPending || demoConfirmMutation.isPending
 
   if (isLoading || !appointment) {
     if (error) {
@@ -130,19 +133,19 @@ export default function PaymentPage() {
             ← Back to appointments
           </Link>
         </div>
-      );
+      )
     }
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary-200 border-t-primary-600" />
       </div>
-    );
+    )
   }
 
-  const showExpiredBanner = isExpired || appointment.paymentStatus !== 'PENDING';
+  const showExpiredBanner = isExpired || appointment.paymentStatus !== 'PENDING'
 
-  const minutes = remainingSeconds != null ? Math.floor(remainingSeconds / 60) : 0;
-  const seconds = remainingSeconds != null ? remainingSeconds % 60 : 0;
+  const minutes = remainingSeconds != null ? Math.floor(remainingSeconds / 60) : 0
+  const seconds = remainingSeconds != null ? remainingSeconds % 60 : 0
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col px-4 py-10 sm:px-6">
@@ -197,19 +200,33 @@ export default function PaymentPage() {
             <p className="mt-3 text-4xl font-semibold tabular-nums text-primary-800 sm:text-5xl">
               {slotExpiry ? (
                 <>
-                  {String(minutes).padStart(2, '0')}:
-                  {String(seconds).padStart(2, '0')}
+                  {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                 </>
               ) : (
                 '--:--'
               )}
             </p>
             {showExpiredBanner ? (
-              <p className="mt-3 text-sm text-red-700">
-                {appointment.paymentStatus === 'PAID'
-                  ? 'Payment already completed for this appointment.'
-                  : 'This hold has expired. Please rebook a new slot.'}
-              </p>
+              appointment.paymentStatus === 'PAID' ? (
+                <p className="mt-3 text-sm text-red-700">
+                  Payment already completed for this appointment.
+                </p>
+              ) : (
+                // F1.1: an expired reservation is a recoverable state — the
+                // slot was released, so send the patient straight back to
+                // pick another time (IDs only in the URL).
+                <div role="status" data-testid="hold-expired" className="mt-3 space-y-3">
+                  <p className="text-sm text-red-700">
+                    Your reservation expired and the time was released.
+                  </p>
+                  <Link
+                    href={`/book/${appointment.serviceId}?clinicId=${encodeURIComponent(appointment.clinicId)}`}
+                    className="inline-block rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                  >
+                    Pick a new time
+                  </Link>
+                </div>
+              )
             ) : (
               <p className="mt-3 text-xs text-primary-700">
                 If the timer reaches zero, this slot will be released and you may need to rebook.
@@ -229,8 +246,11 @@ export default function PaymentPage() {
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
               </div>
             ) : !showExpiredBanner && paymentIntent?.clientSecret ? (
-              <Elements stripe={stripePromise} options={{ clientSecret: paymentIntent.clientSecret }}>
-                <StripePaymentForm 
+              <Elements
+                stripe={stripePromise}
+                options={{ clientSecret: paymentIntent.clientSecret }}
+              >
+                <StripePaymentForm
                   clientSecret={paymentIntent.clientSecret}
                   buttonLabel={`Pay $${formatAmount(appointment.priceAtBooking)} & Confirm`}
                   onSuccess={() => router.push(`/intake/${appointmentId}`)}
@@ -284,5 +304,5 @@ export default function PaymentPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

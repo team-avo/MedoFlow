@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 
 import Link from 'next/link'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   getMyAppointments,
@@ -28,7 +28,9 @@ import {
 import type { DateRangeOption, DateRange } from '@/components/ui-system/DateRangeFilter'
 import { PageContainer } from '@/components/layout'
 import { StatusBadge } from '@/components/common/StatusBadge'
-import { Calendar, User, Clock, CheckCircle2, AlertCircle, ArrowRight } from 'lucide-react'
+import { RecurringSeriesDialog } from '@/components/appointments/RecurringSeriesDialog'
+import { CancelSeriesDialog } from '@/components/appointments/CancelSeriesDialog'
+import { Calendar, User, Clock, CheckCircle2, AlertCircle, ArrowRight, Repeat } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 function formatDateTime(iso: string) {
@@ -45,6 +47,14 @@ export default function AppointmentsPage() {
   const isPatient = user?.role === 'PATIENT'
   const isStaffOrAdmin =
     user?.role === 'FRONT_DESK' || user?.role === 'SUPER_ADMIN' || user?.role === 'STAFF'
+
+  // F1.2: front desk / admin book and cancel weekly recurring series.
+  const canManageSeries = user?.role === 'FRONT_DESK' || user?.role === 'SUPER_ADMIN'
+  const queryClient = useQueryClient()
+  const [seriesDialogOpen, setSeriesDialogOpen] = useState(false)
+  const [cancelSeriesId, setCancelSeriesId] = useState<string | null>(null)
+  const refreshAppointments = () =>
+    void queryClient.invalidateQueries({ queryKey: ['appointments'] })
 
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('ALL_TIME')
   const [dateRangeValues, setDateRangeValues] = useState<DateRange>({})
@@ -97,6 +107,14 @@ export default function AppointmentsPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {canManageSeries && user?.clinicId && (
+              <AppButton
+                onClick={() => setSeriesDialogOpen(true)}
+                className="rounded-full bg-white font-semibold text-[#1E3A5F] hover:bg-white/90"
+              >
+                <Repeat className="mr-2 h-4 w-4" /> New recurring series
+              </AppButton>
+            )}
             <DateRangeFilter
               value={dateRangeOption}
               onChange={(opt, range) => {
@@ -174,6 +192,11 @@ export default function AppointmentsPage() {
                   render: (apt) => (
                     <div>
                       <p className="font-bold text-slate-900">{apt.service.name}</p>
+                      {apt.recurringSeriesId && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                          <Repeat className="h-3 w-3" /> Weekly series
+                        </span>
+                      )}
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                         <Clock className="h-3 w-3" /> {formatDateTime(apt.startTime)}
                       </p>
@@ -208,7 +231,20 @@ export default function AppointmentsPage() {
                   header: '',
                   className: 'text-right',
                   render: (apt) => (
-                    <div className="flex justify-end pr-4">
+                    <div className="flex justify-end gap-1 pr-4">
+                      {canManageSeries &&
+                        apt.recurringSeriesId &&
+                        apt.status !== 'CANCELLED' &&
+                        apt.status !== 'RESCHEDULED' && (
+                          <AppButton
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full font-bold text-destructive"
+                            onClick={() => setCancelSeriesId(apt.recurringSeriesId ?? null)}
+                          >
+                            Cancel series
+                          </AppButton>
+                        )}
                       <AppButton
                         variant="ghost"
                         size="sm"
@@ -237,6 +273,23 @@ export default function AppointmentsPage() {
           )}
         </AppCardContent>
       </AppCard>
+
+      {canManageSeries && user?.clinicId && (
+        <RecurringSeriesDialog
+          clinicId={user.clinicId}
+          open={seriesDialogOpen}
+          onOpenChange={setSeriesDialogOpen}
+          onChanged={refreshAppointments}
+        />
+      )}
+      {cancelSeriesId && (
+        <CancelSeriesDialog
+          seriesId={cancelSeriesId}
+          open={!!cancelSeriesId}
+          onOpenChange={(o) => !o && setCancelSeriesId(null)}
+          onCancelled={refreshAppointments}
+        />
+      )}
     </PageContainer>
   )
 }

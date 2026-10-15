@@ -740,6 +740,12 @@ model InvoiceItem {
   @@index([membershipId])
 }
 
+/// B1.1: the database refuses overlapping live appointments for a provider
+/// (exclusion constraint "Appointment_provider_no_overlap", btree_gist) and
+/// appointments that end before they start ("Appointment_time_order").
+/// Prisma cannot express these; they live in migration
+/// 20261014000000_appointment_no_overlap. Keep that migration's status list
+/// in sync with ACTIVE_APPOINTMENT_STATUSES in appointmentService.ts.
 model Appointment {
   id                       String                 @id @default(cuid())
   clinicId                 String

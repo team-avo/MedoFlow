@@ -24,6 +24,7 @@ import {
 } from '../config/tenantContext'
 
 import * as emailService from './emailService'
+import { isAppointmentOverlapError, slotTakenError } from '../utils/bookingConflict'
 
 const ZERO = new Prisma.Decimal(0)
 
@@ -52,6 +53,13 @@ export interface CreateAppointmentContext {
   notes?: string | null
   patientPackageId?: string
   skipPackageSessionConsumption?: boolean
+  /**
+   * Reschedule: the appointment this booking replaces. It is marked
+   * RESCHEDULED inside the same transaction, before the new row is inserted,
+   * so the new time may overlap the old one without tripping the B1.1
+   * overlap constraint, and a failure leaves the old appointment untouched.
+   */
+  rescheduleFromAppointmentId?: string
 }
 
 const ACTIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
@@ -535,8 +543,28 @@ export const createAppointment = async (
         aiScribeConsentGrantedAt: data.aiScribeConsent ? new Date() : null,
       }
 
+      const rescheduleFromId = context?.rescheduleFromAppointmentId
+      if (rescheduleFromId) {
+        // Guarded on the old row still being live: two concurrent reschedules
+        // of one appointment cannot both succeed.
+        const superseded = await tx.appointment.updateMany({
+          where: {
+            id: rescheduleFromId,
+            clinicId,
+            status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.RESCHEDULED] },
+          },
+          data: { status: AppointmentStatus.RESCHEDULED, updatedById: performedById ?? null },
+        })
+        if (superseded.count !== 1) {
+          throw createApiError('Appointment has already been rescheduled', 409, 'conflict')
+        }
+      }
+
       const appointment = await tx.appointment.create({
-        data: appointmentData,
+        data: {
+          ...appointmentData,
+          ...(rescheduleFromId ? { rescheduledFromId: rescheduleFromId } : {}),
+        },
         include: {
           clinic: { select: { id: true, name: true } },
           location: { select: { id: true, name: true } },
@@ -614,6 +642,13 @@ export const createAppointment = async (
         })
       }
 
+      if (rescheduleFromId) {
+        await tx.appointment.update({
+          where: { id: rescheduleFromId, clinicId },
+          data: { rescheduledToId: appointment.id },
+        })
+      }
+
       await tx.auditLog.create({
         data: {
           clinicId,
@@ -681,7 +716,14 @@ export const createAppointment = async (
 
       return { appointment, clientSecret }
     })
-  )
+  ).catch((err: unknown) => {
+    // B1.1/B1.2: the overlap constraint is the last line of defence when the
+    // advisory lock and the checks above are bypassed (e.g. a concurrent
+    // writer outside this code path). The transaction has rolled back — the
+    // slot hold is still ACTIVE, nothing was written — so answer a clean 409.
+    if (isAppointmentOverlapError(err)) throw slotTakenError()
+    throw err
+  })
 }
 
 export interface CreateRecurringSeriesInput {
@@ -807,6 +849,66 @@ const createRecurringSeriesInScope = async (
   })
 
   return { appointments, conflicts }
+}
+
+export interface CancelRecurringSeriesResult {
+  seriesId: string
+  cancelledAppointmentIds: string[]
+}
+
+/**
+ * Cancels every upcoming, still-live appointment of a recurring series (past,
+ * completed and already-cancelled visits are left alone). Each cancellation
+ * goes through cancelAppointment, so package release, notifications,
+ * waitlist offers and per-appointment audit rows behave exactly as for a
+ * single cancel; the series action itself is audited too.
+ */
+export const cancelRecurringSeries = async (
+  seriesId: string,
+  clinicId: string,
+  reason: string,
+  performedById: string
+): Promise<CancelRecurringSeriesResult> => {
+  const series = await prisma.appointmentSeries.findFirst({
+    where: { id: seriesId, clinicId },
+    select: { id: true },
+  })
+  if (!series) throw createApiError('Recurring series not found', 404, 'not_found')
+
+  const upcoming = await prisma.appointment.findMany({
+    where: {
+      clinicId,
+      recurringSeriesId: seriesId,
+      startTime: { gt: new Date() },
+      status: {
+        in: [
+          AppointmentStatus.DRAFT,
+          AppointmentStatus.PENDING_PROVIDER_APPROVAL,
+          AppointmentStatus.PENDING_PAYMENT,
+          AppointmentStatus.CONFIRMED,
+        ],
+      },
+    },
+    orderBy: { startTime: 'asc' },
+    select: { id: true },
+  })
+
+  const cancelledAppointmentIds: string[] = []
+  for (const { id } of upcoming) {
+    await cancelAppointment(id, reason, performedById, { clinicId })
+    cancelledAppointmentIds.push(id)
+  }
+
+  await auditService.logAudit({
+    clinicId,
+    entityType: 'AppointmentSeries',
+    entityId: seriesId,
+    action: 'RECURRING_SERIES_CANCELLED',
+    newValue: { cancelledCount: cancelledAppointmentIds.length },
+    performedById,
+  })
+
+  return { seriesId, cancelledAppointmentIds }
 }
 
 export interface CancelAppointmentResult {
@@ -984,22 +1086,9 @@ export const rescheduleAppointment = async (
       bookingSource: BookingSource.PATIENT_PORTAL,
       patientPackageId: existingPackageUsage?.patientPackageId,
       skipPackageSessionConsumption: Boolean(existingPackageUsage),
+      rescheduleFromAppointmentId: oldAppointmentId,
     }
   )
-  await prisma.$transaction([
-    prisma.appointment.update({
-      where: { id: oldAppointmentId, clinicId: oldAppointment.clinicId },
-      data: {
-        status: 'RESCHEDULED',
-        rescheduledToId: newAppointment.id,
-        updatedById: performedById,
-      },
-    }),
-    prisma.appointment.update({
-      where: { id: newAppointment.id, clinicId: oldAppointment.clinicId },
-      data: { rescheduledFromId: oldAppointmentId, updatedById: performedById },
-    }),
-  ])
   const updatedOld = await prisma.appointment.findUnique({
     where: { id: oldAppointmentId, clinicId: oldAppointment.clinicId },
     include: {
@@ -1160,7 +1249,18 @@ export const getAppointmentById = async (
           user: { select: { id: true, name: true } },
         },
       },
-      service: { select: { id: true, name: true, duration: true } },
+      // Cancellation policy (not PHI) so the UI can state it before a
+      // patient or staff member cancels (F1.3).
+      service: {
+        select: {
+          id: true,
+          name: true,
+          duration: true,
+          cancellationWindowHours: true,
+          cancellationFeeType: true,
+          cancellationFeeValue: true,
+        },
+      },
       patient: { select: { id: true, name: true, email: true } },
     },
   })
@@ -1276,20 +1376,6 @@ export const updateAppointmentStatus = async (
     throw err
   }
 
-  const performedById = req.user?.id
-  if (performedById && appointment.status !== status) {
-    await auditService.logAudit({
-      clinicId: appointment.clinicId,
-      entityType: 'Appointment',
-      entityId: id,
-      action: 'UPDATE',
-      fieldChanged: 'status',
-      oldValue: appointment.status,
-      newValue: status,
-      performedById,
-    })
-  }
-
   const updated = await prisma.appointment.update({
     where: { id, clinicId: appointment.clinicId },
     data: {
@@ -1312,6 +1398,23 @@ export const updateAppointmentStatus = async (
       patient: { select: { id: true, name: true, email: true } },
     },
   })
+
+  // Audited after the write succeeds: re-activating a cancelled appointment
+  // into a now-taken slot is refused by the B1.1 constraint (409), and must
+  // not leave an audit row for a change that never happened.
+  const performedById = req.user?.id
+  if (performedById && appointment.status !== status) {
+    await auditService.logAudit({
+      clinicId: appointment.clinicId,
+      entityType: 'Appointment',
+      entityId: id,
+      action: 'UPDATE',
+      fieldChanged: 'status',
+      oldValue: appointment.status,
+      newValue: status,
+      performedById,
+    })
+  }
 
   if (
     status === AppointmentStatus.CANCELLED &&
