@@ -42,24 +42,24 @@ Ask the user where to put the project (suggest `~/Development/MedoFlow`). If the
 
 ## Phase 2 — Clone (PAT handling)
 
-Repo: `https://github.com/myselfabhi/MedoFlow.git` (private).
+Repo: `https://github.com/team-avo/MedoFlow.git`. The working branch is `development`, which is also the default branch and the one that deploys. Open PRs into `development`.
 
 **Preferred — GitHub CLI:**
 
 ```
 gh auth login
-gh repo clone myselfabhi/MedoFlow
+gh repo clone team-avo/MedoFlow
 ```
 
 This stores credentials safely in the system keychain. Use this if `gh` is available.
 
 **Fallback — PAT:**
-Ask the user to paste the Personal Access Token Abhinav gave them. Then clone using it **without echoing it**, and immediately scrub it:
+Ask the user to paste a Personal Access Token with write access to team-avo/MedoFlow (needed to push). Then clone using it **without echoing it**, and immediately scrub it:
 
 ```
-git clone https://<TOKEN>@github.com/myselfabhi/MedoFlow.git
+git clone https://<TOKEN>@github.com/team-avo/MedoFlow.git
 cd MedoFlow
-git remote set-url origin https://github.com/myselfabhi/MedoFlow.git
+git remote set-url origin https://github.com/team-avo/MedoFlow.git
 ```
 
 > The `set-url` step is important — cloning with a token embeds it in plaintext in `.git/config`. Always strip it.
@@ -69,7 +69,7 @@ Then suggest caching credentials properly so future pulls work:
 - macOS: `git config --global credential.helper osxkeychain`
 - Windows: `git config --global credential.helper manager`
 
-Confirm the clone worked (`git log --oneline -3`).
+Confirm the clone worked and is on `development` (`git branch --show-current`, `git log --oneline -3`).
 
 ---
 
