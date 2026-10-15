@@ -1,6 +1,6 @@
 # CI/CD move to team-avo/MedoFlow `development`: walkthrough and verification
 
-**Date:** 2026-10-15 · **Branch:** `ci/team-avo-development` (from `feat/c1-scheduling` @ `d895341`) · **PR:** team-avo PR #4, stacked on #3
+**Date:** 2026-10-15 · **Branch:** `ci/team-avo-development` (from `feat/c1-scheduling` @ `d895341`) · **PR:** team-avo PR #5, stacked on #3
 
 The deploying repo is now **`team-avo/MedoFlow`**, branch **`development`**, which is also the repo's default branch. Before this change, CI only deployed from `myselfabhi/MedoFlow` `main`, so merges into the org repo deployed nothing.
 
@@ -36,7 +36,7 @@ Until steps 1–2 are done, the deploy jobs stop on purpose with "… is not set
 
 ## 3. Merge order
 
-PRs into `development` are stacked: **#1 B0 → #2 F0 → #3 C1 → #4 this**. After each merge, GitHub retargets the next PR to `development`. Merging #1–#3 alone deploys nothing, because those branches still carry the `myselfabhi/MedoFlow` guard. Deploys start once #4 is in `development`.
+PRs into `development` are stacked: **#1 B0 → #2 F0 → #3 C1 → #5 this**. After each merge, GitHub retargets the next PR to `development`. Merging #1–#3 alone deploys nothing, because those branches still carry the `myselfabhi/MedoFlow` guard. Deploys start once #5 is in `development`.
 
 ## 4. Verification
 
@@ -47,7 +47,7 @@ grep -n "branches: \[" .github/workflows/deploy.yml
 #  → push and pull_request both: [development]
 ```
 
-After the owner setup and the PR #4 merge:
+After the owner setup and the PR #5 merge:
 
 ```bash
 gh run list --repo team-avo/MedoFlow --workflow "CI / Deploy" --limit 3
