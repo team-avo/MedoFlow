@@ -3,6 +3,7 @@ import type * as multer from 'multer'
 import type { ApiError } from '../types/errors'
 import { logError } from '../utils/errorLogger'
 import { isAppointmentOverlapError, slotTakenError } from '../utils/bookingConflict'
+import { AUDIO_SIZE_LIMIT_MB } from '../config/audioUpload'
 
 export const errorHandler = (
   caught: ApiError | multer.MulterError,
@@ -16,9 +17,19 @@ export const errorHandler = (
   const err = isAppointmentOverlapError(caught) ? slotTakenError() : caught
   const multerErr = err as multer.MulterError
   if (multerErr.code === 'LIMIT_FILE_SIZE') {
+    // Only audio uploads still pass through multer (patient files go
+    // straight to object storage, B3.1).
     return res.status(413).json({
       success: false,
-      message: 'Audio file too large. Maximum size is 50MB.',
+      code: 'file_too_large',
+      message: `Audio file too large. Maximum size is ${AUDIO_SIZE_LIMIT_MB}MB.`,
+    })
+  }
+  if ((err as { type?: string }).type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      code: 'file_too_large',
+      message: 'Request body too large.',
     })
   }
   const statusCode = (err as ApiError).statusCode || 500

@@ -5,6 +5,7 @@ import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import { getClinicWhere } from '../middleware/clinicScope'
 import type { ApiError } from '../types/errors'
+import { assertAnswersMatchTemplate, type FormAnswers } from '../validation/clinicalRecordsSchemas'
 
 export const createTemplate = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -56,34 +57,33 @@ export const disableTemplate = asyncHandler(
 
 export const submitResponse = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const { templateId, appointmentId, responses } = req.body as {
-      templateId?: string
+    // Shape validated by formResponseSubmitSchema (B3.3).
+    const { templateId, appointmentId, patientId, responses } = req.body as {
+      templateId: string
       appointmentId?: string | null
-      responses?: Prisma.InputJsonValue
-    }
-    if (!templateId || !responses) {
-      const err = new Error('templateId and responses are required') as ApiError
-      err.statusCode = 400
-      throw err
+      patientId?: string
+      responses: FormAnswers
     }
     const resolvedPatientId = req.user!.id
+    if (patientId && patientId !== resolvedPatientId) {
+      const err = new Error('Patients can only submit for themselves') as ApiError
+      err.statusCode = 403
+      throw err
+    }
     const template = await formService.getTemplateById(templateId, {})
     if (!template) {
       const err = new Error('Form template not found') as ApiError
       err.statusCode = 404
       throw err
     }
-    if (resolvedPatientId !== req.user!.id) {
-      const err = new Error('Patients can only submit for themselves') as ApiError
-      err.statusCode = 403
-      throw err
-    }
+    // Answers must satisfy the template's own field definitions.
+    assertAnswersMatchTemplate(template.fields, responses)
     const response = await formService.submitResponse({
       clinicId: template.clinicId,
       templateId,
       patientId: resolvedPatientId,
       appointmentId: appointmentId || undefined,
-      responses,
+      responses: responses as Prisma.InputJsonValue,
       performedById: req.user!.id,
     })
     successResponse(res, 201, 'Response submitted', { response })

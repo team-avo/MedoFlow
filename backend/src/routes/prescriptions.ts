@@ -4,6 +4,11 @@ import * as prescriptionController from '../controllers/prescriptionController'
 import { protect, authorize } from '../middleware/auth'
 import { requireClinic } from '../middleware/requireClinic'
 import { Role } from '@prisma/client'
+import { validateRequest } from '../middleware/validateRequest'
+import {
+  prescriptionCreateSchema,
+  patientIdParamsSchema,
+} from '../validation/clinicalRecordsSchemas'
 
 const router = Router()
 
@@ -14,13 +19,20 @@ const setClinicFromUser = (req: Request, _res: Response, next: NextFunction): vo
   next()
 }
 
-router.post('/', authorize(Role.PROVIDER), requireClinic, prescriptionController.create)
+router.post(
+  '/',
+  authorize(Role.PROVIDER),
+  requireClinic,
+  validateRequest({ body: prescriptionCreateSchema }),
+  prescriptionController.create
+)
 router.get('/my', authorize(Role.PATIENT), setClinicFromUser, prescriptionController.getMy)
 router.get('/provider', authorize(Role.PROVIDER), requireClinic, prescriptionController.getProvider)
 router.get(
   '/patient/:patientId',
   authorize(Role.PROVIDER, Role.SUPER_ADMIN, Role.FRONT_DESK),
   requireClinic,
+  validateRequest({ params: patientIdParamsSchema }),
   prescriptionController.getByPatient
 )
 router.get(

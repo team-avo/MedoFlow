@@ -22,7 +22,8 @@ export const create = asyncHandler(
     const prescription = await prescriptionService.createPrescription(
       req.body as prescriptionService.CreatePrescriptionData,
       provider.id,
-      clinicId
+      clinicId,
+      req.user!.id
     )
     successResponse(res, 201, 'Prescription created', { prescription })
   }
