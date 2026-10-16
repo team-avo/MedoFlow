@@ -20,6 +20,15 @@ process.env.TENANT_RLS = 'on'
 process.env.CORS_ORIGIN = 'http://localhost:3000'
 process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex')
 process.env.MFA_ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex')
+// B3.2: field-level encryption with a throwaway key per run.
+process.env.FIELD_ENCRYPTION_PROVIDER = 'env'
+process.env.FIELD_ENCRYPTION_KEYS = `it1:${crypto.randomBytes(32).toString('hex')}`
+process.env.FIELD_ENCRYPTION_ACTIVE_KID = 'it1'
+// B3.1: patient files use the local presigned-URL driver. Empty (not unset)
+// so a developer's .env cannot point the suites at a real bucket.
+process.env.S3_ACCESS_KEY_ID = ''
+process.env.S3_SECRET_ACCESS_KEY = ''
+process.env.FILE_BLOB_SIGNING_SECRET = crypto.randomBytes(32).toString('hex')
 process.env.SESSION_IDLE_TIMEOUT_MINUTES = process.env.SESSION_IDLE_TIMEOUT_MINUTES ?? '15'
 // Suites make many deliberate failed logins; rateLimit.int.test.ts restores the real limits.
 process.env.AUTH_RATE_LIMIT_MAX = '1000'

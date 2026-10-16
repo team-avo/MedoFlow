@@ -2,6 +2,8 @@ import { getIsolationMode } from './tenantContext'
 import { jwtSecretWeakness } from '../utils/tokenUtils'
 import { getAuditRetentionYears, MIN_AUDIT_RETENTION_YEARS } from '../services/auditService'
 import { isSecretBoxConfigured } from '../utils/secretBox'
+import { getSseMode, isS3Configured } from '../services/fileStorage/s3Driver'
+import { fieldEncryptionConfigProblem } from './fieldKeys'
 
 /**
  * Configuration problems found at boot. `fatal` entries stop a production
@@ -52,6 +54,24 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   if (!isSecretBoxConfigured()) {
     warn('MFA_ENCRYPTION_KEY is not set (64 hex chars) — staff MFA enrolment is unavailable')
   }
+
+  // B3.1 — patient files live in object storage, reached only through
+  // presigned URLs. Local disk is ephemeral on the host and unencrypted.
+  if (!isS3Configured(env)) {
+    fatal(
+      'S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY are not set — patient files would be written to local disk'
+    )
+  }
+  try {
+    getSseMode(env)
+  } catch (e) {
+    fatal((e as Error).message)
+  }
+
+  // B3.2 — transcripts, SOAP notes and intake answers are sealed with
+  // field-level encryption; production refuses to store them in the clear.
+  const fieldKeyProblem = fieldEncryptionConfigProblem(env)
+  if (fieldKeyProblem) fatal(fieldKeyProblem)
 
   if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
     warn('STRIPE_SECRET_KEY is not set — Stripe payment features will not function')

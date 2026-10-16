@@ -1,48 +1,20 @@
-'use client';
+'use client'
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import type { FormTemplate, FormFieldDefinition } from '@/lib/formsApi';
-import { submitFormResponse } from '@/lib/formsApi';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
-
-function buildZodSchema(fields: FormFieldDefinition[]) {
-  const shape: Record<string, z.ZodTypeAny> = {};
-  for (const f of fields) {
-    if (f.type === 'checkbox') {
-      shape[f.id] = f.required
-        ? z.boolean().refine((v) => v === true, 'Required')
-        : z.boolean().optional();
-    } else if (f.type === 'number') {
-      shape[f.id] = f.required
-        ? z.preprocess(
-            (v) => (v === '' || (typeof v === 'number' && Number.isNaN(v)) ? undefined : Number(v)),
-            z.number({ required_error: 'Required' })
-          )
-        : z.preprocess(
-            (v) => (v === '' || (typeof v === 'number' && Number.isNaN(v)) ? undefined : Number(v)),
-            z.number().optional()
-          );
-    } else if (f.type === 'select') {
-      shape[f.id] = f.required
-        ? z.string().min(1, 'Required')
-        : z.string().optional();
-    } else {
-      shape[f.id] = f.required
-        ? z.string().min(1, 'Required')
-        : z.string().optional();
-    }
-  }
-  return z.object(shape);
-}
+import React from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import type { z } from 'zod'
+import type { FormTemplate, FormFieldDefinition } from '@/lib/formsApi'
+import { submitFormResponse } from '@/lib/formsApi'
+import { buildAnswersSchema } from '@/lib/schemas/clinicalRecords'
+import { extractApiError } from '@/lib/apiErrors'
+import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 
 interface DynamicFormRendererProps {
-  template: FormTemplate;
-  patientId: string;
-  appointmentId: string;
-  onComplete: () => void;
+  template: FormTemplate
+  patientId: string
+  appointmentId: string
+  onComplete: () => void
 }
 
 export function DynamicFormRenderer({
@@ -52,9 +24,9 @@ export function DynamicFormRenderer({
   onComplete,
 }: DynamicFormRendererProps) {
   const schema = React.useMemo(
-    () => buildZodSchema((template.fields as FormFieldDefinition[]) ?? []),
+    () => buildAnswersSchema((template.fields as FormFieldDefinition[]) ?? []),
     [template.fields]
-  );
+  )
 
   const {
     register,
@@ -64,31 +36,31 @@ export function DynamicFormRenderer({
     resolver: zodResolver(schema),
     defaultValues: Object.fromEntries(
       ((template.fields as FormFieldDefinition[]) ?? []).map((f) => {
-        if (f.type === 'checkbox') return [f.id, false];
-        if (f.type === 'number') return [f.id, undefined];
-        return [f.id, ''];
+        if (f.type === 'checkbox') return [f.id, false]
+        if (f.type === 'number') return [f.id, undefined]
+        return [f.id, '']
       })
     ),
-  });
+  })
 
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [submitError, setSubmitError] = React.useState<string | null>(null)
 
   const onSubmit = async (values: Record<string, unknown>) => {
-    setSubmitError(null);
+    setSubmitError(null)
     try {
       await submitFormResponse({
         templateId: template.id,
         patientId,
         appointmentId,
         responses: values,
-      });
-      onComplete();
-    } catch {
-      setSubmitError('Failed to submit form. Please try again.');
+      })
+      onComplete()
+    } catch (err) {
+      setSubmitError(extractApiError(err, 'Failed to submit form. Please try again.').message)
     }
-  };
+  }
 
-  const fields = (template.fields as FormFieldDefinition[]) ?? [];
+  const fields = (template.fields as FormFieldDefinition[]) ?? []
 
   return (
     <Card className="w-full max-w-xl">
@@ -170,10 +142,7 @@ export function DynamicFormRenderer({
                     className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
                     {...register(field.id)}
                   />
-                  <label
-                    htmlFor={field.id}
-                    className="text-sm font-medium text-gray-700"
-                  >
+                  <label htmlFor={field.id} className="text-sm font-medium text-gray-700">
                     {field.label}
                     {field.required && <span className="text-red-500"> *</span>}
                   </label>
@@ -205,8 +174,7 @@ export function DynamicFormRenderer({
 
               {errors[field.id] && (
                 <p className="mt-1 text-xs text-red-600">
-                  {(errors as Record<string, { message?: string }>)[field.id]
-                    ?.message}
+                  {(errors as Record<string, { message?: string }>)[field.id]?.message}
                 </p>
               )}
             </div>
@@ -229,5 +197,5 @@ export function DynamicFormRenderer({
         </form>
       </CardContent>
     </Card>
-  );
+  )
 }

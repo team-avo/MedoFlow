@@ -59,6 +59,11 @@ services:
         sync: false
       - key: MFA_ENCRYPTION_KEY # B0.2.2: openssl rand -hex 32
         sync: false
+      # B3.2 field-level encryption — required in production (boot refuses without it).
+      - key: FIELD_ENCRYPTION_KEYS # k1:<openssl rand -hex 32>; then run ops:encrypt-phi
+        sync: false
+      - key: FIELD_ENCRYPTION_ACTIVE_KID
+        value: k1
       - key: ALERT_WEBHOOK_URL # B0.6.5: Slack-compatible incoming webhook for security alerts
         sync: false
       - key: REDIS_URL # redis:// or rediss:// (eviction policy must be noeviction)
@@ -69,7 +74,10 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      # R2 (S3-compatible) file storage — leave unset to fall back to local disk.
+      # R2 (S3-compatible) file storage — required in production (B3.1: patient
+      # files are only reached through presigned URLs; boot refuses local disk).
+      - key: S3_SSE # R2 always encrypts at rest and rejects the SSE header
+        value: provider-default
       - key: S3_ACCESS_KEY_ID
         sync: false
       - key: S3_SECRET_ACCESS_KEY

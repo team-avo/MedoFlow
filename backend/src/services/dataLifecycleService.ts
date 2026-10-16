@@ -23,7 +23,7 @@ import * as argon2 from 'argon2'
 import { Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
 import { withTenantBypass } from '../config/tenantContext'
-import { UPLOAD_BASE } from '../config/multer'
+import { UPLOAD_BASE, resolveStorageRef } from './fileStorage'
 import type { ApiError } from '../types/errors'
 import * as storageService from './storageService'
 import { logAudit } from './auditService'
@@ -260,14 +260,23 @@ export const offboardTenant = (
         select: { recordingUrl: true },
       }),
     ])
+    let objectsDeleted = 0
+    let objectErrors = 0
+    // Patient files resolve through the file-storage drivers (B3.1).
+    for (const f of files) {
+      try {
+        const { driver, key } = resolveStorageRef(f.storagePath)
+        await driver.delete(key)
+        objectsDeleted++
+      } catch {
+        objectErrors++
+      }
+    }
     const refs = [
-      ...files.map((f) => f.storagePath),
       ...scribe.map((s) => s.audioUrl),
       ...consults.map((c) => c.recordingUrl),
       ...voice.map((v) => v.recordingUrl),
     ].filter((r): r is string => Boolean(r))
-    let objectsDeleted = 0
-    let objectErrors = 0
     for (const ref of refs) {
       try {
         await deleteStoredObject(ref)

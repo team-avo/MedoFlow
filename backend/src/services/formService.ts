@@ -39,6 +39,21 @@ const validateScope = (
   }
 }
 
+/** Before/after values for template audit rows (B0.3.2). */
+const templateAuditSnapshot = (t: {
+  name: string
+  scope: FormScope
+  disciplineId: string | null
+  serviceId: string | null
+  fields: Prisma.JsonValue
+}) => ({
+  name: t.name,
+  scope: t.scope,
+  disciplineId: t.disciplineId,
+  serviceId: t.serviceId,
+  fieldCount: Array.isArray(t.fields) ? t.fields.length : 0,
+})
+
 export const createTemplate = async (
   data: CreateTemplateData,
   clinicId: string,
@@ -84,7 +99,7 @@ export const createTemplate = async (
     entityType: 'FormTemplate',
     entityId: template.id,
     action: 'FORM_TEMPLATE_CREATED',
-    newValue: { name: data.name, scope: data.scope },
+    newValue: templateAuditSnapshot(template),
     performedById,
   })
 
@@ -176,7 +191,8 @@ export const updateTemplate = async (
     entityType: 'FormTemplate',
     entityId: id,
     action: 'FORM_TEMPLATE_UPDATED',
-    newValue: { name: template.name, scope: template.scope },
+    oldValue: templateAuditSnapshot(existing),
+    newValue: templateAuditSnapshot(template),
     performedById,
   })
 

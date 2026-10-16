@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   getPatientFiles,
@@ -8,9 +8,12 @@ import {
   uploadPatientFile,
   deletePatientFile,
   downloadPatientFile,
-  downloadMyFile,
+  fetchPatientFileBlob,
+  FileTransferError,
   type PatientFile,
 } from '@/lib/fileApi'
+import { FILE_ACCEPT, fileUploadProblem, isPreviewable } from '@/lib/fileConstants'
+import { extractApiError } from '@/lib/apiErrors'
 import { useAppToast } from '@/hooks/useAppToast'
 
 function formatSize(bytes: number): string {
@@ -20,90 +23,105 @@ function formatSize(bytes: number): string {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  // toLocaleString: toLocaleDateString throws when given timeStyle.
+  return new Date(iso).toLocaleString(undefined, {
     dateStyle: 'medium',
     timeStyle: 'short',
   })
 }
 
-const PREVIEW_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']
+/** A safe, filename-free message for any file failure (F0.3.2 / F3.3). */
+function fileErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof FileTransferError) {
+    return err.status === 403
+      ? 'The file link expired or was refused. Please try again.'
+      : 'The file transfer did not complete. Please try again.'
+  }
+  const { status, message } = extractApiError(err, fallback)
+  if (status === 403) return 'You do not have access to this file.'
+  if (status === 404) return 'This file is no longer available.'
+  return message
+}
 
-function FilePreview({
-  file,
-  clinicId,
-  asPatient = false,
-}: {
-  file: PatientFile
+interface FileAccess {
+  asPatient: boolean
   clinicId?: string
-  asPatient?: boolean
-}) {
-  const [previewOpen, setPreviewOpen] = useState(false)
+}
+
+function FilePreview({ file, access }: { file: PatientFile; access: FileAccess }) {
+  const toast = useAppToast()
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const canPreview = PREVIEW_MIMES.some(
-    (m) =>
-      file.mimeType.toLowerCase() === m ||
-      file.mimeType.toLowerCase().startsWith(m.split('/')[0] + '/')
-  )
-
-  const openPreview = async () => {
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-    const params = clinicId ? `?clinicId=${clinicId}` : ''
-    const path = asPatient
-      ? `/api/v1/files/patient/me/${file.id}/download`
-      : `/api/v1/files/${file.id}/download`
-    const url = `${base}${path}${params}`
-    const token =
-      typeof window !== 'undefined' ? (await import('@/lib/api')).getAccessToken() : null
-    const res = await fetch(url, {
-      credentials: 'include',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+  const close = useCallback(() => {
+    setPreviewUrl((url) => {
+      if (url) URL.revokeObjectURL(url)
+      return null
     })
-    if (!res.ok) return
-    const blob = await res.blob()
-    setPreviewUrl(URL.createObjectURL(blob))
-    setPreviewOpen(true)
-  }
+  }, [])
 
-  const closePreview = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setPreviewUrl(null)
-    setPreviewOpen(false)
-  }
+  useEffect(() => {
+    if (!previewUrl) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [previewUrl, close])
 
-  if (!canPreview) return null
+  if (!isPreviewable(file.mimeType)) return null
+
+  const open = async () => {
+    setLoading(true)
+    try {
+      // Fresh presigned URL every time; the bytes become a local object URL.
+      const { blob } = await fetchPatientFileBlob(file.id, access)
+      setPreviewUrl(URL.createObjectURL(blob))
+    } catch (err) {
+      toast.error(fileErrorMessage(err, 'Could not open the file'))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const isImage = file.mimeType.toLowerCase().startsWith('image/')
-  const isPdf = file.mimeType.toLowerCase().includes('pdf')
 
   return (
     <>
       <button
         type="button"
-        onClick={openPreview}
-        className="text-xs text-primary-600 hover:text-primary-700"
+        onClick={open}
+        disabled={loading}
+        className="text-xs text-primary-600 hover:text-primary-700 disabled:opacity-50"
       >
-        Preview
+        {loading ? 'Opening…' : 'Preview'}
       </button>
-      {previewOpen && previewUrl && (
+      {previewUrl && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="File preview"
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
-          onClick={closePreview}
+          onClick={close}
         >
+          <button
+            type="button"
+            onClick={close}
+            className="absolute right-4 top-4 rounded bg-white px-3 py-1 text-sm font-medium text-gray-800"
+          >
+            Close
+          </button>
           <div
             className="max-h-[90vh] max-w-[90vw] overflow-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            {isImage && (
-              // eslint-disable-next-line @next/next/no-img-element -- short-lived presigned URL; must not be proxied/cached by the image optimiser
-              <img
-                src={previewUrl}
-                alt={file.originalName}
-                className="max-h-[90vh] object-contain"
-              />
-            )}
-            {isPdf && (
-              <iframe src={previewUrl} title={file.originalName} className="h-[90vh] w-[90vw]" />
+            {isImage ? (
+              // eslint-disable-next-line @next/next/no-img-element -- local object URL of a server-verified image; must not go through the image optimiser
+              <img src={previewUrl} alt="File preview" className="max-h-[90vh] object-contain" />
+            ) : (
+              // The blob is typed application/pdf and its bytes were verified
+              // as PDF by the API, so the browser's PDF viewer renders it.
+              <iframe src={previewUrl} title="File preview" className="h-[90vh] w-[90vw]" />
             )}
           </div>
         </div>
@@ -130,35 +148,57 @@ export function PatientFilesSection({
   const toast = useAppToast()
   const [tagFilter, setTagFilter] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const access: FileAccess = { asPatient, clinicId }
 
   const { data: files = [], isLoading } = useQuery({
     queryKey: ['files', asPatient ? 'me' : 'patient', patientId, clinicId],
-    queryFn: () => (asPatient ? getMyFiles(clinicId) : getPatientFiles(patientId, clinicId)),
+    queryFn: () => (asPatient ? getMyFiles(clinicId) : getPatientFiles(patientId)),
     enabled: !!patientId || asPatient,
   })
 
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['files', 'patient', patientId] })
+    void queryClient.invalidateQueries({ queryKey: ['files', 'me'] })
+  }
+
   const deleteMutation = useMutation({
-    mutationFn: (fileId: string) => deletePatientFile(fileId, clinicId),
+    mutationFn: (fileId: string) => deletePatientFile(fileId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['files', 'patient', patientId] })
-      queryClient.invalidateQueries({ queryKey: ['files', 'me'] })
+      refresh()
+      toast.success('File deleted')
     },
+    onError: (err) => toast.error(fileErrorMessage(err, 'Failed to delete file')),
   })
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !clinicId) return
+    const input = e.target
+    const file = input.files?.[0]
+    if (!file) return
+    // Same rules as the API (type allow-list + size), checked before any request.
+    const problem = fileUploadProblem(file)
+    if (problem) {
+      toast.error(problem)
+      input.value = ''
+      return
+    }
     setUploading(true)
     try {
-      await uploadPatientFile(file, { patientId, clinicId })
-      queryClient.invalidateQueries({ queryKey: ['files', 'patient', patientId] })
-      queryClient.invalidateQueries({ queryKey: ['files', 'me'] })
+      await uploadPatientFile(file, { patientId })
+      refresh()
       toast.success('File uploaded')
-    } catch {
-      toast.error('Failed to upload file')
+    } catch (err) {
+      toast.error(fileErrorMessage(err, 'Failed to upload file'))
     } finally {
       setUploading(false)
-      e.target.value = ''
+      input.value = ''
+    }
+  }
+
+  const handleDownload = async (file: PatientFile) => {
+    try {
+      await downloadPatientFile(file.id, file.originalName, access)
+    } catch (err) {
+      toast.error(fileErrorMessage(err, 'Failed to download file'))
     }
   }
 
@@ -183,9 +223,16 @@ export function PatientFilesSection({
     <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Files</h2>
-        {canUpload && clinicId && (
+        {canUpload && !asPatient && (
           <label className="cursor-pointer">
-            <input type="file" className="sr-only" onChange={handleUpload} disabled={uploading} />
+            <input
+              type="file"
+              className="sr-only"
+              accept={FILE_ACCEPT}
+              onChange={handleUpload}
+              disabled={uploading}
+              aria-label="Upload file"
+            />
             <span className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
               {uploading ? 'Uploading...' : 'Upload'}
             </span>
@@ -249,14 +296,10 @@ export function PatientFilesSection({
                 )}
               </div>
               <div className="ml-4 flex shrink-0 items-center gap-2">
-                <FilePreview file={file} clinicId={clinicId} asPatient={asPatient} />
+                <FilePreview file={file} access={access} />
                 <button
                   type="button"
-                  onClick={() =>
-                    asPatient
-                      ? downloadMyFile(file.id, file.originalName, clinicId)
-                      : downloadPatientFile(file.id, file.originalName, clinicId)
-                  }
+                  onClick={() => void handleDownload(file)}
                   className="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Download

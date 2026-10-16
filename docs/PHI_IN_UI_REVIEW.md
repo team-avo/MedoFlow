@@ -63,6 +63,25 @@
 - `moneyAndBooking.int.test.ts` › "minimum necessary": the invoice response has only `id`/`name`/`email` and no credential field.
 - `frontend/tests/components/portalPhiBoundary.test.tsx`: the portal renders the published summary only, never note sections or a transcript, even if the API sent them.
 
+## F3.3 — Patient file names (added 2026-10-16, Component 3)
+
+**Rule:** a patient file's original name ("Jane-Doe-HIV-result.pdf") is PHI. It is shown in the file list and used as the local download name. It is sent once, in the JSON body of the upload request, and never appears in a URL, a toast, a log line or a storage key.
+
+| Check           | Result                                                                                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Storage keys    | `patient-files/<clinicId>/<patientId>/<uuid>`. **Was** `uploads/<clinic>/<patient>/<sanitised original name>-<ts>.<ext>` on local disk.             |
+| Presigned URLs  | Key + signature only; downloads use `Content-Disposition: attachment` with **no** filename. The browser names the file locally with `<a download>`. |
+| API routes      | `/files/:id/download-url`, `/files/patient/me/:id/download-url`: ids only.                                                                          |
+| Toasts / errors | Fixed sentences ("File uploaded", "You do not have access to this file.") ✓                                                                         |
+| Audit rows      | `FILE_UPLOADED` / `FILE_DELETED` record type and size, not the name.                                                                                |
+| Preview         | Image `alt` / iframe `title` are "File preview", not the filename.                                                                                  |
+
+**Automated:**
+
+- `frontend/tests/unit/staticGuards.test.ts` › "F3.3": no URL template, string concatenation, toast or `clientLog` call carries `originalName` / `fileName` / `file.name`. It includes positive controls showing that the patterns catch violations.
+- `frontend/e2e/patient-files.spec.ts`: every URL the browser requests or navigates to is checked against the filename and the patient's name and email.
+- `backend/src/tests/integration/patientFiles.int.test.ts`: storage keys, upload/download URLs and audit rows never contain the filename.
+
 ## Manual pass (key flows) — to be repeated by the reviewer
 
 For each persona (admin, provider, front desk, patient), with DevTools open (Console + Network):

@@ -3,6 +3,7 @@ import * as waitlistService from '../services/waitlistService'
 import * as slotHoldService from '../services/slotHoldService'
 import * as notificationService from '../services/notificationService'
 import * as breakGlassService from '../services/breakGlassService'
+import * as fileService from '../services/fileService'
 import { purgeExpiredAuditLogs } from '../services/auditService'
 import { logError } from '../utils/errorLogger'
 import { withTenantBypass } from '../config/tenantContext'
@@ -31,6 +32,12 @@ export const startCronJobs = (): void => {
           notificationService.sendAppointmentReminders(),
           breakGlassService.expireBreakGlassGrants(),
         ])
+        // B3.1: retire presigned uploads that were never completed.
+        const staleUploads = await fileService.sweepStalePendingUploads()
+        if (staleUploads > 0) {
+          process.stderr.write(`[Cron] Retired ${staleUploads} incomplete file uploads.
+`)
+        }
         if (paymentCount > 0 || waitlistCount > 0 || slotHoldCount > 0 || reminderCount > 0) {
           process.stderr.write(
             `[Cron] Expired: ${paymentCount} payments, ${waitlistCount} waitlist offers, ${slotHoldCount} slot holds. Sent: ${reminderCount} reminders.\n`

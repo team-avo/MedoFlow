@@ -1,6 +1,7 @@
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
+import { logAudit } from './auditService'
 
 export interface CreatePrescriptionData {
   appointmentId: string
@@ -32,18 +33,27 @@ const validateAppointmentForPrescription = async (
 export const createPrescription = async (
   data: CreatePrescriptionData,
   providerId: string,
-  clinicId: string
+  clinicId: string,
+  performedById: string
 ) => {
   const { appointmentId, patientId, notes } = data
 
   const appointment = await validateAppointmentForPrescription(appointmentId, providerId, clinicId)
+  // B3.3: a prescription belongs to the appointment's patient — never to a
+  // different patient named in the request body.
+  if (patientId && patientId !== appointment.patientId) {
+    const err = new Error('patientId does not match the appointment') as ApiError
+    err.statusCode = 400
+    err.code = 'validation_error'
+    throw err
+  }
 
-  return prisma.prescription.create({
+  const prescription = await prisma.prescription.create({
     data: {
       clinicId,
       appointmentId,
       providerId,
-      patientId: patientId || appointment.patientId,
+      patientId: appointment.patientId,
       notes,
     },
     include: {
@@ -52,6 +62,20 @@ export const createPrescription = async (
       patient: { select: { id: true, name: true, email: true } },
     },
   })
+  await logAudit({
+    clinicId,
+    entityType: 'Prescription',
+    entityId: prescription.id,
+    action: 'PRESCRIPTION_CREATED',
+    newValue: {
+      appointmentId,
+      patientId: prescription.patientId,
+      providerId,
+      notesLength: notes.length,
+    },
+    performedById,
+  })
+  return prescription
 }
 
 export const getPrescriptionsByPatient = async (patientId: string, clinicId?: string | null) => {

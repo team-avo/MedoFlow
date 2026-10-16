@@ -4,6 +4,7 @@ import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 import type { TreatmentPlanStatus } from '@prisma/client'
 import { Prisma } from '@prisma/client'
+import * as patientMembershipService from './patientMembershipService'
 
 export interface CreateTreatmentPlanData {
   patientId: string
@@ -39,6 +40,30 @@ const includeRelations = {
   discipline: { select: { id: true, name: true } },
 }
 
+/**
+ * Before/after values for the audit row (B0.3.2). Free text (goals, notes)
+ * is recorded by size, not copied into the log.
+ */
+const planAuditSnapshot = (p: {
+  name: string
+  totalSessions: number
+  sessionsCompleted: number
+  startDate: Date
+  endDate: Date | null
+  status: string
+  goals: Prisma.JsonValue
+  notes: string | null
+}) => ({
+  name: p.name,
+  totalSessions: p.totalSessions,
+  sessionsCompleted: p.sessionsCompleted,
+  startDate: p.startDate.toISOString(),
+  endDate: p.endDate?.toISOString() ?? null,
+  status: p.status,
+  goalsCount: Array.isArray(p.goals) ? p.goals.length : 0,
+  notesLength: p.notes?.length ?? 0,
+})
+
 export const createTreatmentPlan = async (
   data: CreateTreatmentPlanData,
   clinicId: string,
@@ -65,14 +90,9 @@ export const createTreatmentPlan = async (
     err.statusCode = 404
     throw err
   }
-  const patient = await prisma.user.findFirst({
-    where: { id: data.patientId },
-  })
-  if (!patient) {
-    const err = new Error('Patient not found') as ApiError
-    err.statusCode = 404
-    throw err
-  }
+  // B3.3: the patient must be an active member of this clinic (a bare user
+  // lookup let a plan be attached to another clinic's patient).
+  await patientMembershipService.assertPatientBelongsToClinic(data.patientId, clinicId)
   const plan = await prisma.treatmentPlan.create({
     data: {
       clinicId,
@@ -95,7 +115,12 @@ export const createTreatmentPlan = async (
     action: 'TREATMENT_PLAN_CREATED',
     fieldChanged: null,
     oldValue: null,
-    newValue: { name: plan.name, patientId: plan.patientId, providerId: plan.providerId },
+    newValue: {
+      patientId: plan.patientId,
+      providerId: plan.providerId,
+      disciplineId: plan.disciplineId,
+      ...planAuditSnapshot(plan),
+    },
     performedById,
   })
   return plan
@@ -184,9 +209,9 @@ export const updateTreatmentPlan = async (
     entityType: 'TreatmentPlan',
     entityId: id,
     action: 'TREATMENT_PLAN_UPDATED',
-    fieldChanged: 'status',
-    oldValue: { status: plan.status },
-    newValue: { status: updated.status },
+    fieldChanged: Object.keys(updateData).join(','),
+    oldValue: planAuditSnapshot(plan),
+    newValue: planAuditSnapshot(updated),
     performedById,
   })
   return updated

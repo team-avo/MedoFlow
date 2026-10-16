@@ -70,6 +70,39 @@ describe('F0.3.1 no PHI in URLs', () => {
   })
 })
 
+describe('F3.3 file names never leave the browser except as upload metadata', () => {
+  // A patient file's original name ("Jane-Doe-HIV-result.pdf") is PHI. It may
+  // be shown, used as the local download name, and sent once in the upload
+  // request body — never in a URL, a toast, or a log line.
+  const FILE_NAME = '(originalName|fileName|file\\.name)'
+  const IN_URL_TEMPLATE = new RegExp(`\`[^\`]*/[^\`]*\\$\\{[^}]*\\b${FILE_NAME}\\b[^}]*\\}`)
+  const IN_URL_CONCAT = new RegExp(`['"]/[^'"]*['"]\\s*\\+\\s*[\\w.]*${FILE_NAME}`)
+  const IN_MESSAGE = new RegExp(`(toast(\\.\\w+)?|clientLog(\\.\\w+)?)\\([^)]*\\b${FILE_NAME}\\b`)
+
+  it('the guards catch the patterns they are meant to (positive controls)', () => {
+    expect(IN_URL_TEMPLATE.test('const u = `/files/${file.originalName}`')).toBe(true)
+    expect(IN_URL_TEMPLATE.test('const u = `/files/${fileId}/download-url`')).toBe(false)
+    expect(IN_URL_CONCAT.test("const u = '/files/' + file.name")).toBe(true)
+    expect(IN_MESSAGE.test('toast.error(`Failed: ${file.name}`)')).toBe(true)
+    expect(IN_MESSAGE.test("toast.success('File uploaded')")).toBe(false)
+  })
+
+  it('no URL template or string concatenation carries a file name', () => {
+    expect(findAll(IN_URL_TEMPLATE)).toEqual([])
+    expect(findAll(IN_URL_CONCAT)).toEqual([])
+  })
+
+  it('no toast or client log message includes a file name', () => {
+    expect(findAll(IN_MESSAGE)).toEqual([])
+  })
+
+  it('the file API never builds a download/stream URL with credentials to storage', () => {
+    const fileApi = files.find((f) => f.file.replace(/\\/g, '/') === 'lib/fileApi.ts')!.text
+    expect(fileApi).not.toMatch(/\/files\/[^'"`]*\/download['"`?]/)
+    expect(fileApi).not.toMatch(/credentials:\s*'include'/)
+  })
+})
+
 describe('F0.3.3 client telemetry is PHI-scrubbed or BAA-covered', () => {
   const TELEMETRY_PACKAGES =
     /^(@sentry\/|@datadog\/browser|posthog|mixpanel|@segment\/|analytics-next|@amplitude\/|amplitude-js|logrocket|@fullstory\/|hotjar|@vercel\/analytics|@vercel\/speed-insights|react-ga|@next\/third-parties|newrelic|@newrelic\/|@bugsnag\/|rollbar|@microsoft\/applicationinsights|@honeybadger-io\/|heap-api|@heap\/)/

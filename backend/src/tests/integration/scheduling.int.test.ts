@@ -710,7 +710,9 @@ describe('B1.4 — booking race', () => {
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
     const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
     expect(rejected).toHaveLength(7)
-    for (const r of rejected) expect(errorText(r.reason)).toMatch(/23P01|no_overlap/)
+    // Concurrent inserters waiting on the same GiST exclusion entry can also
+    // be aborted with a deadlock (40P01) under load — still a DB refusal.
+    for (const r of rejected) expect(errorText(r.reason)).toMatch(/23P01|no_overlap|40P01/)
   })
 })
 

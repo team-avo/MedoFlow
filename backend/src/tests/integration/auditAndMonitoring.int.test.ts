@@ -12,7 +12,7 @@ import { PrismaClient } from '@prisma/client'
 import { adminDb, api, login, startServer, type TestServer } from './helpers'
 import { createClinicFixture, slot, type ClinicFixture } from './fixtures'
 import { purgeExpiredAuditLogs } from '../../services/auditService'
-import { UPLOAD_BASE } from '../../config/multer'
+import { UPLOAD_BASE } from '../../services/fileStorage'
 import {
   onSecurityAlert,
   resetSecurityMonitor,
@@ -46,14 +46,14 @@ describe('B0.3.1 read-access logging', () => {
     expect(rows[0]!.createdAt.getTime()).toBeGreaterThanOrEqual(before - 1000)
   })
 
-  it('patient-file download by staff is audited', async () => {
+  it('patient-file download by staff is audited (one READ row per presigned URL issued)', async () => {
     const file = await adminDb.patientFile.findUniqueOrThrow({ where: { id: C.patientFileId } })
     const onDisk = path.join(UPLOAD_BASE, file.storagePath)
     fs.mkdirSync(path.dirname(onDisk), { recursive: true })
     fs.writeFileSync(onDisk, 'synthetic file body')
     try {
       expect(
-        (await api(server.url, `/files/${C.patientFileId}/download`, { token: admin })).status
+        (await api(server.url, `/files/${C.patientFileId}/download-url`, { token: admin })).status
       ).toBe(200)
     } finally {
       fs.rmSync(onDisk, { force: true })
@@ -61,7 +61,9 @@ describe('B0.3.1 read-access logging', () => {
     const rows = await adminDb.auditLog.findMany({
       where: { entityId: C.patientFileId, performedById: C.users.admin.id },
     })
-    expect(rows.map((r) => r.action)).toContain('FILE_DOWNLOADED')
+    expect(rows.map((r) => r.action)).toEqual(['READ'])
+    expect(rows[0]).toMatchObject({ entityType: 'PatientFile', clinicId: C.clinicId })
+    expect(rows[0]!.ipAddress).toBeTruthy()
   })
 
   it('non-sensitive reads are not over-logged', async () => {

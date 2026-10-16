@@ -26,6 +26,10 @@ export default defineConfig({
         'contexts/**',
         'components/auth/**',
         'components/layout/DashboardLayout.tsx',
+        // Component 3 (F3.1–F3.3)
+        'components/PatientFilesSection.tsx',
+        'components/records/**',
+        'components/forms/DynamicFormRenderer.tsx',
         'hooks/**',
       ],
       exclude: ['**/*.test.*'],

@@ -1267,7 +1267,7 @@ model TreatmentPlan {
 }
 
 model PatientFile {
-  id            String   @id @default(cuid())
+  id            String            @id @default(cuid())
   clinicId      String
   patientId     String
   visitRecordId String?
@@ -1277,8 +1277,11 @@ model PatientFile {
   mimeType      String
   size          Int
   tags          Json?
-  isDeleted     Boolean  @default(false)
-  createdAt     DateTime @default(now())
+  /// B3.1: PENDING until the direct-to-bucket upload is verified (size + content type).
+  status        PatientFileStatus @default(AVAILABLE)
+  uploadedAt    DateTime?
+  isDeleted     Boolean           @default(false)
+  createdAt     DateTime          @default(now())
 
   clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   patient     User         @relation("PatientFiles", fields: [patientId], references: [id], onDelete: Restrict)
@@ -1288,6 +1291,13 @@ model PatientFile {
   @@index([patientId])
   @@index([clinicId])
   @@index([visitRecordId])
+  @@index([status, createdAt])
+}
+
+enum PatientFileStatus {
+  PENDING
+  AVAILABLE
+  REJECTED
 }
 
 model FormTemplate {
