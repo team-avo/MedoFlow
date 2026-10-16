@@ -20,6 +20,7 @@ import {
   type CreateTemplatePayload,
 } from '@/lib/formsApi'
 import { getDisciplines } from '@/lib/disciplineApi'
+import { formTemplateCreatePayloadSchema } from '@/lib/schemas/clinicalRecords'
 import { getDashboardServices } from '@/lib/serviceApi'
 import { useAppToast } from '@/hooks/useAppToast'
 import { useSystemModal } from '@/hooks/useSystemModal'
@@ -269,6 +270,12 @@ function TemplateDialog({
         ? { disciplineId: data.disciplineId }
         : {}),
       ...(data.scope === 'SERVICE' && data.serviceId ? { serviceId: data.serviceId } : {}),
+    }
+    // Same rules as the API (F3.2): every field labelled, selects have options.
+    const checked = formTemplateCreatePayloadSchema.safeParse(payload)
+    if (!checked.success) {
+      toast.error(checked.error.issues[0]?.message ?? 'Please check the form fields')
+      return
     }
     saveMutation.mutate(payload)
   }
