@@ -50,7 +50,7 @@ PHI flows to each of these in MedoFlow today (verified against the code on 2026-
 - [ ] 🔴 **Neon** (managed PostgreSQL — all PHI): BAA; encryption at rest + `sslmode=require` enforced.
 - [ ] 🔴 **Cloudflare** (frontend Workers, backend edge Worker/Container, Hyperdrive, **R2** for consultation and scribe audio): Enterprise BAA + per-service eligibility confirmed in writing; R2 objects private + encrypted.
 - [ ] 🔴 **Redis Cloud** (BullMQ queues): job data holds record IDs only today (`aiScribeQueue.ts`); keep it that way, and still prefer a BAA-covered, TLS-only instance.
-- [ ] 🔴 **Patient file uploads**: currently written to the API server's local disk (`config/multer.ts`, `uploads/<clinicId>/<patientId>/`) — not to S3/R2. Move to encrypted, BAA-covered object storage (see 4.3).
+- [x] 🔴 **Patient file uploads**: _2026-10-16 (B3.1): moved to object storage (R2 today) via presigned URLs; production refuses local disk. BAA coverage of the store is still governed by the Cloudflare row above / ADR 0001._
 
 **AI Scribe (self-hosted — no third party sees the content):**
 
@@ -77,7 +77,7 @@ PHI flows to each of these in MedoFlow today (verified against the code on 2026-
 
 - [ ] 🔴 TLS 1.2+ enforced on all external endpoints (HTTPS only; HSTS set).
 - [ ] 🔴 Database **encryption at rest** enabled (e.g., Neon/RDS volume encryption or KMS) and DB connections forced to TLS (`sslmode=require` — not enforced in code today).
-- [ ] 🔴 Object storage (R2 today, or S3) **encrypted** + **no public access**; uploads in `storageService.ts` should request server-side encryption.
+- [ ] 🔴 Object storage (R2 today, or S3) **encrypted** + **no public access**; uploads in `storageService.ts` should request server-side encryption. _2026-10-16 (B3.1): every write requests SSE (`S3_SSE`: AES256 / aws:kms; `provider-default` on R2, which always encrypts); `scripts/ops/check-bucket-private.js` proves anonymous GET is refused — run it on the live bucket and attach the output._
 - [ ] 🔴 Redis connections use TLS; instance not publicly exposed.
 - [ ] 🔴 Secrets (JWT secret, DB creds, Stripe keys, Groq / Gemini / OpenAI keys, `GOOGLE_TOKEN_ENCRYPTION_KEY`) stored in a secrets manager / env, **never** committed. `.gitignore` covers `.env*`.
 - [ ] 🔴 Backend container runs as a non-root user (`backend/Dockerfile`), and `SEED_ON_DEPLOY` is never enabled in production.
@@ -150,7 +150,7 @@ PHI flows to each of these in MedoFlow today (verified against the code on 2026-
 
 - [ ] **In transit:** TLS everywhere (see 3.4).
 - [ ] **At rest:** DB + object storage (R2/S3) + patient files + backups + Redis encrypted (see 1.3).
-- [ ] 🟡 **Application-level / field-level encryption** considered for the most sensitive free-text (`transcriptText`, SOAP bodies, intake answers). _Schema currently stores these as plaintext `@db.Text` relying on at-rest disk encryption — decide and document whether field-level encryption is warranted, or justify why disk-level is sufficient._
+- [x] 🟡 **Application-level / field-level encryption** considered for the most sensitive free-text (`transcriptText`, SOAP bodies, intake answers). _2026-10-16 (B3.2): adopted — [ADR 0002](adr/0002-field-level-encryption.md). AES-256-GCM per value, env or AWS-KMS-wrapped keys, existing rows migrated by `ops:encrypt-phi`. Signature pending._
 - [ ] Encryption keys managed in KMS/secrets manager with rotation; never in source.
 
 ### 3.6 Logging, errors & observability (high-risk leak path) 🔴
@@ -188,10 +188,10 @@ PHI flows to each of these in MedoFlow today (verified against the code on 2026-
 
 ### 4.3 Patient files & uploads 🔴
 
-- [ ] Patient files move off the API server's local disk (`config/multer.ts`) into encrypted, BAA-covered object storage.
-- [ ] Buckets private; access via **time-limited pre-signed URLs** or streamed through the API (as `fileController.ts` does today), never public links.
-- [ ] File access authorized + tenant-scoped + audited (download auditing is in place).
-- [ ] Uploaded file types validated by content, not the client's MIME label (today any `application/*` passes); access checked **before** the file is written; lifecycle/retention policy applied.
+- [x] Patient files move off the API server's local disk (`config/multer.ts`) into encrypted, BAA-covered object storage. _B3.1 (2026-10-16); legacy rows: `ops:migrate-patient-files`. BAA: see 1.2._
+- [x] Buckets private; access via **time-limited pre-signed URLs** or streamed through the API (as `fileController.ts` does today), never public links. _B3.1: presigned PUT/GET only (default 5 min, max 15), no filename in keys or URLs._
+- [x] File access authorized + tenant-scoped + audited (download auditing is in place). _B3.1: one READ audit row (with IP/UA) per presigned URL issued; tests in `patientFiles.int.test.ts`._
+- [x] Uploaded file types validated by content, not the client's MIME label (today any `application/*` passes); access checked **before** the file is written; lifecycle/retention policy applied. _B3.1: exact allow-list (no SVG/HTML), magic-byte check on complete, patient/visit checked before a URL is issued, stale uploads swept._
 
 ### 4.4 Patient rights 🔴
 
@@ -257,19 +257,19 @@ PHI flows to each of these in MedoFlow today (verified against the code on 2026-
 
 > Update this list as the team closes items. Seeded from the 2026-10-08 code review.
 
-| #   | Item                                                                                                                                                                                                                                                                           | Area      | Status           | Owner            |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---------------- | ---------------- |
-| 1   | Confirm **read-access logging** (not just writes) for SOAP notes, transcripts, patient files                                                                                                                                                                                   | 3.2       | ⬜ Open          |                  |
-| 2   | Decide on **field-level encryption** for `transcriptText` / SOAP bodies / intake answers vs. rely on disk encryption — document the decision                                                                                                                                   | 3.5       | ⬜ Open          |                  |
-| 3   | ~~Verify OpenAI BAA for AI Scribe~~ — **corrected:** the scribe uses self-hosted Ollama/Llama, not OpenAI. Remaining work: secure the Ollama endpoint (TLS + auth + private network), and get BAAs for, or remove, the **voice agent** vendors (Groq, Gemini, OpenAI Realtime) | 1.2 / 3.7 | ⬜ Open          |                  |
-| 4   | Confirm **Whisper is fully local** (no hosted transcription path) — confirmed for the AI Scribe; the voice agent uses Groq's hosted Whisper (covered by item 3)                                                                                                                | 1.2 / 3.7 | ✅ Done (scribe) |                  |
-| 5   | Verify **error monitoring / logging** has no PHI or is BAA-covered — no monitoring SDKs installed; but the tenant guard logs query data and 500 errors return raw messages                                                                                                     | 3.6       | ⬜ Open          |                  |
-| 6   | Add **MFA** for all staff roles — confirmed missing                                                                                                                                                                                                                            | 3.1       | ⬜ Open          |                  |
-| 7   | Add **automatic idle session timeout** on clinical screens — confirmed missing                                                                                                                                                                                                 | 3.1       | ⬜ Open          |                  |
-| 8   | Move patient files off local disk to encrypted object storage; request server-side encryption on R2/S3 audio uploads                                                                                                                                                           | 4.3       | ⬜ Open          |                  |
-| 9   | Complete **BAA register** (Section 1.2) with signed-status per vendor                                                                                                                                                                                                          | 1.2       | ⬜ Open          |                  |
-| 10  | Write/confirm **Risk Analysis + core policies** exist and are current                                                                                                                                                                                                          | 1.1       | ⬜ Open          |                  |
-| 11  | **PHI gate (Cloudflare):** no real PHI until Cloudflare BAA + per-service eligibility is confirmed, or PHI components move to AWS/GCP/Azure. See [PHI_GATE.md](PHI_GATE.md)                                                                                                    | 1.2 / 1.3 | 🔒 Gate closed   | Security Officer |
+| #   | Item                                                                                                                                                                                                                                                                           | Area      | Status                          | Owner            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------- | ---------------- |
+| 1   | Confirm **read-access logging** (not just writes) for SOAP notes, transcripts, patient files                                                                                                                                                                                   | 3.2       | ⬜ Open                         |                  |
+| 2   | Decide on **field-level encryption** for `transcriptText` / SOAP bodies / intake answers vs. rely on disk encryption — document the decision                                                                                                                                   | 3.5       | 🟨 ADR 0002 — signature pending |                  |
+| 3   | ~~Verify OpenAI BAA for AI Scribe~~ — **corrected:** the scribe uses self-hosted Ollama/Llama, not OpenAI. Remaining work: secure the Ollama endpoint (TLS + auth + private network), and get BAAs for, or remove, the **voice agent** vendors (Groq, Gemini, OpenAI Realtime) | 1.2 / 3.7 | ⬜ Open                         |                  |
+| 4   | Confirm **Whisper is fully local** (no hosted transcription path) — confirmed for the AI Scribe; the voice agent uses Groq's hosted Whisper (covered by item 3)                                                                                                                | 1.2 / 3.7 | ✅ Done (scribe)                |                  |
+| 5   | Verify **error monitoring / logging** has no PHI or is BAA-covered — no monitoring SDKs installed; but the tenant guard logs query data and 500 errors return raw messages                                                                                                     | 3.6       | ⬜ Open                         |                  |
+| 6   | Add **MFA** for all staff roles — confirmed missing                                                                                                                                                                                                                            | 3.1       | ⬜ Open                         |                  |
+| 7   | Add **automatic idle session timeout** on clinical screens — confirmed missing                                                                                                                                                                                                 | 3.1       | ⬜ Open                         |                  |
+| 8   | Move patient files off local disk to encrypted object storage; request server-side encryption on R2/S3 audio uploads                                                                                                                                                           | 4.3       | ✅ B3.1 (2026-10-16)            |                  |
+| 9   | Complete **BAA register** (Section 1.2) with signed-status per vendor                                                                                                                                                                                                          | 1.2       | ⬜ Open                         |                  |
+| 10  | Write/confirm **Risk Analysis + core policies** exist and are current                                                                                                                                                                                                          | 1.1       | ⬜ Open                         |                  |
+| 11  | **PHI gate (Cloudflare):** no real PHI until Cloudflare BAA + per-service eligibility is confirmed, or PHI components move to AWS/GCP/Azure. See [PHI_GATE.md](PHI_GATE.md)                                                                                                    | 1.2 / 1.3 | 🔒 Gate closed                  | Security Officer |
 
 ---
 
