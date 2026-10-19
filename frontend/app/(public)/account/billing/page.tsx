@@ -3,8 +3,11 @@
 import React from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingCart, Receipt } from 'lucide-react'
+import { ShoppingCart, Receipt, CreditCard } from 'lucide-react'
 import { getMyInvoices } from '@/lib/patientApi'
+import { getOnFile, cardLabel } from '@/lib/rxCartApi'
+import { ShippingAddressForm } from '@/components/store/ShippingAddressForm'
+import { formatAddress } from '@/components/store/OneClickPay'
 import {
   AppCard,
   AppCardContent,
@@ -32,6 +35,65 @@ function formatDate(iso?: string | null) {
     day: 'numeric',
     year: 'numeric',
   })
+}
+
+/** F5.3: the card and shipping address on file from booking, for one-click orders. */
+function OnFileCard() {
+  const { data: onFile, isLoading } = useQuery({
+    queryKey: ['carts', 'one-click'],
+    queryFn: getOnFile,
+    retry: false,
+  })
+  const [editing, setEditing] = React.useState(false)
+  if (isLoading) return null
+
+  return (
+    <AppCard className="border border-slate-100 shadow-sm overflow-hidden bg-white">
+      <AppCardHeader className="bg-slate-50/60 border-b border-slate-100 py-5 px-6">
+        <AppCardTitle className="text-base font-semibold flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-indigo-600" />
+          Card &amp; shipping on file
+        </AppCardTitle>
+      </AppCardHeader>
+      <AppCardContent className="grid gap-6 p-6 sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Card</p>
+          <p className="mt-1 text-sm text-slate-800" data-testid="card-on-file">
+            {onFile?.card
+              ? cardLabel(onFile.card)
+              : 'No card on file yet — the card you pay for a booking with is saved here.'}
+          </p>
+          <p className="mt-1 text-xs text-slate-400">
+            Held by Stripe. Used only when you choose “Pay with card on file”.
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            Shipping address
+          </p>
+          {onFile?.shippingAddress && !editing ? (
+            <p className="mt-1 text-sm text-slate-800">
+              {formatAddress(onFile.shippingAddress)}{' '}
+              <button
+                type="button"
+                className="ml-1 text-xs font-medium text-indigo-700 underline"
+                onClick={() => setEditing(true)}
+              >
+                Change
+              </button>
+            </p>
+          ) : (
+            <div className="mt-2">
+              <ShippingAddressForm
+                initial={onFile?.shippingAddress}
+                onSaved={() => setEditing(false)}
+              />
+            </div>
+          )}
+        </div>
+      </AppCardContent>
+    </AppCard>
+  )
 }
 
 export default function AccountBillingPage() {
@@ -80,6 +142,8 @@ export default function AccountBillingPage() {
           </AppButton>
         }
       />
+
+      <OnFileCard />
 
       <AppCard className="border border-slate-100 shadow-sm overflow-hidden bg-white">
         <AppCardHeader className="bg-slate-50/60 border-b border-slate-100 py-5 px-6">

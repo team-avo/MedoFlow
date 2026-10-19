@@ -12,10 +12,13 @@ import React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
-import { Minus, Plus, ShoppingBag, Trash2, X, ArrowRight } from 'lucide-react'
+import { Minus, Plus, ShoppingBag, Trash2, X, ArrowRight, Stethoscope, Check } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useCart, type CartItem } from '@/hooks/useCart'
 import { categorize } from '@/lib/product-categories'
+import { OneClickPay } from '@/components/store/OneClickPay'
 
 const DEFAULT_ACCENT = '#0F766E' // teal-700 — matches the Medoflow store
 
@@ -50,10 +53,7 @@ export function useCartModal() {
 export function CartModalProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false)
   const [clinicCtx, setClinicCtx] = React.useState<ClinicCartCtx | null>(null)
-  const value = React.useMemo(
-    () => ({ open, setOpen, clinicCtx, setClinicCtx }),
-    [open, clinicCtx]
-  )
+  const value = React.useMemo(() => ({ open, setOpen, clinicCtx, setClinicCtx }), [open, clinicCtx])
   return (
     <CartModalContext.Provider value={value}>
       {children}
@@ -72,7 +72,19 @@ function CartModal({
   clinicCtx: ClinicCartCtx | null
 }) {
   const router = useRouter()
-  const { cart, subtotal, totalItems, updateQuantity, removeItem, isLoading, fetchCartItems } = useCart()
+  const {
+    cart,
+    subtotal,
+    totalItems,
+    updateQuantity,
+    removeItem,
+    isLoading,
+    fetchCartItems,
+    setDecision,
+    pendingDecisions,
+    isAuthenticated,
+  } = useCart()
+  const queryClient = useQueryClient()
   const accent = clinicCtx?.themeColor || DEFAULT_ACCENT
 
   // Refetch every time the drawer is opened so items added from another
@@ -152,6 +164,8 @@ function CartModal({
                     onInc={() => updateQuantity(item.id, item.quantity + 1)}
                     onDec={() => updateQuantity(item.id, item.quantity - 1)}
                     onRemove={() => removeItem(item.id)}
+                    onDecide={(decision) => setDecision(item.id, decision)}
+                    accent={accent}
                   />
                 ))}
               </ul>
@@ -168,13 +182,26 @@ function CartModal({
                 <span>Shipping & taxes</span>
                 <span>Calculated at checkout</span>
               </div>
+              {isAuthenticated && (
+                <OneClickPay
+                  compact
+                  total={subtotal}
+                  pendingDecisions={pendingDecisions}
+                  accent={accent}
+                  onPaid={async () => {
+                    toast.success('Payment complete — your order is confirmed')
+                    await fetchCartItems()
+                    await queryClient.invalidateQueries({ queryKey: ['carts', 'one-click'] })
+                    onOpenChange(false)
+                  }}
+                />
+              )}
               <button
                 type="button"
                 onClick={goToCheckout}
-                className="flex w-full items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-                style={{ backgroundColor: accent }}
+                className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition-colors hover:border-slate-300"
               >
-                Proceed to checkout
+                {isAuthenticated ? 'Review order' : 'Proceed to checkout'}
                 <ArrowRight className="h-4 w-4" />
               </button>
               <button
@@ -214,23 +241,104 @@ function EmptyCart({ onBrowse }: { onBrowse: () => void }) {
   )
 }
 
+/** "Prescribed · Dr. X" — who sent this item from the visit (F5.2). */
+export function PrescribedBadge({ item }: { item: CartItem }) {
+  if (!item.rxOrderLineId || !item.prescribedBy) return null
+  return (
+    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+      <Stethoscope className="h-3 w-3" />
+      Prescribed · Dr. {item.prescribedBy.firstName} {item.prescribedBy.lastName}
+    </span>
+  )
+}
+
+/** Accept / decline for an item a provider prescribed (F5.2). */
+export function DecisionButtons({
+  item,
+  onDecide,
+  accent = DEFAULT_ACCENT,
+}: {
+  item: CartItem
+  onDecide: (decision: 'ACCEPTED' | 'DECLINED') => void
+  accent?: string
+}) {
+  if (!item.rxOrderLineId) return null
+  if (item.patientDecision === 'PENDING') {
+    return (
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={() => onDecide('ACCEPTED')}
+          aria-label={`Accept ${item.name}`}
+          className="rounded-full px-3 py-1 text-xs font-semibold text-white"
+          style={{ backgroundColor: accent }}
+        >
+          Accept
+        </button>
+        <button
+          type="button"
+          onClick={() => onDecide('DECLINED')}
+          aria-label={`Decline ${item.name}`}
+          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300"
+        >
+          Decline
+        </button>
+      </div>
+    )
+  }
+  const accepted = item.patientDecision === 'ACCEPTED'
+  return (
+    <div className="mt-2 flex items-center gap-2 text-xs">
+      <span
+        className={accepted ? 'font-semibold text-emerald-700' : 'font-semibold text-slate-500'}
+      >
+        {accepted ? (
+          <>
+            <Check className="mr-1 inline h-3 w-3" />
+            Accepted
+          </>
+        ) : (
+          'Declined — not charged'
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={() => onDecide(accepted ? 'DECLINED' : 'ACCEPTED')}
+        className="text-slate-400 underline hover:text-slate-700"
+      >
+        {accepted ? 'Decline instead' : 'Accept instead'}
+      </button>
+    </div>
+  )
+}
+
 function CartRow({
   item,
   onInc,
   onDec,
   onRemove,
+  onDecide,
+  accent,
 }: {
   item: CartItem
   onInc: () => void
   onDec: () => void
   onRemove: () => void
+  onDecide: (decision: 'ACCEPTED' | 'DECLINED') => void
+  accent: string
 }) {
   const cat = categorize(item.name)
   const Icon = cat.icon
   const lineTotal = Number(item.unitPrice) * item.quantity
+  const declined = item.patientDecision === 'DECLINED'
 
   return (
-    <li className="group flex gap-3 rounded-2xl border border-slate-100 bg-white p-3 transition-colors hover:border-slate-200">
+    <li
+      className={cn(
+        'group flex gap-3 rounded-2xl border border-slate-100 bg-white p-3 transition-colors hover:border-slate-200',
+        declined && 'opacity-60'
+      )}
+    >
       <div
         className={cn(
           'flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br',
@@ -246,6 +354,7 @@ function CartRow({
             <p className="mt-0.5 text-[11px] uppercase tracking-wider text-slate-400">
               {item.itemType === 'PRODUCT' ? cat.label : item.itemType.toLowerCase()}
             </p>
+            <PrescribedBadge item={item} />
           </div>
           <button
             type="button"
@@ -258,8 +367,13 @@ function CartRow({
         </div>
         <div className="mt-2 flex items-center justify-between">
           <QuantityStepper value={item.quantity} onInc={onInc} onDec={onDec} size="sm" />
-          <span className="text-[13px] font-semibold text-slate-900">${lineTotal.toFixed(2)}</span>
+          <span
+            className={cn('text-[13px] font-semibold text-slate-900', declined && 'line-through')}
+          >
+            ${lineTotal.toFixed(2)}
+          </span>
         </div>
+        <DecisionButtons item={item} onDecide={onDecide} accent={accent} />
       </div>
     </li>
   )

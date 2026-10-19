@@ -18,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import api from '@/lib/api'
 import { toast } from 'sonner'
 import { clientLog } from '@/lib/clientLog'
+import { setItemDecision, type PatientDecision } from '@/lib/rxCartApi'
 
 export interface CartItem {
   id: string
@@ -30,7 +31,16 @@ export interface CartItem {
   package?: any
   membership?: any
   service?: any
+  /** Prescription → Cart provenance: set when a provider sent this item. */
+  rxOrderLineId?: string | null
+  prescribedBy?: { id: string; firstName: string; lastName: string } | null
+  patientDecision?: PatientDecision | null
 }
+
+/** Declined prescribed items stay visible but are not charged. */
+export const isPayable = (item: CartItem): boolean => item.patientDecision !== 'DECLINED'
+export const needsDecision = (item: CartItem): boolean =>
+  !!item.rxOrderLineId && item.patientDecision === 'PENDING'
 
 const LOCAL_CART_KEY = 'medoflow_guest_cart'
 
@@ -45,6 +55,10 @@ interface CartContextValue {
   removeItem: (cartItemId: string) => Promise<void>
   fetchCartItems: () => Promise<void>
   clearGuestCart: () => void
+  /** Accept or decline an item a provider prescribed (F5.2). */
+  setDecision: (cartItemId: string, decision: 'ACCEPTED' | 'DECLINED') => Promise<void>
+  /** Prescribed items still waiting for the patient's accept / decline. */
+  pendingDecisions: number
 }
 
 const CartContext = createContext<CartContextValue | null>(null)
@@ -215,6 +229,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     [isAuthenticated, cart.items, fetchCartItems, persistGuestCart, removeItem]
   )
 
+  const setDecision = useCallback(
+    async (cartItemId: string, decision: 'ACCEPTED' | 'DECLINED') => {
+      try {
+        await setItemDecision(cartItemId, decision)
+        await fetchCartItems()
+      } catch (err) {
+        clientLog.error('Failed to save decision', err)
+        toast.error('Could not save your choice. Please try again.')
+      }
+    },
+    [fetchCartItems]
+  )
+
   const clearGuestCart = useCallback(() => {
     localStorage.removeItem(LOCAL_CART_KEY)
     if (!isAuthenticated) {
@@ -222,8 +249,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated])
 
-  const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0)
-  const subtotal = cart.items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0)
+  const payable = cart.items.filter(isPayable)
+  const totalItems = payable.reduce((sum, item) => sum + item.quantity, 0)
+  const subtotal = payable.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0)
+  const pendingDecisions = cart.items.filter(needsDecision).length
 
   const value = useMemo<CartContextValue>(
     () => ({
@@ -237,6 +266,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       fetchCartItems,
       clearGuestCart,
+      setDecision,
+      pendingDecisions,
     }),
     [
       cart,
@@ -249,6 +280,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       removeItem,
       fetchCartItems,
       clearGuestCart,
+      setDecision,
+      pendingDecisions,
     ]
   )
 

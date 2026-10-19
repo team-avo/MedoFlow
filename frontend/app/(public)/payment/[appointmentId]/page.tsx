@@ -15,6 +15,9 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
 import { StripePaymentForm } from '@/components/StripePaymentForm'
+import { ShippingAddressForm } from '@/components/store/ShippingAddressForm'
+import { formatAddress } from '@/components/store/OneClickPay'
+import { getOnFile } from '@/lib/rxCartApi'
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder'
@@ -118,6 +121,16 @@ export default function PaymentPage() {
 
   const isSubmitting =
     confirmMutation.isPending || failMutation.isPending || demoConfirmMutation.isPending
+
+  // F5.3: the shipping address saved here (and the card paid with below) are
+  // what the patient's cart uses for one-click "Pay with card on file".
+  const { data: onFile } = useQuery({
+    queryKey: ['carts', 'one-click'],
+    queryFn: getOnFile,
+    enabled: !!appointment,
+    retry: false,
+  })
+  const [editAddress, setEditAddress] = useState(false)
 
   if (isLoading || !appointment) {
     if (error) {
@@ -240,6 +253,41 @@ export default function PaymentPage() {
             </div>
           )}
 
+          {!showExpiredBanner && (
+            <section
+              aria-labelledby="shipping-heading"
+              className="rounded-lg border border-gray-200 p-4"
+            >
+              <h2 id="shipping-heading" className="text-sm font-semibold text-gray-900">
+                Shipping address for products your provider prescribes
+                <span className="ml-1 font-normal text-gray-500">(optional)</span>
+              </h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Saved with the card you pay with today, so prescribed items can be ordered in one
+                click — no re-entering details.
+              </p>
+              <div className="mt-3">
+                {onFile?.shippingAddress && !editAddress ? (
+                  <p className="text-sm text-gray-700" data-testid="address-on-file">
+                    {formatAddress(onFile.shippingAddress)}{' '}
+                    <button
+                      type="button"
+                      onClick={() => setEditAddress(true)}
+                      className="ml-2 text-xs font-medium text-primary-700 underline"
+                    >
+                      Change
+                    </button>
+                  </p>
+                ) : (
+                  <ShippingAddressForm
+                    initial={onFile?.shippingAddress}
+                    onSaved={() => setEditAddress(false)}
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
           <div className="flex flex-col gap-3">
             {!showExpiredBanner && paymentIntentLoading ? (
               <div className="flex items-center justify-center py-6">
@@ -253,8 +301,18 @@ export default function PaymentPage() {
                 <StripePaymentForm
                   clientSecret={paymentIntent.clientSecret}
                   buttonLabel={`Pay $${formatAmount(appointment.priceAtBooking)} & Confirm`}
-                  onSuccess={() => router.push(`/intake/${appointmentId}`)}
+                  onSuccess={async () => {
+                    // Record the payment server-side right away (the webhook
+                    // does the same, idempotently); this also keeps the card
+                    // on file for one-click purchases.
+                    await confirmPayment(appointmentId).catch(() => null)
+                    router.push(`/intake/${appointmentId}`)
+                  }}
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Your card is saved securely with Stripe for one-click purchases of products your
+                  provider prescribes. MedoFlow stores only the card brand and last 4 digits.
+                </p>
               </Elements>
             ) : (
               <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
