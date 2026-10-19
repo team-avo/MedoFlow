@@ -1,7 +1,9 @@
 /**
- * Seeds one synthetic clinic for the live front-end ↔ back-end check of
- * Component 3 (frontend/e2e/live-records.spec.ts). Development databases
- * only — never point this at a database holding real data.
+ * Seeds one synthetic clinic for the live front-end ↔ back-end checks of
+ * Component 3 (frontend/e2e/live-records.spec.ts) and Component 5
+ * (frontend/e2e/live-rx-cart.spec.ts, and the manual guide in
+ * development-log-docs/commerce-pres-cart-WALKTHROUGH-AND-VERIFICATION.md).
+ * Development databases only — never point this at a database holding real data.
  *
  *   E2E_LIVE_PASSWORD=<any synthetic password> \
  *   DATABASE_URL=<owner url of a dev database> \
@@ -110,6 +112,86 @@ async function main() {
       status: 'COMPLETED',
     },
   })
+  // Component 5: a classified catalog and a second visit with an open note
+  // for the Rx→Cart flow (the AI Scribe console's "Demo: simulate
+  // conversation" detects magnesium, arnica, tramadol and a turmeric complex).
+  const catalog: [
+    string,
+    string,
+    number,
+    'SUPPLEMENT' | 'OTC' | 'AESTHETIC' | 'RX_SCHEDULED',
+    string[],
+  ][] = [
+    ['Magnesium Glycinate', 'MAG-400', 24, 'SUPPLEMENT', ['mag glycinate']],
+    ['Arnica Gel', 'ARN-75', 12.5, 'OTC', []],
+    ['Retinol Night Serum', 'RET-30', 48, 'AESTHETIC', []],
+    ['Tramadol', 'TRAM-50', 9, 'RX_SCHEDULED', []],
+    ['Turmeric Curcumin', 'TUR-500', 18, 'SUPPLEMENT', []],
+  ]
+  const products: Record<string, string> = {}
+  for (const [name, sku, price, fulfillmentClass, aliases] of catalog) {
+    const p = await db.product.create({
+      data: {
+        clinicId: clinic.id,
+        name,
+        sku,
+        price: new Prisma.Decimal(price),
+        fulfillmentClass,
+        aliases,
+        inventoryItem: { create: { clinicId: clinic.id, quantityInStock: 25 } },
+      },
+    })
+    products[sku] = p.id
+  }
+  const rxStart = new Date(start.getTime() - 24 * 3_600_000)
+  const rxAppointment = await db.appointment.create({
+    data: {
+      clinicId: clinic.id,
+      providerId: provider.id,
+      serviceId: service.id,
+      patientId: patient.id,
+      locationId: location.id,
+      startTime: rxStart,
+      endTime: new Date(rxStart.getTime() + 30 * 60_000),
+      priceAtBooking: new Prisma.Decimal(100),
+      status: 'COMPLETED',
+    },
+  })
+  const rxVisit = await db.visitRecord.create({
+    data: {
+      clinicId: clinic.id,
+      appointmentId: rxAppointment.id,
+      providerId: provider.id,
+      patientId: patient.id,
+    },
+  })
+
+  // Two bookings awaiting payment (manual guide §9.7): paying one with a
+  // Stripe test card saves that card on file for one-click purchases.
+  const payAppointmentIds: string[] = []
+  for (const days of [3, 4]) {
+    const at = new Date()
+    at.setUTCDate(at.getUTCDate() + days)
+    at.setUTCHours(10, 0, 0, 0)
+    const pending = await db.appointment.create({
+      data: {
+        clinicId: clinic.id,
+        providerId: provider.id,
+        serviceId: service.id,
+        patientId: patient.id,
+        locationId: location.id,
+        startTime: at,
+        endTime: new Date(at.getTime() + 30 * 60_000),
+        priceAtBooking: new Prisma.Decimal(100),
+        status: 'PENDING_PAYMENT',
+        paymentStatus: 'PENDING',
+        paymentRequirementType: 'FULL',
+        bookingHoldExpiresAt: new Date(Date.now() + 24 * 3_600_000),
+      },
+    })
+    payAppointmentIds.push(pending.id)
+  }
+
   const template = await db.formTemplate.create({
     data: {
       clinicId: clinic.id,
@@ -130,6 +212,11 @@ async function main() {
       templateId: template.id,
       disciplineId: discipline.id,
       patientId: patient.id,
+      providerId: provider.id,
+      rxAppointmentId: rxAppointment.id,
+      rxVisitRecordId: rxVisit.id,
+      payAppointmentIds,
+      products,
       emails: { admin: admin.email, provider: providerUser.email, patient: patient.email },
     })}\n`
   )

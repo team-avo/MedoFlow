@@ -169,6 +169,8 @@ export const getClinicProducts = asyncHandler(
       where: {
         clinicId,
         isActive: true,
+        // B5.5: prescription products are never sold from the storefront.
+        fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
       },
       include: {
         inventoryItem: true,
@@ -221,7 +223,11 @@ export const getProduct = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const id = req.params.id as string
     const product = await prisma.product.findFirst({
-      where: { id, isActive: true },
+      where: {
+        id,
+        isActive: true,
+        fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
+      },
       include: {
         inventoryItem: true,
       },

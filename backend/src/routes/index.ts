@@ -23,6 +23,7 @@ import staffRoutes from './staff'
 import consultationRoutes, { appointmentConsultationRouter } from './consultations'
 
 import productRoutes from './products'
+import rxCartRoutes from './rxCart'
 import inventoryRoutes from './inventory'
 import packageRoutes from './packages'
 import membershipRoutes from './memberships'
@@ -70,6 +71,7 @@ router.use('/integrations/google', googleCalendarRoutes)
 router.use('/staff', staffRoutes)
 router.use('/consultations', consultationRoutes)
 router.use('/products', productRoutes)
+router.use('/rx-cart', rxCartRoutes)
 router.use('/inventory', inventoryRoutes)
 router.use('/packages', packageRoutes)
 router.use('/memberships', membershipRoutes)

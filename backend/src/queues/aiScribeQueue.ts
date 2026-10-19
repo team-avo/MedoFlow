@@ -11,6 +11,8 @@ import prisma from '../config/prisma'
 import type * as aiScribeService from '../services/aiScribeService'
 import * as storageService from '../services/storageService'
 import * as aiProviderService from '../services/aiProviderService'
+import * as rxCartService from '../services/rxCartService'
+import { parseScribeOrders, type ScribeOrder } from '../services/rxMappingService'
 import { withTenantBypass } from '../config/tenantContext'
 import path from 'path'
 import fs from 'fs'
@@ -149,15 +151,31 @@ export interface ClinicalTimeline {
 export interface ClinicalAnalysisResult {
   timeline: ClinicalTimeline
   soap: aiScribeService.SoapDraft
+  orders: ScribeOrder[]
 }
+
+/**
+ * Appended to every scribe prompt (template or fallback) so the model also
+ * lists the products it heard prescribed or recommended (B5.1).
+ */
+export const ORDERS_INSTRUCTION = `
+
+Also include a top-level "orders" array in the same JSON object, listing every product, supplement, topical or medication the provider recommended or prescribed in this visit, as {"name": "<product as spoken, with strength>", "quantity": <whole number, default 1>}. Use [] when there are none. Do not invent orders.`
 
 async function resolveScribePrompt(
   providerId: string,
   tone: 'CONCISE' | 'DETAILED'
 ): Promise<string> {
+  return (await resolveBasePrompt(providerId, tone)) + ORDERS_INSTRUCTION
+}
+
+async function resolveBasePrompt(
+  providerId: string,
+  tone: 'CONCISE' | 'DETAILED'
+): Promise<string> {
   const fallbackPrompt = `Convert this medical conversation into a clinical timeline and a structured SOAP note.
 Return valid JSON only, no markdown or extra text:
-{"timeline": {"symptoms": [], "duration": "", "assessment": "", "plan": []}, "soap": {"subjective": "", "objective": "", "assessment": "", "plan": ""}}`
+{"timeline": {"symptoms": [], "duration": "", "assessment": "", "plan": []}, "soap": {"subjective": "", "objective": "", "assessment": "", "plan": ""}, "orders": [{"name": "", "quantity": 1}]}`
 
   try {
     const provider = await prisma.provider.findUnique({
@@ -270,6 +288,9 @@ async function generateClinicalAnalysis(
   }
 
   return {
+    orders: parseScribeOrders(
+      findKeyAcross(parsed, ['orders', 'products', 'recommendedProducts', 'prescriptions'])
+    ),
     timeline: {
       symptoms: Array.isArray(timeline.symptoms) ? timeline.symptoms.map(String) : [],
       duration: timeline.duration != null ? jsonValueToString(timeline.duration) : null,
@@ -383,11 +404,11 @@ Output ONLY the dialogue, nothing else. Do not summarize, keep the exact words i
   }
 
   const tone = session.provider?.scribeTone ?? 'CONCISE'
-  const { timeline, soap: soapDraft } = await generateClinicalAnalysis(
-    finalTranscriptText,
-    providerId,
-    tone
-  )
+  const {
+    timeline,
+    soap: soapDraft,
+    orders,
+  } = await generateClinicalAnalysis(finalTranscriptText, providerId, tone)
   await prisma.aIScribeSession.update({
     where: { id: sessionId },
     data: {
@@ -400,6 +421,17 @@ Output ONLY the dialogue, nothing else. Do not summarize, keep the exact words i
     },
   })
   await job.updateProgress(80)
+
+  // B5.1: map detected products to the clinic catalog for provider review.
+  // Never fails the note: a mapping error only means no chips are shown.
+  try {
+    await rxCartService.upsertProposalForSession(sessionId, session.clinicId, orders)
+  } catch (err) {
+    logStructured('Rx proposal failed', {
+      sessionId,
+      error: err instanceof Error ? err.message : String(err),
+    })
+  }
 
   await job.updateProgress(100)
 

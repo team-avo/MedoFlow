@@ -6,6 +6,7 @@ import * as emailService from '../services/emailService'
 import * as commissionService from '../services/commissionService'
 import { AppointmentStatus, PaymentStatus } from '@prisma/client'
 import * as membershipService from '../services/membershipService'
+import * as patientCommerceService from '../services/patientCommerceService'
 import { syncInvoiceStatusFromPayments } from '../services/invoiceService'
 
 /**
@@ -164,6 +165,16 @@ export const handleAppointmentPaymentIntentSucceeded = async (
 
   const inv = await prisma.invoice.findFirst({ where: { appointmentId } })
   if (inv) await commissionService.calculateCommissions(inv.id)
+
+  // B5.4: the booking card becomes the card on file for one-click purchases.
+  await patientCommerceService
+    .rememberCardFromPaymentIntent({
+      paymentIntentId: paymentIntent.id,
+      clinicId: appt.clinicId,
+      patientId: appt.patientId,
+      performedById: null,
+    })
+    .catch((err: unknown) => console.error('Saving card on file failed:', err))
 }
 
 export const handleCartCheckoutPaymentIntentSucceeded = async (

@@ -1,0 +1,98 @@
+{
+  "$comment": "B5.4 / F5.3 parity: the backend (backend/src/validation/rxCartSchemas.ts) and the frontend (frontend/lib/schemas/commerce.ts) must both accept every `valid` payload and reject every `invalid` one. Both test suites load this file. Synthetic values only.",
+  "shippingAddress": {
+    "valid": [
+      {
+        "case": "minimal US",
+        "payload": {
+          "name": "Synthetic Patient",
+          "line1": "100 Example Street",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "90000",
+          "country": "US"
+        }
+      },
+      {
+        "case": "second line + lowercase country + spaced postcode",
+        "payload": {
+          "name": "Synthetic Patient",
+          "line1": "1 Sample Road",
+          "line2": "Flat 2",
+          "city": "Exampleton",
+          "state": "Testshire",
+          "postalCode": "EX1 2AB",
+          "country": "gb"
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "missing line1",
+        "payload": {
+          "name": "Synthetic Patient",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "90000",
+          "country": "US"
+        }
+      },
+      {
+        "case": "blank name",
+        "payload": {
+          "name": "   ",
+          "line1": "100 Example Street",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "90000",
+          "country": "US"
+        }
+      },
+      {
+        "case": "postal code with symbols",
+        "payload": {
+          "name": "Synthetic Patient",
+          "line1": "100 Example Street",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "9$000",
+          "country": "US"
+        }
+      },
+      {
+        "case": "three-letter country",
+        "payload": {
+          "name": "Synthetic Patient",
+          "line1": "100 Example Street",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "90000",
+          "country": "USA"
+        }
+      },
+      {
+        "case": "line1 longer than 200",
+        "payload": {
+          "name": "Synthetic Patient",
+          "line1": "@@LONG_201@@",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "90000",
+          "country": "US"
+        }
+      },
+      {
+        "case": "unknown field",
+        "payload": {
+          "name": "Synthetic Patient",
+          "line1": "100 Example Street",
+          "city": "Testville",
+          "state": "CA",
+          "postalCode": "90000",
+          "country": "US",
+          "extraField": "not allowed"
+        }
+      }
+    ]
+  }
+}

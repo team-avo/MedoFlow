@@ -12,6 +12,8 @@ import * as visitService from './visitService'
 import * as storageService from './storageService'
 import * as auditService from './auditService'
 import * as openaiService from './openaiService'
+import * as rxCartService from './rxCartService'
+import type { ScribeOrder } from './rxMappingService'
 
 export interface SoapDraft {
   subjective: string
@@ -92,7 +94,16 @@ Patient: Yeah, right there is where it feels tight.
 Provider: We'll continue with the manual therapy we started last week, but I also want to add some specific core stabilization exercises to your home program.
 Patient: That sounds good. I've been doing the stretches you gave me.
 Provider: Great. Let's aim for 3 sets of 10 repetitions for the new exercises, twice a day. I'll see you again in 4 days.
+Provider: For the muscle tension, take magnesium glycinate 400 mg at night, two bottles should last until next month, and use arnica gel on the sore area. I'm also writing tramadol 50 mg for the bad nights, and try a turmeric complex.
   `.trim()
+
+  // Orders the scribe would extract from this conversation (B5.1).
+  const mockOrders: ScribeOrder[] = [
+    { name: 'Magnesium glycinate 400 mg', quantity: 2 },
+    { name: 'Arnica gel', quantity: 1 },
+    { name: 'Tramadol 50 mg', quantity: 1 },
+    { name: 'Turmeric complex', quantity: 1 },
+  ]
 
   const mockSoap: SoapDraft = {
     subjective:
@@ -114,6 +125,8 @@ Provider: Great. Let's aim for 3 sets of 10 repetitions for the new exercises, t
       processingCompletedAt: new Date(),
     },
   })
+
+  await rxCartService.upsertProposalForSession(sessionId, clinicId, mockOrders)
 
   return updated
 }
@@ -303,11 +316,19 @@ export const updateDraft = async (
   })
 }
 
+export interface ApproveOptions {
+  /** "Approve & send": the provider's explicit confirmation of the detected products (B5.2). */
+  rxConfirmation?: { proposalId: string } & rxCartService.RxConfirmation
+  ipAddress?: string | null
+  userAgent?: string | null
+}
+
 export const approveDraft = async (
   sessionId: string,
   providerId: string,
   clinicId: string,
-  performedById: string
+  performedById: string,
+  options: ApproveOptions = {}
 ) => {
   const session = await getSessionById(sessionId, providerId, clinicId)
   if (!session) {
@@ -354,7 +375,17 @@ export const approveDraft = async (
     draft.plan ?? '',
   ].join('\n')
 
-  await prisma.$transaction(async (tx) => {
+  const rx = options.rxConfirmation
+  if (rx) {
+    const proposal = await rxCartService.getProposalForSession(sessionId, providerId, clinicId)
+    if (!proposal || proposal.id !== rx.proposalId) {
+      const err = new Error('Proposal not found for this session') as ApiError
+      err.statusCode = 404
+      throw err
+    }
+  }
+
+  const rxResult = await prisma.$transaction(async (tx) => {
     const version = await tx.visitNoteVersion.create({
       data: {
         visitRecordId: session.visitRecordId,
@@ -388,6 +419,20 @@ export const approveDraft = async (
         patientSummaryPublished: false,
       },
     })
+
+    // B5.3: the cart is built in the same transaction as the approval, and only
+    // from products the provider explicitly confirmed. No confirmation → no cart.
+    if (!rx) return null
+    const counts = await rxCartService.confirmProposal(
+      tx,
+      rx.proposalId,
+      providerId,
+      clinicId,
+      performedById,
+      rx
+    )
+    const built = await rxCartService.buildCartFromProposal(tx, rx.proposalId, clinicId)
+    return { counts, built }
   })
 
   const updated = await prisma.aIScribeSession.findUnique({
@@ -414,7 +459,17 @@ export const approveDraft = async (
     performedById,
   })
 
-  return updated
+  if (rx && rxResult) {
+    await rxCartService.auditConfirmAndBuild(
+      { id: rx.proposalId, clinicId },
+      performedById,
+      rxResult.counts,
+      rxResult.built,
+      { ipAddress: options.ipAddress, userAgent: options.userAgent }
+    )
+  }
+
+  return updated && { ...updated, rxCart: rxResult?.built ?? null }
 }
 
 export const setPatientSummary = async (sessionId: string, patientSummary: PatientSummary) => {
