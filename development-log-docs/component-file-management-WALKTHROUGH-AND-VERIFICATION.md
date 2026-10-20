@@ -489,25 +489,34 @@ Windows reserves 3001 and 3100, so the API does not use them.
 
 ### 9.2 One-time setup (Git Bash)
 
-**1. Database.** Start it and apply the migrations. It is the same container the integration tests use; see the B0 walkthrough §4.0 to create it the first time.
+**1. Database.** Choose the database once. **Every later step (API, seed, `psql` checks) uses the database you choose here**, through `MANUAL_DB` in the env file.
+
+- `mf_it` is the integration-test database (B0 walkthrough §4.0 creates it).
+- To use your own dev database, e.g. one holding demo data, set `DB=medoflow` instead.
+
+Any database in the `mf-pg` container works, as long as the `medoflow_app` role can log in to it.
 
 ```bash
 docker start mf-pg
 cd backend
-DATABASE_URL=postgresql://postgres:postgres@localhost:55432/mf_it corepack pnpm exec prisma migrate deploy
+DB=mf_it        # ← or DB=medoflow (your demo-data database), etc.
+DATABASE_URL=postgresql://postgres:postgres@localhost:55432/$DB corepack pnpm exec prisma migrate deploy
 # Expect: "No pending migrations to apply." (or it applies 20261016000000_patient_file_upload_status)
 ```
+
+> If you change `DB` later, re-run steps 2 and 3 **and** restart the backend (§9.3). Users seeded into one database cannot sign in to an API reading another one: every login fails with `Invalid email or password`.
 
 **2. A throwaway env file for this test.** `backend/.env.manual.local` is gitignored (`.env.*.local`), so it can never be committed. Your normal `backend/.env` is not touched.
 
 ```bash
-# still in backend/
+# still in backend/, same window as step 1 (uses $DB)
 H() { node.exe -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; }
 cat > .env.manual.local <<EOF
 # Local manual testing only (gitignored). Throwaway values.
 PORT=4302
 NODE_ENV=development
-DATABASE_URL=postgresql://medoflow_app:app_local_pw@localhost:55432/mf_it
+MANUAL_DB=${DB:?set DB first (step 1)}
+DATABASE_URL=postgresql://medoflow_app:app_local_pw@localhost:55432/${DB}
 CORS_ORIGIN=http://localhost:3000
 JWT_SECRET=$(H)
 MFA_ENCRYPTION_KEY=$(H)
@@ -521,15 +530,21 @@ REDIS_URL=
 TENANT_ISOLATION_MODE=enforce
 MANUAL_PASSWORD=Synthetic-Manual-$(node.exe -e "process.stdout.write(require('crypto').randomBytes(4).toString('hex'))")
 EOF
-# Self-check: every generated value must be filled in.
-grep -E '^(JWT_SECRET|MFA_ENCRYPTION_KEY|FILE_BLOB_SIGNING_SECRET)=$|^FIELD_ENCRYPTION_KEYS=k1:$|^MANUAL_PASSWORD=Synthetic-Manual-$' .env.manual.local \
-  && echo "✗ some values are empty — re-run this block" || echo "✓ env file OK"
-grep MANUAL_PASSWORD .env.manual.local   # ← the password of every seeded user; note it down
+# Self-check: every required value must be present and non-empty.
+bad=0; for re in '^MANUAL_DB=.' '^DATABASE_URL=.*/[A-Za-z_]+$' '^JWT_SECRET=.' '^MFA_ENCRYPTION_KEY=.' \
+  '^FILE_BLOB_SIGNING_SECRET=.' '^FIELD_ENCRYPTION_KEYS=k1:.' '^MANUAL_PASSWORD=Synthetic-Manual-.'; do
+  grep -qE "$re" .env.manual.local || { echo "✗ missing/empty: $re"; bad=1; }
+done; [ $bad = 0 ] && echo "✓ env file OK" || echo "→ fix the cause above (DB set? node.exe?) and re-run this block"
+grep -E '^(MANUAL_DB|MANUAL_PASSWORD)=' .env.manual.local   # ← database + the password of every seeded user
 ```
 
-Expect `✓ env file OK`, and a password like `MANUAL_PASSWORD=Synthetic-Manual-1a2b3c4d`.
+Expect:
 
-If you saw `stdout is not a tty`, the file has empty values. Re-run the whole block: it overwrites the file.
+- `✓ env file OK`;
+- `MANUAL_DB=` followed by the database you chose;
+- a password line like `MANUAL_PASSWORD=Synthetic-Manual-1a2b3c4d`.
+
+If you saw `stdout is not a tty` or `DB: set DB first`, the file is incomplete. Set `DB` (step 1) and re-run the whole block: it overwrites the file.
 
 What these settings mean:
 
@@ -542,10 +557,11 @@ What these settings mean:
 ```bash
 set -a; . ./.env.manual.local; set +a
 for c in a b; do
-  E2E_LIVE_PASSWORD=$MANUAL_PASSWORD DATABASE_URL=postgresql://postgres:postgres@localhost:55432/mf_it \
+  E2E_LIVE_PASSWORD=$MANUAL_PASSWORD DATABASE_URL=postgresql://postgres:postgres@localhost:55432/$MANUAL_DB \
     corepack pnpm exec ts-node --transpile-only scripts/seed-e2e-live.ts > uploads/.manual-seed-$c.json
 done
 cat uploads/.manual-seed-a.json
+echo "seeded into: $MANUAL_DB"   # must match the database the API uses (DATABASE_URL in .env.manual.local)
 # Expect one JSON line: clinicId, appointmentId, templateId, disciplineId, patientId, emails{admin,provider,patient}
 ```
 
@@ -599,12 +615,20 @@ A() { node.exe -pe "require('./uploads/.manual-seed-a.json').$1"; }
 B() { node.exe -pe "require('./uploads/.manual-seed-b.json').$1"; }
 j() { node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const o=JSON.parse(d);console.log(eval('o.'+process.argv[1]))})" "$1"; }
 code() { curl -s -o /dev/null -w "%{http_code}\n" "$@"; }
-login() { curl -s $API/auth/login -H "$JSON" -d "{\"email\":\"$1\",\"password\":\"$MANUAL_PASSWORD\"}" | j data.accessToken; }
+login() { curl -s $API/auth/login -H "$JSON" -d "{\"email\":\"$1\",\"password\":\"$MANUAL_PASSWORD\"}" \
+  | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{let o={};try{o=JSON.parse(d)}catch{};if(o.data&&o.data.accessToken)console.log(o.data.accessToken);else console.error('login failed for '+process.argv[1]+': '+(o.message||d||'no response — is the backend running on :4302?'))})" "$1"; }
 PROV=$(login "$(A emails.provider)"); PAT=$(login "$(A emails.patient)"); BADM=$(login "$(B emails.admin)")
 echo "${#PROV} ${#PAT} ${#BADM}"    # three numbers around 300 = all signed in
 ```
 
 > Sessions expire after 15 idle minutes. If calls start returning `401`, re-run the `PROV=… PAT=… BADM=…` line.
+
+**If you see `login failed for …: Invalid email or password`**, the seeded users and the running API are not using the same database or password:
+
+- **Database.** `grep MANUAL_DB .env.manual.local` must name the database you seeded into (§9.2 step 3 printed `seeded into: …`).
+- **Restart.** The backend in terminal 1 must have been (re)started **after** the env file was last written.
+- **Password.** If you re-ran §9.2 step 2, `MANUAL_PASSWORD` changed, so re-run step 3 to seed users with the new password.
+- **Rate limit.** After repeated failed logins the API answers `login failed …: {"success":false,"error":"Too many attempts. Please try again in 15 minutes."}`, even with the right password. The counter is in memory, so restarting the backend (terminal 1) clears it.
 
 **Files: upload (B-1 – B-4)**
 
@@ -798,7 +822,7 @@ These read the tables with the **owner** role, which bypasses the app: what a da
 
 ```bash
 CID=$(A clinicId)
-PSQL="docker exec mf-pg psql -U postgres -d mf_it -At -c"
+PSQL="docker exec mf-pg psql -U postgres -d $MANUAL_DB -At -c"
 
 # D-1 SOAP note and its version are ciphertext
 $PSQL "select left(subjective,45), left(plan,30) from \"VisitRecord\" where \"clinicId\"='$CID'"
@@ -892,7 +916,7 @@ cd backend
 rm -f .env.manual.local uploads/.manual-seed-*.json uploads/manual-*.pdf
 ```
 
-The synthetic clinics stay in the local `mf_it` database, which is harmless. To start from zero, drop and recreate `mf_it` (B0 walkthrough §4.0).
+The synthetic clinics stay in the database you chose (`MANUAL_DB`), with `example.test` emails and `live-…` slugs. They are harmless. On `mf_it`, drop and recreate it to start from zero (B0 walkthrough §4.0). On your own dev database (e.g. `medoflow`), just leave them: they are separate tenants and never mix with your demo data.
 
 ### 9.10 Result sheet
 
