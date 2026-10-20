@@ -293,8 +293,8 @@ The real frontend is built against it and served on `:4310`. Secrets are generat
 
 ```bash
 cd backend
-node -e "const c=require('crypto');const h=()=>c.randomBytes(32).toString('hex');console.log('FIELD_ENCRYPTION_KEYS=live1:'+h()+'\nJWT_SECRET='+h()+'\nFILE_BLOB_SIGNING_SECRET='+h())" > uploads/.live-env
-export E2E_LIVE_PASSWORD=Synthetic-Live-$(node -e "process.stdout.write(require('crypto').randomBytes(6).toString('hex'))")
+node.exe -e "const c=require('crypto');const h=()=>c.randomBytes(32).toString('hex');console.log('FIELD_ENCRYPTION_KEYS=live1:'+h()+'\nJWT_SECRET='+h()+'\nFILE_BLOB_SIGNING_SECRET='+h())" > uploads/.live-env
+export E2E_LIVE_PASSWORD=Synthetic-Live-$(node.exe -e "process.stdout.write(require('crypto').randomBytes(6).toString('hex'))")
 DATABASE_URL=postgresql://postgres:postgres@localhost:55432/mf_it pnpm exec ts-node --transpile-only scripts/seed-e2e-live.ts > uploads/.live-seed.json
 set -a; . uploads/.live-env; set +a
 PORT=4302 NODE_ENV=development FIELD_ENCRYPTION_ACTIVE_KID=live1 CORS_ORIGIN=http://127.0.0.1:4310 \
@@ -481,6 +481,12 @@ Windows reserves 3001 and 3100, so the API does not use them.
 
 > **Use `localhost` for both apps, never a mix of `localhost` and `127.0.0.1`.** The sign-in refresh cookie only survives a page reload when the app and the API share the same host name.
 
+> **Git Bash on Windows: the commands below call `node.exe`, not `node`, on purpose.**
+>
+> - In an interactive Git Bash window, `node` is an alias for `winpty node.exe`.
+> - winpty refuses to run inside `$( … )` or a pipe; it prints `stdout is not a tty` and returns nothing.
+> - Keep `node.exe` when you copy these commands. Running `node` directly at the prompt (outside `$( … )` and pipes) is fine.
+
 ### 9.2 One-time setup (Git Bash)
 
 **1. Database.** Start it and apply the migrations. It is the same container the integration tests use; see the B0 walkthrough §4.0 to create it the first time.
@@ -496,7 +502,7 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:55432/mf_it corepack pnpm 
 
 ```bash
 # still in backend/
-H() { node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; }
+H() { node.exe -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; }
 cat > .env.manual.local <<EOF
 # Local manual testing only (gitignored). Throwaway values.
 PORT=4302
@@ -513,10 +519,17 @@ S3_ACCESS_KEY_ID=
 S3_SECRET_ACCESS_KEY=
 REDIS_URL=
 TENANT_ISOLATION_MODE=enforce
-MANUAL_PASSWORD=Synthetic-Manual-$(node -e "process.stdout.write(require('crypto').randomBytes(4).toString('hex'))")
+MANUAL_PASSWORD=Synthetic-Manual-$(node.exe -e "process.stdout.write(require('crypto').randomBytes(4).toString('hex'))")
 EOF
+# Self-check: every generated value must be filled in.
+grep -E '^(JWT_SECRET|MFA_ENCRYPTION_KEY|FILE_BLOB_SIGNING_SECRET)=$|^FIELD_ENCRYPTION_KEYS=k1:$|^MANUAL_PASSWORD=Synthetic-Manual-$' .env.manual.local \
+  && echo "✗ some values are empty — re-run this block" || echo "✓ env file OK"
 grep MANUAL_PASSWORD .env.manual.local   # ← the password of every seeded user; note it down
 ```
+
+Expect `✓ env file OK`, and a password like `MANUAL_PASSWORD=Synthetic-Manual-1a2b3c4d`.
+
+If you saw `stdout is not a tty`, the file has empty values. Re-run the whole block: it overwrites the file.
 
 What these settings mean:
 
@@ -582,9 +595,9 @@ cd backend
 set -a; . ./.env.manual.local; set +a
 API=http://localhost:4302/api/v1
 JSON='content-type: application/json'
-A() { node -pe "require('./uploads/.manual-seed-a.json').$1"; }
-B() { node -pe "require('./uploads/.manual-seed-b.json').$1"; }
-j() { node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const o=JSON.parse(d);console.log(eval('o.'+process.argv[1]))})" "$1"; }
+A() { node.exe -pe "require('./uploads/.manual-seed-a.json').$1"; }
+B() { node.exe -pe "require('./uploads/.manual-seed-b.json').$1"; }
+j() { node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{const o=JSON.parse(d);console.log(eval('o.'+process.argv[1]))})" "$1"; }
 code() { curl -s -o /dev/null -w "%{http_code}\n" "$@"; }
 login() { curl -s $API/auth/login -H "$JSON" -d "{\"email\":\"$1\",\"password\":\"$MANUAL_PASSWORD\"}" | j data.accessToken; }
 PROV=$(login "$(A emails.provider)"); PAT=$(login "$(A emails.patient)"); BADM=$(login "$(B emails.admin)")
@@ -858,9 +871,9 @@ D-8 (rotation):
 ```bash
 # terminal 3 — does not touch the running backend
 NODE_ENV=production DATABASE_URL=x CORS_ORIGIN=x \
-  JWT_SECRET=$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))") \
+  JWT_SECRET=$(node.exe -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))") \
   S3_ACCESS_KEY_ID= S3_SECRET_ACCESS_KEY= FIELD_ENCRYPTION_KEYS= \
-  node -e "require('ts-node').register({transpileOnly:true}); require('./src/config/envValidation').collectEnvProblems().filter(p=>p.fatal).forEach(p=>console.log('FATAL:', p.message))"
+  node.exe -e "require('ts-node').register({transpileOnly:true}); require('./src/config/envValidation').collectEnvProblems().filter(p=>p.fatal).forEach(p=>console.log('FATAL:', p.message))"
 ```
 
 Expect:
