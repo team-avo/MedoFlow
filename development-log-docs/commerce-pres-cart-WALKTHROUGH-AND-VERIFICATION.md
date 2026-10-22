@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-17 · **Branch:** `feat/c5-rx-cart` (from `feat/c3-clinical-records` @ `bdd835d`) · **Data:** synthetic only. The PHI gate stays closed.
 **Plan reference:** `arh-agent-docs/development-plan.md` › Part B › Component 5 (B5.1–B5.7, F5.1–F5.4).
-**Want to check it yourself?** §9 is a step-by-step manual testing guide for the backend (curl + database) and the frontend (browser), including the real-Stripe leg.
+**Want to check it yourself?** §9 is a step-by-step manual testing guide: a reset to a clean database, the backend (curl + database), the frontend (browser, with a printed sign-in sheet of every login and URL), and the real-Stripe leg.
 
 ---
 
@@ -445,14 +445,16 @@ The full decision record is ADR 0003 (`docs/adr/0003-prescription-to-cart.md`). 
 
 ## 9. Manual local testing guide
 
-Follow this guide to check by hand that every Component 5 function works on your machine, both backend and frontend. It takes about 45 minutes, plus 15 for the Stripe leg.
+Follow this guide to check by hand that every Component 5 function works on your machine, both backend and frontend.
 
-- **Validated:** every backend command and database query below (§9.2–§9.4, §9.6) was run verbatim on 2026-10-17 against this branch. The expected values are the recorded results.
-  - The browser steps (§9.5) were driven with Playwright on the same dev setup (`localhost:3000` + API from `.env.manual.local`) and passed.
-  - **§9.7 (real Stripe) was not run** — it needs your Stripe test keys.
-- **Data:** synthetic only. Nothing here touches a real database, a live Stripe account or a patient.
+**Time needed:** about 15 minutes for setup, 20 for the curl and database checks, 25 for the browser, and 15 for the Stripe leg.
 
-Each check has an id: `B-…` backend API, `F-…` frontend browser, `D-…` database, `S-…` Stripe test mode. Tick them off in the **result sheet (§9.10)**. Any ✗ is a defect.
+- **Validated:** every terminal command below (§9.2–§9.4, §9.6, §9.9) was run verbatim on 2026-10-23 against this branch, in Git Bash, starting from the §9.2 step 0 reset. The "Expect" values are the recorded results.
+  - The browser steps (§9.5) were driven with Playwright on the same dev setup (`localhost:3000` + the API from `.env.manual.local`), using the sign-in links that §9.2 step 4 prints, and passed.
+  - **§9.7 (real Stripe) was not run**: it needs your Stripe test keys.
+- **Data:** synthetic only. Nothing here touches a real patient or a live Stripe account.
+
+Each check has an id: `B-…` backend API, `F-…` frontend browser, `D-…` database, `S-…` Stripe test mode. Tick them off in the **result sheet (§9.10)**; any ✗ is a defect. If something fails, look in **§9.11 Troubleshooting** first.
 
 **What you will test**
 
@@ -467,19 +469,19 @@ Each check has an id: `B-…` backend API, `F-…` frontend browser, `D-…` dat
 | Cart writes owner-only + audited (B5.6)                                 | B-14                        | —             | D-5      |
 | No card → regular checkout (B5.4)                                       | B-16, B-17                  | F-14          | —        |
 | Address saved at booking, encrypted (F5.3)                              | B-18                        | F-15, F-16    | D-2      |
-| Card saved at booking + one-click pay + decline (B5.4, F5.2, F5.3)      | S-6                         | S-1 – S-5     | S-5      |
+| Card saved at booking + one-click pay + decline (B5.4, F5.2, F5.3)      | S-6                         | S-1 – S-5     | S-6      |
 
 ### 9.1 Before you start
 
 You need:
 
-- Docker Desktop running;
-- Node 20;
+- Docker Desktop running, with the `mf-pg` Postgres container (B0 walkthrough §4.0 creates it);
+- Node 20 or later;
 - Git Bash;
-- Chrome;
+- Chrome and Microsoft Edge (two browsers, see §9.5);
 - this branch checked out with dependencies installed (`corepack pnpm install` at the repo root).
 
-For §9.7 you also need a **Stripe test-mode** secret key (`sk_test_…`) and publishable key (`pk_test_…`). They live only in gitignored files and shell variables, and you type them at a hidden prompt.
+For §9.7 you also need a **Stripe test-mode** secret key (`sk_test_…`) and publishable key (`pk_test_…`). They live only in gitignored files and shell variables; you type them at a hidden prompt.
 
 Ports used:
 
@@ -487,35 +489,87 @@ Ports used:
 - `4302`: API
 - `3000`: frontend
 
-> **Use `localhost` for both apps, never a mix of `localhost` and `127.0.0.1`.** The sign-in refresh cookie only survives a reload when the app and the API share the same host name.
+> ⚠️ **Run every terminal command in Git Bash**, not PowerShell or Command Prompt. The commands use bash syntax (`VAR=value cmd`, `$( … )`, functions, heredocs).
+>
+> - **Three terminals.** You need three Git Bash windows or tabs, all started in the repo (`cd /e/advertout/MedoFlow`):
+>   - **terminal 1:** backend;
+>   - **terminal 2:** frontend;
+>   - **terminal 3:** setup, the curl checks and the database checks.
+> - **Pasting.** In the standalone Git Bash window, paste with **Shift+Insert** or right-click → **Paste**; Ctrl+V does not paste there. Paste each code block whole.
 
-### 9.2 One-time setup (Git Bash)
+> **Git Bash on Windows: the commands call `node.exe`, not `node`, on purpose.**
+>
+> - In an interactive Git Bash window, `node` is an alias for `winpty node.exe`.
+> - winpty refuses to run inside `$( … )` or a pipe. It prints `stdout is not a tty` and returns nothing, so the variables come out empty.
+> - Keep `node.exe` when you copy these commands.
 
-**1. Database.**
+> **Use `localhost` for both apps, never a mix of `localhost` and `127.0.0.1`.** The sign-in refresh cookie only survives a page reload when the app and the API share the same host name.
+
+> **Start the apps from an uppercase drive path** (`cd /e/advertout/MedoFlow/...`, as written below). If the terminal's directory is `e:\…` with a lowercase drive (common in VS Code), `next dev` bundles the router twice. Every page then fails with `invariant expected app router to be mounted` (§9.11).
+
+### 9.2 One-time setup (terminal 3)
+
+**0. Reset: start from a clean slate.** Run this every time you start the guide, including the first time.
+
+- It stops anything left over from an earlier run.
+- It deletes the previous run's throwaway files.
+- It drops and recreates the dedicated manual-test database **`mf_manual`**, an empty copy just for this guide. Your dev data (`medoflow`) and the integration-test database (`mf_it`) are never touched.
+
+First stop any backend or frontend still running from a previous session: press Ctrl+C in terminals 1 and 2. Then, in terminal 3:
 
 ```bash
+cd /e/advertout/MedoFlow/backend
+# Stop anything still listening on the API / frontend ports (no output = nothing was running)
+powershell.exe -NoProfile -Command "Get-NetTCPConnection -LocalPort 4302,3000 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { Stop-Process -Id \$_ -Force -ErrorAction SilentlyContinue; 'stopped process ' + \$_ }"
+# Remove the previous run's throwaway files
+rm -f .env.manual.local uploads/.manual-seed-*.json uploads/.manual-signin-c.txt
+# Drop and recreate the manual-test database
 docker start mf-pg
-cd backend
-DATABASE_URL=postgresql://postgres:postgres@localhost:55432/mf_it corepack pnpm exec prisma migrate deploy
-# Expect: it applies 20261017000000_rx_to_cart (or "No pending migrations to apply.")
+DB=mf_manual
+case "$DB" in mf_manual|mf_manual_*) ;; *) echo "✗ refusing to drop $DB — the reset only drops mf_manual*"; DB=;; esac
+[ -n "$DB" ] && docker exec mf-pg psql -U postgres -c "DROP DATABASE IF EXISTS $DB WITH (FORCE)" -c "CREATE DATABASE $DB"
 ```
+
+Expect:
+
+- `stopped process <pid>` for each app that was still running; nothing if none was;
+- `mf-pg`;
+- `DROP DATABASE`, then `CREATE DATABASE`. On the very first run, a harmless `NOTICE: database "mf_manual" does not exist, skipping` comes in between.
+
+> **Testing against a database that already has data instead** (e.g. your `medoflow` dev database)? Skip this reset. In step 1, set `DB=medoflow`. The synthetic clinics are separate tenants and never mix with existing data.
+
+**1. Apply the migrations and enable the app role.** Every later step uses the database chosen in step 0. That covers the API, the seed and the `psql` checks; they read it through `MANUAL_DB` in the env file.
+
+```bash
+# same terminal as step 0 (uses $DB)
+DATABASE_URL=postgresql://postgres:postgres@localhost:55432/$DB corepack pnpm exec prisma migrate deploy
+docker exec mf-pg psql -U postgres -c "ALTER ROLE medoflow_app WITH LOGIN PASSWORD 'app_local_pw'"
+```
+
+Expect:
+
+- `All migrations have been successfully applied.`, with `20261017000000_rx_to_cart` the last one. Prisma also prints `Environment variables loaded from .env`; that is harmless, because the `DATABASE_URL` on the command line wins;
+- `ALTER ROLE`.
+
+> If you change `DB` later, re-run steps 2–4 **and** restart the backend (§9.3). Users seeded into one database cannot sign in to an API reading another one, and every login fails with `Invalid email or password`.
 
 **2. A throwaway env file for this test.**
 
 - `backend/.env.manual.local` is gitignored (`.env.*.local`), so it can never be committed. Your normal `backend/.env` is not touched.
-- The Stripe secret key is read at a hidden prompt: it never appears on screen or in shell history.
-- Press Enter to skip it; §9.7 then cannot run, but everything else can.
+- The Stripe secret key is read at a **hidden prompt**: nothing appears while you type or paste, and it never reaches the screen or your shell history.
+- Press **Enter** without typing to skip it. §9.7 then cannot run; everything else can.
 
 ```bash
-# still in backend/
-H() { node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; }
+# still in backend/, same terminal as steps 0–1 (uses $DB)
+H() { node.exe -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"; }
 read -rsp "Stripe TEST secret key (sk_test_…, Enter to skip): " STRIPE_KEY; echo
-case "$STRIPE_KEY" in sk_live_*) echo "Refusing a live key — use a test key"; STRIPE_KEY=;; esac
+case "$STRIPE_KEY" in sk_test_*|"") ;; *) echo "✗ not a test key (must start sk_test_) — ignored"; STRIPE_KEY=;; esac
 cat > .env.manual.local <<EOF
 # Local manual testing only (gitignored). Throwaway values.
 PORT=4302
 NODE_ENV=development
-DATABASE_URL=postgresql://medoflow_app:app_local_pw@localhost:55432/mf_it
+MANUAL_DB=${DB:?set DB first (step 1)}
+DATABASE_URL=postgresql://medoflow_app:app_local_pw@localhost:55432/${DB}
 CORS_ORIGIN=http://localhost:3000
 JWT_SECRET=$(H)
 MFA_ENCRYPTION_KEY=$(H)
@@ -529,58 +583,122 @@ REDIS_URL=
 TENANT_ISOLATION_MODE=enforce
 STRIPE_SECRET_KEY=$STRIPE_KEY
 STRIPE_WEBHOOK_SECRET=
-MANUAL_PASSWORD=Synthetic-Manual-$(node -e "process.stdout.write(require('crypto').randomBytes(4).toString('hex'))")
+MANUAL_PASSWORD=Synthetic-Manual-$(node.exe -e "process.stdout.write(require('crypto').randomBytes(4).toString('hex'))")
 EOF
 unset STRIPE_KEY
-grep MANUAL_PASSWORD .env.manual.local   # ← the password of every seeded user; note it down
+# Self-check: every required value must be present and non-empty.
+bad=0; for re in '^MANUAL_DB=.' '^DATABASE_URL=.*/[A-Za-z_]+$' '^JWT_SECRET=.' '^MFA_ENCRYPTION_KEY=.' \
+  '^FILE_BLOB_SIGNING_SECRET=.' '^FIELD_ENCRYPTION_KEYS=k1:.' '^MANUAL_PASSWORD=Synthetic-Manual-.'; do
+  grep -qE "$re" .env.manual.local || { echo "✗ missing/empty: $re"; bad=1; }
+done; [ $bad = 0 ] && echo "✓ env file OK" || echo "→ fix the cause above (DB set? node.exe?) and re-run this block"
+grep -q '^STRIPE_SECRET_KEY=sk_test_' .env.manual.local && echo "Stripe: test key set" || echo "Stripe: no key (§9.7 skipped)"
+grep -E '^(MANUAL_DB|MANUAL_PASSWORD)=' .env.manual.local
 ```
+
+Expect:
+
+- `✓ env file OK`;
+- `Stripe: test key set` or `Stripe: no key (§9.7 skipped)`;
+- `MANUAL_DB=` followed by your database;
+- a line like `MANUAL_PASSWORD=Synthetic-Manual-1a2b3c4d`. **This is the password of every seeded user**, browser included.
+
+If you saw `stdout is not a tty` or `DB: set DB first`, the file is incomplete. Set `DB=mf_manual` (step 0) and re-run the whole block; it overwrites the file.
 
 What these settings mean:
 
 - **The API connects as `medoflow_app`**, so row-level security is enforced exactly as in production.
 - **Field encryption is on** with a throwaway key.
-- **No Redis.** The AI Scribe's real audio pipeline is not used; the console's _Demo: simulate conversation_ produces the same detected products.
+- **No Redis.** The AI Scribe's real audio pipeline is not used. The console's _Demo: simulate conversation_ produces the same detected products.
 - **No Stripe webhook secret.** The booking page tells the API about a successful payment directly (§2 #7), so `stripe listen` is not needed.
 
-**3. Three synthetic clinics.**
+**3. Three synthetic clinics.** Each clinic has its own users and data, and the three play different roles:
 
-- Clinic **A** is for the curl checks (§9.4).
-- Clinic **B** is "another tenant", and also tests "approve without products".
-- Clinic **C** is for the browser (§9.5, §9.7).
+| Clinic | Used for                                                   |
+| ------ | ---------------------------------------------------------- |
+| **A**  | the curl checks (§9.4)                                     |
+| **B**  | "another tenant", and "approve without products" (B-19–21) |
+| **C**  | everything in the browser (§9.5) and Stripe (§9.7)         |
 
 ```bash
 set -a; . ./.env.manual.local; set +a
 for c in a b c; do
-  E2E_LIVE_PASSWORD=$MANUAL_PASSWORD DATABASE_URL=postgresql://postgres:postgres@localhost:55432/mf_it \
+  E2E_LIVE_PASSWORD=$MANUAL_PASSWORD DATABASE_URL=postgresql://postgres:postgres@localhost:55432/$MANUAL_DB \
     corepack pnpm exec ts-node --transpile-only scripts/seed-e2e-live.ts > uploads/.manual-seed-$c.json
 done
-cat uploads/.manual-seed-c.json
-# Expect one JSON line with clinicId, … rxAppointmentId, rxVisitRecordId, payAppointmentIds[2], products{SKU: id}, emails{admin,provider,patient}
+for c in a b c; do node.exe -e "const s=require('./uploads/.manual-seed-$c.json');console.log('clinic $c:', s.clinicId, Object.keys(s.products).length+' products', s.emails.patient)"; done
+echo "seeded into: $MANUAL_DB"   # must match MANUAL_DB / DATABASE_URL in .env.manual.local
 ```
+
+Expect three `clinic a|b|c: <id> 5 products patient.live-…@example.test` lines, then `seeded into:` followed by your database.
 
 What each clinic gets:
 
-- **People:** an admin, a provider "Dr. Synthetic Provider" and a patient "Quinn Marlowe" (`…@example.test`), all with the password `$MANUAL_PASSWORD`.
+- **People:**
+
+  | Role     | Name shown in the app      | Email pattern                        |
+  | -------- | -------------------------- | ------------------------------------ |
+  | Admin    | Synthetic Admin            | `admin.live-<6 hex>@example.test`    |
+  | Provider | **Dr. Synthetic Provider** | `provider.live-<6 hex>@example.test` |
+  | Patient  | **Quinn Marlowe**          | `patient.live-<6 hex>@example.test`  |
+
+  All three use the password `$MANUAL_PASSWORD`.
+
 - **Catalog:**
 
-  | Product             | Price  | Classification               |
-  | ------------------- | ------ | ---------------------------- |
-  | Magnesium Glycinate | $24    | Supplement                   |
-  | Arnica Gel          | $12.50 | OTC                          |
-  | Retinol Night Serum | $48    | Aesthetic                    |
-  | **Tramadol**        | $9     | **Prescription (scheduled)** |
-  | Turmeric Curcumin   | $18    | Supplement                   |
+  | Product             | SKU     | Price  | Classification               |
+  | ------------------- | ------- | ------ | ---------------------------- |
+  | Magnesium Glycinate | MAG-400 | $24    | Supplement                   |
+  | Arnica Gel          | ARN-75  | $12.50 | OTC                          |
+  | Retinol Night Serum | RET-30  | $48    | Aesthetic                    |
+  | **Tramadol**        | TRAM-50 | $9     | **Prescription (scheduled)** |
+  | Turmeric Curcumin   | TUR-500 | $18    | Supplement                   |
 
 - **Visits and bookings:**
   - a completed visit with an **open note** (`rxVisitRecordId`) for the Rx→Cart flow;
   - two bookings **awaiting payment** (`payAppointmentIds`), used to save a card in §9.7.
+
+**4. Print your browser sign-in sheet (clinic C).** This prints every login and every URL that §9.5 and §9.7 use, with clinic C's ids already filled in. Each **sign-in link** opens the login form and, after you sign in, goes straight to that page. Re-run this block whenever you need the sheet again.
+
+```bash
+set -a; . ./.env.manual.local; set +a
+node.exe -e "
+const s=require('./uploads/.manual-seed-c.json'), W='http://localhost:3000', P=process.env.MANUAL_PASSWORD;
+const go=(p)=>W+'/?auth=login&returnUrl='+encodeURIComponent(p);
+console.log('PASSWORD (every user)   '+P+'\n');
+console.log('PROVIDER  '+s.emails.provider+'\n  F-1  sign-in link:  '+go('/dashboard/provider/visits/'+s.rxVisitRecordId+'/scribe')+'\n       appointment:   '+W+'/dashboard/provider/appointments/'+s.rxAppointmentId+'\n');
+console.log('ADMIN     '+s.emails.admin+'\n  F-8  sign-in link:  '+go('/dashboard/products')+'\n');
+console.log('PATIENT   '+s.emails.patient+'\n  F-10 sign-in link:  '+go('/clinic/'+s.clinicId+'/store')+'\n  F-12 checkout:      '+W+'/checkout'+'\n  F-15 payment #1:    '+W+'/payment/'+s.payAppointmentIds[0]+'\n  S-1  payment #2:    '+W+'/payment/'+s.payAppointmentIds[1]+'\n  F-16 billing:       '+W+'/account/billing');
+" | tee uploads/.manual-signin-c.txt
+```
+
+Expect output shaped like this; your emails, ids and password differ:
+
+```
+PASSWORD (every user)   Synthetic-Manual-1a2b3c4d
+
+PROVIDER  provider.live-9f3c21@example.test
+  F-1  sign-in link:  http://localhost:3000/?auth=login&returnUrl=%2Fdashboard%2Fprovider%2Fvisits%2Fcm…%2Fscribe
+       appointment:   http://localhost:3000/dashboard/provider/appointments/cm…
+
+ADMIN     admin.live-9f3c21@example.test
+  F-8  sign-in link:  http://localhost:3000/?auth=login&returnUrl=%2Fdashboard%2Fproducts
+
+PATIENT   patient.live-9f3c21@example.test
+  F-10 sign-in link:  http://localhost:3000/?auth=login&returnUrl=%2Fclinic%2Fcm…%2Fstore
+  F-12 checkout:      http://localhost:3000/checkout
+  F-15 payment #1:    http://localhost:3000/payment/cm…
+  S-1  payment #2:    http://localhost:3000/payment/cm…
+  F-16 billing:       http://localhost:3000/account/billing
+```
+
+The sheet is also saved to `backend/uploads/.manual-signin-c.txt` (gitignored). Keep it open next to the browser.
 
 ### 9.3 Start the apps
 
 **Terminal 1 — backend**
 
 ```bash
-cd backend
+cd /e/advertout/MedoFlow/backend
 set -a; . ./.env.manual.local; set +a
 corepack pnpm exec ts-node --transpile-only src/server.ts
 ```
@@ -593,44 +711,60 @@ Wait for these lines (30–60 s):
 Medoflow server running on port 4302 (development)
 ```
 
-The following are expected and harmless:
+These are expected and harmless:
 
-- Repeated `AggregateError … internalConnectMultiple` lines: the AI-scribe queue looking for Redis.
-- `[WARN]` lines about S3 and alerts.
-- `[WARN]` lines about Stripe if you skipped the key.
+- repeated `AggregateError … internalConnectMultiple` lines: the AI-scribe queue looking for Redis;
+- `[WARN]` lines about S3 and alerts;
+- `[WARN]` lines about Stripe, if you skipped the key.
 
 **Terminal 2 — frontend**
 
 ```bash
-cd frontend
+cd /e/advertout/MedoFlow/frontend
 read -rsp "Stripe TEST publishable key (pk_test_…, Enter to skip): " PK; echo
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$PK NEXT_PUBLIC_API_URL=http://localhost:4302 corepack pnpm dev
-# Expect "Ready", then open http://localhost:3000
 ```
+
+- Expect `✓ Ready`, then open `http://localhost:3000`.
+- The first page you open takes 10–30 s to compile; later pages are faster.
+- `NEXT_PUBLIC_*` values are read when the dev server starts. If you add the key later, stop it (Ctrl+C) and run the block again.
 
 ### 9.4 Backend checks with curl (terminal 3)
 
-Paste these helpers once, in `backend/`:
+Paste this helper block once into terminal 3. It loads the env, reads the seed files and signs four users in. If you open a new terminal later, paste it again there: the helpers only exist in the window where you pasted them.
 
 ```bash
-cd backend
+cd /e/advertout/MedoFlow/backend
 set -a; . ./.env.manual.local; set +a
 API=http://localhost:4302/api/v1
-A() { node -p "require('./uploads/.manual-seed-a.json').$1"; }
-B() { node -p "require('./uploads/.manual-seed-b.json').$1"; }
-j() { node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{let o=JSON.parse(d);for(const k of process.argv[1].split('.'))o=o?.[k];console.log(typeof o==='object'?JSON.stringify(o):o)})" "$1"; }
+A() { node.exe -p "require('./uploads/.manual-seed-a.json').$1"; }
+B() { node.exe -p "require('./uploads/.manual-seed-b.json').$1"; }
+j() { node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{let o=JSON.parse(d);for(const k of process.argv[1].split('.'))o=o?.[k];console.log(typeof o==='object'?JSON.stringify(o):o)})" "$1"; }
 call() { local t=$1; shift; curl -s -H 'Content-Type: application/json' -H 'x-medoflow-client: web' -H "Authorization: Bearer $t" "$@"; }
 code() { local t=$1; shift; curl -s -o /dev/null -w '%{http_code}\n' -H 'Content-Type: application/json' -H 'x-medoflow-client: web' -H "Authorization: Bearer $t" "$@"; }
-login() { curl -s $API/auth/login -H 'Content-Type: application/json' -H 'x-medoflow-client: web' -d "{\"email\":\"$1\",\"password\":\"$MANUAL_PASSWORD\"}" | j data.accessToken; }
-lines() { call $PROV $API/rx-cart/sessions/$SID/proposal | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{for(const l of JSON.parse(d).data.proposal.lines)console.log([l.id,l.matchedProduct?.name??'('+l.rawText+')',l.quantity,l.route,l.matchStatus,l.decision].join(' | '))})"; }
+login() { curl -s $API/auth/login -H 'Content-Type: application/json' -H 'x-medoflow-client: web' -d "{\"email\":\"$1\",\"password\":\"$MANUAL_PASSWORD\"}" \
+  | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{let o={};try{o=JSON.parse(d)}catch{};if(o.data&&o.data.accessToken)console.log(o.data.accessToken);else console.error('login failed for '+process.argv[1]+': '+(o.message||d||'no response — is the backend running on :4302?'))})" "$1"; }
+lines() { call $PROV $API/rx-cart/sessions/$SID/proposal | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{for(const l of JSON.parse(d).data.proposal.lines)console.log([l.id,l.matchedProduct?.name??'('+l.rawText+')',l.quantity,l.route,l.matchStatus,l.decision].join(' | '))})"; }
 line() { lines | grep "$1" | cut -d' ' -f1; }
+PSQL="docker exec mf-pg psql -U postgres -d $MANUAL_DB -At -c"
 
 PROV=$(login "$(A emails.provider)"); PAT=$(login "$(A emails.patient)")
 BPROV=$(login "$(B emails.provider)"); BPAT=$(login "$(B emails.patient)")
-echo "${#PROV} ${#PAT} ${#BPROV} ${#BPAT}"     # four numbers around 300 = four tokens
+echo "${#PROV} ${#PAT} ${#BPROV} ${#BPAT}"     # four numbers around 300 = all four signed in
 ```
 
-> Product ids contain a dash in their key, so read them with brackets: `A "products['TUR-500']"`.
+Expect four numbers around `300` and no `login failed` line.
+
+> Access tokens expire after 15 idle minutes. If calls start returning `401` or `undefined`, re-run the last two `…=$(login …)` lines.
+
+**If you see `login failed for …: Invalid email or password`**, the seeded users and the running API are not using the same database or password:
+
+- **Database.** `grep MANUAL_DB .env.manual.local` must name the database you seeded into (§9.2 step 3 printed `seeded into: …`).
+- **Restart.** The backend in terminal 1 must have been (re)started **after** the env file was last written.
+- **Password.** If you re-ran §9.2 step 2, `MANUAL_PASSWORD` changed. Re-run step 3 to seed users with the new password, then step 4.
+- **Rate limit.** After repeated failed logins the API answers `Too many attempts. Please try again in 15 minutes.` The counter is in memory, so restarting terminal 1 clears it.
+
+> Product ids are keyed by SKU, and SKUs contain a dash, so read them with brackets: `A "products['TUR-500']"`. Writing `A products.TUR-500` subtracts 500 and returns nothing useful.
 
 **Detected products (B5.1)**
 
@@ -695,14 +829,14 @@ call $PROV $API/rx-cart/proposals/$PID/confirm -d '{"confirmedLineIds":[],"ackno
 
 ```bash
 # B-11 the patient's cart
-call $PAT $API/carts | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{for(const i of JSON.parse(d).data.cart.items)console.log([i.id,i.product?.name,i.quantity,i.patientDecision,i.prescribedBy&&('Dr. '+i.prescribedBy.firstName+' '+i.prescribedBy.lastName)].join(' | '))})"
-ITEM_MAG=$(call $PAT $API/carts | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.cart.items.find(i=>i.product.name.startsWith('Magnesium')).id))")
-ITEM_TUR=$(call $PAT $API/carts | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.cart.items.find(i=>i.product.name.startsWith('Turmeric')).id))")
+call $PAT $API/carts | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{for(const i of JSON.parse(d).data.cart.items)console.log([i.id,i.product?.name,i.quantity,i.patientDecision,i.prescribedBy&&('Dr. '+i.prescribedBy.firstName+' '+i.prescribedBy.lastName)].join(' | '))})"
+ITEM_MAG=$(call $PAT $API/carts | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.cart.items.find(i=>i.product.name.startsWith('Magnesium')).id))")
+ITEM_TUR=$(call $PAT $API/carts | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.cart.items.find(i=>i.product.name.startsWith('Turmeric')).id))")
 # B-12 checkout before accept/decline
 call $PAT -X POST $API/carts/checkout | j code
 # B-13 scope guard: tramadol cannot be added; the storefront does not list it
 call $PAT $API/carts/items -d "{\"itemType\":\"PRODUCT\",\"itemId\":\"$(A "products['TRAM-50']")\",\"quantity\":1}" | j code
-curl -s $API/public/clinics/$(A clinicId)/products | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.products.map(p=>p.name).join(', ')))"
+curl -s $API/public/clinics/$(A clinicId)/products | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.products.map(p=>p.name).join(', ')))"
 # B-14 patient of clinic B tries to change / delete / decide on patient A's item
 code $BPAT -X PUT $API/carts/items/$ITEM_MAG -d '{"quantity":40}'
 code $BPAT -X DELETE $API/carts/items/$ITEM_MAG
@@ -750,7 +884,7 @@ call $BPAT $API/carts | j data.cart.items.length
 BPID=$(call $BPROV $API/rx-cart/sessions/$BSID/proposal | j data.proposal.id)
 call $BPROV $API/rx-cart/sessions/$BSID/proposal | j data.proposal.status
 # B-21 send later: refused without acknowledgement, then sent
-BARN=$(call $BPROV $API/rx-cart/sessions/$BSID/proposal | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.proposal.lines.find(l=>l.matchedProduct?.name==='Arnica Gel').id))")
+BARN=$(call $BPROV $API/rx-cart/sessions/$BSID/proposal | node.exe -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>console.log(JSON.parse(d).data.proposal.lines.find(l=>l.matchedProduct?.name==='Arnica Gel').id))")
 code $BPROV $API/rx-cart/proposals/$BPID/confirm -d "{\"confirmedLineIds\":[\"$BARN\"]}"
 call $BPROV $API/rx-cart/proposals/$BPID/confirm -d "{\"confirmedLineIds\":[\"$BARN\"],\"acknowledged\":true}" | j data.rxCart
 call $BPAT $API/carts | j data.cart.items.length
@@ -764,49 +898,82 @@ call $BPAT $API/carts | j data.cart.items.length
 
 ### 9.5 Frontend checks in the browser (clinic C)
 
-Get clinic C's ids and emails:
+**Which browser window for whom.** The app keeps one signed-in user per browser profile, so give each persona its own window. Then you never have to sign out in the middle of a flow.
 
-```bash
-node -p "const s=require('./uploads/.manual-seed-c.json'); [s.emails.provider, s.emails.admin, s.emails.patient, 'visit '+s.rxVisitRecordId, 'appointment '+s.rxAppointmentId, 'clinic '+s.clinicId, 'pay '+s.payAppointmentIds.join(' ')].join('\n')"
-```
+| Persona (clinic C)            | Window                                         | Checks                 |
+| ----------------------------- | ---------------------------------------------- | ---------------------- |
+| Provider (Synthetic Provider) | **Chrome, normal window**                      | F-1 – F-7              |
+| Admin (Synthetic Admin)       | **Chrome, Incognito window** (Ctrl+Shift+N)    | F-8, F-9               |
+| Patient (Quinn Marlowe)       | **Microsoft Edge** (or another Chrome profile) | F-10 – F-16, S-1 – S-5 |
 
-Sign in at `http://localhost:3000/?auth=login` with the email and `$MANUAL_PASSWORD`. Use one browser profile per person, or sign out between personas.
+In each window, keep **DevTools (F12) → Network** open with **Preserve log** ticked. If a step fails, the failing request is right there.
 
-**Provider (F5.1)**
+**How to sign in** (same for every persona):
 
-| #   | Do                                                                                                                                                                                                                                                        | Expect                                                                                                                                                                                                                                           |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| F-1 | Open `http://localhost:3000/dashboard/provider/visits/<visit>/scribe`. You can also reach it from `…/dashboard/provider/appointments/<appointment>` → **AI Scribe console**. Click **Start Documentation Session**, then **Demo: simulate conversation**. | The SOAP editor fills in, with a **Detected products** panel under it                                                                                                                                                                            |
-| F-2 | Look at the panel                                                                                                                                                                                                                                         | Chips _Magnesium Glycinate × 2_ (CART), _Arnica Gel × 1_ (CART), _Tramadol × 1_ (E-PRESCRIBE, pill icon); amber box "Not matched to your catalog — map it to a product, or it will not be sent" with _Turmeric complex × 1_ and a product picker |
-| F-3 | Look at **Approve & send**                                                                                                                                                                                                                                | Disabled, with "Confirm the detected products before sending" under it                                                                                                                                                                           |
-| F-4 | Click the **×** on _Arnica Gel_                                                                                                                                                                                                                           | The chip is struck through with a ↺ restore button. The summary reads "On approval: 1 to the patient's cart, 1 to e-prescribe (never the cart)."                                                                                                 |
-| F-5 | In the amber box choose _Turmeric Curcumin — $18.00_                                                                                                                                                                                                      | A new chip _Turmeric Curcumin × 1_ (CART); the summary reads "2 to the patient's cart, 1 to e-prescribe"                                                                                                                                         |
-| F-6 | Tick **I confirm these products for this patient**, then click **Approve & send**                                                                                                                                                                         | Toast "Note approved · 2 products sent to the patient's cart"                                                                                                                                                                                    |
-| F-7 | Look at the panel again                                                                                                                                                                                                                                   | Green "Sent: 2 to the patient's cart, 1 to e-prescribe"; the editor is read-only                                                                                                                                                                 |
+1. Copy the persona's **sign-in link** from the sheet (§9.2 step 4) into that persona's window and press Enter.
+2. The MedoFlow home page opens with a **Sign in** dialog in front of it.
+3. **Work email:** paste the persona's email from the sheet, e.g. `provider.live-9f3c21@example.test`.
+4. **Password:** paste the `PASSWORD (every user)` value, e.g. `Synthetic-Manual-1a2b3c4d`. It is case-sensitive, with no spaces around it.
+5. Click **Sign in**.
+6. You land directly on the page named in the link, e.g. the AI Scribe console.
 
-**Admin (B5.5 classification)**
+Without a link, `http://localhost:3000/?auth=login` sends staff (provider, admin) to `/dashboard` and patients to `/`.
 
-| #   | Do                                                                                                                                                         | Expect                                                                                       |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| F-8 | Sign in as the admin; open `/dashboard/products`                                                                                                           | Each card has a classification badge; _Tramadol_ shows a violet **Prescription (scheduled)** |
-| F-9 | **Add Product** → name _Synthetic Codeine Syrup_, price 15, Classification _Prescription (scheduled)_, "Also known as" _codeine linctus_ → **Add Product** | The card appears with **Prescription (scheduled)**                                           |
+- **Wrong password, or a user from another database:** the dialog shows `Invalid email or password`; see §9.11.
+- **Signing out:** use the avatar or name menu → **Sign out**. You only need it if you reuse a window for another persona.
+- **Staying signed in:** sessions end after 15 idle minutes. The app then shows a warning and signs you out; sign in again with the same link.
 
-**Patient (F5.2, F5.3)**
+**Values used below.** Every `<…>` placeholder refers to a line of the sign-in sheet:
 
-| #    | Do                                                                                                                                                                                                                | Expect                                                                                                                                                   |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F-10 | Sign in as the patient; open `http://localhost:3000/clinic/<clinic>/store`                                                                                                                                        | Magnesium, Arnica, Retinol, Turmeric are listed; **no Tramadol, no Codeine Syrup**                                                                       |
-| F-11 | Click the cart icon (top right, labelled "Open cart")                                                                                                                                                             | Two items, each with **Prescribed · Dr. Synthetic Provider** and **Accept** / **Decline**; the footer shows **Review order** (no one-click yet: no card) |
-| F-12 | Click **Review order** (→ `/checkout`). Click **Accept** on Magnesium, **Decline** on Turmeric                                                                                                                    | Turmeric reads "Declined — not charged" with its price struck through; Order Summary total **$48.00**                                                    |
-| F-13 | Click **Accept instead** under Turmeric, then **Decline instead** again                                                                                                                                           | The total toggles $66.00 ↔ $48.00                                                                                                                        |
-| F-14 | Look at the payment panel                                                                                                                                                                                         | No card on file, so it shows **Secure Checkout** and **Simulate Demo Payment** (the B5.4 fallback). Do not pay yet.                                      |
-| F-15 | Open `http://localhost:3000/payment/<first pay id>`. In **Shipping address for products your provider prescribes**, fill in name, _100 Example Street_, _Testville_, _CA_, postal code _9$000_ → **Save address** | "Postal code is not valid" under the field. Change it to _90000_, save, and you see "100 Example Street · Testville, CA · 90000 Change"                  |
-| F-16 | Open `/account/billing`                                                                                                                                                                                           | A **Card & shipping on file** card: "No card on file yet — the card you pay for a booking with is saved here." and the address                           |
+| Placeholder         | Sheet line                    |
+| ------------------- | ----------------------------- |
+| `<PROVIDER link>`   | PROVIDER › `F-1 sign-in link` |
+| `<appointment URL>` | PROVIDER › `appointment`      |
+| `<ADMIN link>`      | ADMIN › `F-8 sign-in link`    |
+| `<PATIENT link>`    | PATIENT › `F-10 sign-in link` |
+| `<payment #1 URL>`  | PATIENT › `F-15 payment #1`   |
+| `<payment #2 URL>`  | PATIENT › `S-1 payment #2`    |
+
+The values you type into forms are given in full in each step.
+
+**Provider: detected products and "Approve & send" (F5.1)** — Chrome normal window
+
+| #   | Do                                                                                                                                                                                                                | Expect                                                                                                                                                                                                                                                            |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-1 | Open `<PROVIDER link>` and sign in as the provider. Click **Start Documentation Session**, then **Demo: simulate conversation**. You can also reach the console from `<appointment URL>` → **AI Scribe console**. | The **AI Scribe Console** page. After the two clicks the SOAP Note Editor fills in (back stiffness), with a **Detected products** panel under the four note fields.                                                                                               |
+| F-2 | Look at the panel                                                                                                                                                                                                 | Chips _Magnesium Glycinate × 2_ (CART), _Arnica Gel × 1_ (CART), _Tramadol × 1_ (E-PRESCRIBE, pill icon); an amber box "Not matched to your catalog — map it to a product, or it will not be sent" with _Turmeric complex × 1_ and a **Choose a product…** picker |
+| F-3 | Look at **Approve & send** (bottom right of the editor)                                                                                                                                                           | Disabled, with "Confirm the detected products before sending" under it                                                                                                                                                                                            |
+| F-4 | Click the **×** on the _Arnica Gel_ chip                                                                                                                                                                          | The chip is struck through and its button becomes ↺ (restore). The summary line reads "On approval: 1 to the patient's cart, 1 to e-prescribe (never the cart)."                                                                                                  |
+| F-5 | In the amber box, open **Choose a product…** and pick **Turmeric Curcumin — $18.00**                                                                                                                              | A new chip _Turmeric Curcumin × 1_ (CART) appears, and the amber box disappears. The summary reads "On approval: 2 to the patient's cart, 1 to e-prescribe (never the cart)."                                                                                     |
+| F-6 | Tick **I confirm these products for this patient**, then click **Approve & send**                                                                                                                                 | The button enables when ticked. After the click: toast "Note approved · 2 products sent to the patient's cart"                                                                                                                                                    |
+| F-7 | Look at the panel again                                                                                                                                                                                           | Green "Sent: 2 to the patient's cart, 1 to e-prescribe". The note fields are read-only and the badge at the top reads **Approved**.                                                                                                                               |
+
+**Admin: product classification (B5.5)** — Chrome Incognito window
+
+| #   | Do                                                                                                                                                                                                                                                        | Expect                                                                                                                                                                               |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F-8 | Open `<ADMIN link>` and sign in as the admin                                                                                                                                                                                                              | The **Products** page: one card per product, each with a classification badge. _Tramadol_ shows a violet **Prescription (scheduled)**; the others read Supplement, OTC or Aesthetic. |
+| F-9 | Click **Add Product** and fill the dialog: **Product Name** `Synthetic Codeine Syrup`; **Price ($)** `15`; **Classification** `Prescription (scheduled)`; **Also known as** `codeine linctus`. Leave SKU and Description empty and click **Add Product**. | Toast "Product added successfully"; a new card _Synthetic Codeine Syrup_ with **Prescription (scheduled)**                                                                           |
+
+**Patient: cart, decisions, address (F5.2, F5.3)** — Microsoft Edge
+
+| #    | Do                                                                                                                                                                                                                                                                                                                                                                                                              | Expect                                                                                                                                                                                                                           |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-10 | Open `<PATIENT link>` and sign in as the patient                                                                                                                                                                                                                                                                                                                                                                | The clinic's storefront (`/clinic/<id>/store`). Magnesium, Arnica, Retinol and Turmeric are listed; **no Tramadol and no Synthetic Codeine Syrup**.                                                                              |
+| F-11 | Click the cart icon in the clinic header (top right, labelled "Open cart")                                                                                                                                                                                                                                                                                                                                      | The cart dialog lists 2 items, each with a **Prescribed · Dr. Synthetic Provider** badge and **Accept** / **Decline** buttons. The footer shows the subtotal and **Review order**, and no "Pay with card on file" (no card yet). |
+| F-12 | Click **Review order** (it opens `/checkout`). Click **Accept** under Magnesium Glycinate, then **Decline** under Turmeric Curcumin.                                                                                                                                                                                                                                                                            | Magnesium reads "✓ Accepted". Turmeric reads "Declined — not charged" with its price struck through. The **Order Summary** card shows Total Due **$48.00**.                                                                      |
+| F-13 | Under Turmeric, click **Accept instead**, then **Decline instead**                                                                                                                                                                                                                                                                                                                                              | Total Due toggles $66.00 → $48.00                                                                                                                                                                                                |
+| F-14 | Look at the Order Summary card                                                                                                                                                                                                                                                                                                                                                                                  | No card on file, so it shows **Secure Checkout** and **Simulate Demo Payment** (the B5.4 fallback). **Do not pay yet.**                                                                                                          |
+| F-15 | Open `<payment #1 URL>`. Find **Shipping address for products your provider prescribes (optional)** and fill it in: **Full name** `Synthetic Patient`; **Address line 1** `100 Example Street`; **City** `Testville`; **State / region** `CA`; **Postal code** `9$000`; leave **Country (2 letters)** as `US`. Click **Save address**. Then change **Postal code** to `90000` and click **Save address** again. | First: "Postal code is not valid" under the field, and nothing is saved. Then: the form is replaced by "100 Example Street · Testville, CA · 90000 Change".                                                                      |
+| F-16 | Open `http://localhost:3000/account/billing`                                                                                                                                                                                                                                                                                                                                                                    | A **Card & shipping on file** card: "No card on file yet — the card you pay for a booking with is saved here.", and the address from F-15                                                                                        |
+
+On F-15 without Stripe keys, the payment area below the address shows **Demo: Simulate Payment** / **Confirm & Proceed** instead of a card form. That is expected; don't click them, because §9.7 needs this booking unpaid.
 
 ### 9.6 Database checks (terminal 3)
 
+These read the tables with the **owner** role, which bypasses the app: what a database dump or backup would show. They use `$PSQL` and the helpers from §9.4.
+
 ```bash
-PSQL="docker exec mf-pg psql -U postgres -d mf_it -At -c"
 CA=$(A clinicId)
 # D-1 order text is ciphertext at rest
 $PSQL "SELECT left(\"rawText\", 40) FROM \"RxOrderLine\" WHERE \"clinicId\"='$CA' LIMIT 2"
@@ -834,33 +1001,51 @@ $PSQL "SELECT name, \"fulfillmentClass\" FROM \"Product\" WHERE \"clinicId\"='$C
 | D-6   | `0`                                                                                                                                                 |
 | D-7   | `Arnica Gel\|OTC`, `Magnesium Glycinate\|SUPPLEMENT`, `Retinol Night Serum\|AESTHETIC`, `Tramadol\|RX_SCHEDULED`, `Turmeric Curcumin\|SUPPLEMENT`   |
 
+To run the same checks on clinic C after the browser steps, set `CA=$(node.exe -p "require('./uploads/.manual-seed-c.json').clinicId")` and re-run the block. D-3 then shows clinic C's decisions from F-12.
+
 ### 9.7 Real Stripe test mode: card saved at booking, one-click, decline
 
-> ⚠ **Not run by me.** No Stripe keys were available on this machine. The behaviour is covered by stubbed tests (§4.4), and the expected texts below are taken from the code.
->
-> You need both keys from §9.2/§9.3. If you skipped them, stop both apps and redo §9.2 step 2 (then re-seed with step 3) and §9.3. Use **test-mode** keys only; the setup refuses `sk_live_…`.
+> ⚠️ **Not run by me.** No Stripe keys were available on the machine that validated this guide. The behaviour is covered by stubbed tests (§4.4); the expected texts below are taken from the code.
 
-Stripe test cards (any future expiry, any CVC, any ZIP):
+**Before you start:**
 
-| Card                  | Behaviour                                                                                      |
-| --------------------- | ---------------------------------------------------------------------------------------------- |
-| `4242 4242 4242 4242` | Succeeds. Saved cards can be charged off session.                                              |
-| `4000 0027 6000 3184` | Always requires 3-D Secure, so an off-session charge is refused with `authentication_required` |
+- `grep -c '^STRIPE_SECRET_KEY=sk_test_' backend/.env.manual.local` must print `1`.
+- Terminal 2 must have been started with the `pk_test_…` key.
+- If you skipped either:
+  1. stop both apps;
+  2. redo §9.2 step 2, then steps 3 and 4 (the password changes);
+  3. redo §9.3.
+- Use **test-mode** keys only. The setup ignores anything that does not start `sk_test_`.
 
-Run these as clinic C's patient, after F-12 (magnesium accepted, turmeric declined).
+**Filling in Stripe's card form.**
 
-| #   | Do                                                                                                                                                                                                                              | Expect                                                                                                                                                                                                                                                                                              |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S-1 | Open `/payment/<second pay id>`. Under the address, Stripe's card form appears with the note "Your card is saved securely with Stripe…". Pay with **4000 0027 6000 3184** and click **Complete** in the 3-D Secure test window. | You land on `/intake/<id>`. `/account/billing` shows **Visa •••• 3184**.                                                                                                                                                                                                                            |
-| S-2 | Open `/checkout`                                                                                                                                                                                                                | Instead of card fields: "Ships to … 100 Example Street … On file from booking", "**Visa •••• 3184** On file from booking", **Pay $48.00 with card on file**, and "Use a different card"                                                                                                             |
-| S-3 | Click **Pay $48.00 with card on file**                                                                                                                                                                                          | Red alert: "Your bank needs you to confirm this payment. Use the regular checkout." The items stay in the cart and the button can be pressed again.                                                                                                                                                 |
-| S-4 | Open `/payment/<first pay id>` and pay with **4242 4242 4242 4242**                                                                                                                                                             | Lands on intake. `/account/billing` now shows **Visa •••• 4242**: the newest booking card replaces the old one.                                                                                                                                                                                     |
-| S-5 | `/checkout` → **Pay $48.00 with card on file**                                                                                                                                                                                  | "You're all set!" with _Magnesium Glycinate — Qty 2 × $24.00_, total $48.00. Turmeric (declined) is not charged. In the Stripe dashboard (test mode) › Payments: a $48.00 payment marked _off-session_. Customers › the new customer has metadata `clinicId` / `patientId` only (no name or email). |
-| S-6 | Run the commands below in terminal 3                                                                                                                                                                                            | `{"brand":"visa","last4":"4242",…}`, then `FAILED\|CARD_ON_FILE\|1`, `PAID\|CARD\|2`, `PAID\|CARD_ON_FILE\|1`                                                                                                                                                                                       |
+- On the payment page, Stripe shows a **Card** form. If you see tabs (e.g. Card / Link), pick **Card**. If Stripe offers to save the card with Link, untick it.
+- Enter:
+  - **Card number:** from the table below;
+  - **Expiration (MM / YY):** any future date, e.g. `12 / 34`;
+  - **CVC:** `123`;
+  - **Country:** `United States`;
+  - **ZIP:** `90000`.
+
+| Test card number      | Behaviour                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `4242 4242 4242 4242` | Succeeds; can be charged later off session.                                                                                                                  |
+| `4000 0027 6000 3184` | Always asks for 3-D Secure: a Stripe test pop-up with **Complete** / **Fail** buttons. An off-session charge is then refused with `authentication_required`. |
+
+Run these in the **patient's Edge window**, after F-12 (magnesium accepted, turmeric declined).
+
+| #   | Do                                                                                                                                                                                                                                                                                                        | Expect                                                                                                                                                                                                                                                                                   |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S-1 | Open `<payment #2 URL>`. Under the shipping address you see Stripe's card form and the note "Your card is saved securely with Stripe for one-click purchases…". Enter card `4000 0027 6000 3184` with the values above, click **Pay $100.00 & Confirm**, and click **Complete** in the 3-D Secure pop-up. | You land on `/intake/<id>`. Open `http://localhost:3000/account/billing`: **Card & shipping on file** shows **Visa •••• 3184**.                                                                                                                                                          |
+| S-2 | Open `http://localhost:3000/checkout`                                                                                                                                                                                                                                                                     | Instead of card fields: "Ships to 100 Example Street · Testville, CA · 90000 — On file from booking", "**Visa •••• 3184** — On file from booking", a white **Pay $48.00 with card on file** button, and "Use a different card"                                                           |
+| S-3 | Click **Pay $48.00 with card on file**                                                                                                                                                                                                                                                                    | Red alert: "Your bank needs you to confirm this payment. Use the regular checkout." The items stay in the cart and the button can be pressed again.                                                                                                                                      |
+| S-4 | Open `<payment #1 URL>` and pay with `4242 4242 4242 4242`                                                                                                                                                                                                                                                | You land on intake. `/account/billing` now shows **Visa •••• 4242**: the newest booking card replaces the old one.                                                                                                                                                                       |
+| S-5 | Open `/checkout` → **Pay $48.00 with card on file**                                                                                                                                                                                                                                                       | "You're all set!" with _Magnesium Glycinate — Qty 2 × $24.00_, total $48.00; the declined turmeric is not charged. In the Stripe dashboard (test mode) › **Payments**: a $48.00 payment. › **Customers**: the new customer has metadata `clinicId` / `patientId` only, no name or email. |
+| S-6 | Run the commands below in terminal 3                                                                                                                                                                                                                                                                      | `{"brand":"visa","last4":"4242",…}`, then `FAILED\|CARD_ON_FILE\|1`, `PAID\|CARD\|2`, `PAID\|CARD_ON_FILE\|1`                                                                                                                                                                            |
 
 ```bash
-# S-6 (terminal 3, backend/, helpers from §9.4 and PSQL from §9.6 loaded)
-C() { node -p "require('./uploads/.manual-seed-c.json').$1"; }
+# S-6 (terminal 3, backend/, helpers from §9.4 loaded)
+C() { node.exe -p "require('./uploads/.manual-seed-c.json').$1"; }
 PAT_C=$(login "$(C emails.patient)")
 call $PAT_C $API/carts/one-click | j data.onFile.card
 $PSQL "SELECT status, \"paymentMethod\", count(*) FROM \"Payment\" WHERE \"clinicId\"='$(C clinicId)' GROUP BY 1, 2 ORDER BY 1, 2"
@@ -868,37 +1053,62 @@ $PSQL "SELECT status, \"paymentMethod\", count(*) FROM \"Payment\" WHERE \"clini
 
 ### 9.8 Optional extra checks
 
-- **Consultation room:**
-  - Open `/dashboard/provider/appointments/<appointment>/consultation` for a visit with a ready AI draft.
+- **Consultation room.**
+  - Open `<appointment URL>/consultation` for a visit with a ready AI draft.
   - The inline "SOAP Note Draft" card has the same Detected products panel and an **Approve & send** button.
-- **Unit and e2e suites:** §4.2–§4.5 run in about 10 minutes and need none of the apps above.
+- **The automated suites.** §4.2–§4.5 run in about 10 minutes and need none of the apps above.
 
 ### 9.9 Clean up
 
-1. Stop both apps with Ctrl-C. If a port stays busy, run this in PowerShell: `Get-NetTCPConnection -LocalPort 4302,3000 | % { Stop-Process -Id $_.OwningProcess -Force }`
-2. Remove the throwaway files:
+1. Stop terminals 1 and 2 with Ctrl+C.
+   - If a port stays busy on Windows, run in PowerShell: `Get-NetTCPConnection -LocalPort 4302,3000 -State Listen | % { Stop-Process -Id $_.OwningProcess }`
+2. Remove the throwaway files (terminal 3):
 
 ```bash
-cd backend
-rm -f .env.manual.local uploads/.manual-seed-*.json
+cd /e/advertout/MedoFlow/backend
+rm -f .env.manual.local uploads/.manual-seed-*.json uploads/.manual-signin-c.txt
 unset MANUAL_PASSWORD PK
 ```
 
-The synthetic clinics stay in the local `mf_it` database. They are harmless, and every seed creates new ones. In Stripe test mode you can delete the test customers from the dashboard.
+3. Drop the manual-test database (only `mf_manual`, never your dev database):
+
+```bash
+docker exec mf-pg psql -U postgres -c "DROP DATABASE IF EXISTS mf_manual WITH (FORCE)"
+```
+
+- **If you used your own dev database** (step 0 skipped): the synthetic clinics stay there, with `example.test` emails and `live-…` slugs. They are separate tenants; leave them.
+- **In Stripe test mode:** you can delete the test customers from the dashboard.
+
+Next time you start, §9.2 step 0 does all of this anyway.
 
 ### 9.10 Result sheet
 
-| Area                                             | Checks                                  | Pass? |
-| ------------------------------------------------ | --------------------------------------- | ----- |
-| Detected products / mapping                      | B-1 – B-3, B-8, F-1, F-2, F-5, D-1, D-7 | ☐     |
-| Isolation of proposals                           | B-4, B-5                                | ☐     |
-| Confirmation gate                                | B-6, B-7, B-10, B-19 – B-21, F-3, F-6   | ☐     |
-| Approve & send builds the cart                   | B-9, F-4 – F-7, D-3                     | ☐     |
-| Scope guard                                      | B-9, B-13, F-8 – F-10, D-4              | ☐     |
-| Patient cart: provenance + decisions             | B-11, B-12, B-15, F-11 – F-13           | ☐     |
-| Cart writes owner-only + audited                 | B-14, D-5, D-6                          | ☐     |
-| No-card fallback                                 | B-16, B-17, F-14                        | ☐     |
-| Address at booking, encrypted                    | B-18, F-15, F-16, D-2                   | ☐     |
-| Real Stripe: card saved, 3-DS refusal, one-click | S-1 – S-6                               | ☐     |
+| Area                                 | Checks                                    | Pass? |
+| ------------------------------------ | ----------------------------------------- | ----- |
+| Detected products / mapping          | B-1 – B-3, B-8 · F-1, F-2, F-5 · D-1, D-7 | ☐     |
+| Isolation of proposals               | B-4, B-5                                  | ☐     |
+| Confirmation gate                    | B-6, B-7, B-10, B-19 – B-21 · F-3, F-6    | ☐     |
+| Approve & send builds the cart       | B-9 · F-4 – F-7 · D-3                     | ☐     |
+| Scope guard                          | B-9, B-13 · F-8 – F-10 · D-4              | ☐     |
+| Patient cart: provenance + decisions | B-11, B-12, B-15 · F-11 – F-13            | ☐     |
+| Cart writes owner-only + audited     | B-14 · D-5, D-6                           | ☐     |
+| No-card fallback                     | B-16, B-17 · F-14                         | ☐     |
+| Address at booking, encrypted        | B-18 · F-15, F-16 · D-2                   | ☐     |
+| Real Stripe: card saved, 3-DS, pay   | S-1 – S-6                                 | ☐     |
 
 Tested by: \***\*\_\_\_\_\*\*** · Date: \***\*\_\_\_\_\*\*** · Branch / commit: `feat/c5-rx-cart` @ **\_\_\_\_**
+
+### 9.11 Troubleshooting
+
+| Symptom                                                                                      | Cause                                                                           | Fix                                                                                                                                                                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The Sign in dialog says **`Invalid email or password`**, or §9.4 prints `login failed for …` | The users were seeded into another database, or with an older `MANUAL_PASSWORD` | Check that `grep MANUAL_DB backend/.env.manual.local` names the database seeded in §9.2 step 3. Restart terminal 1 after any env change. If you re-ran step 2, re-run steps 3 and 4 and use the **new** sheet. |
+| `Too many attempts. Please try again in 15 minutes.`                                         | Login rate limit after repeated failures                                        | Restart terminal 1 (the counter is in memory)                                                                                                                                                                  |
+| Commands print nothing, `stdout is not a tty`, or ids are empty                              | `node` instead of `node.exe` inside `$( … )` or a pipe in Git Bash              | Use the blocks as written (`node.exe`)                                                                                                                                                                         |
+| A curl check returns `401` or `undefined` after a while                                      | The access token expired (15 idle minutes)                                      | Re-run the `…=$(login …)` lines from §9.4                                                                                                                                                                      |
+| Every page shows **`invariant expected app router to be mounted`**                           | `next dev` was started from a lowercase-drive path (`e:\…`)                     | Stop terminal 2, run `cd /e/advertout/MedoFlow/frontend && rm -rf .next`, and start it again as in §9.3                                                                                                        |
+| The browser shows no products in the store, or the checkout says your cart is empty          | You are signed in as the wrong persona, or in clinic A/B                        | Check the email in the avatar menu against the **PATIENT** line of the sheet (clinic C)                                                                                                                        |
+| F-1: **Start Documentation Session** is missing and the editor shows "Approved"              | That visit was already approved (e.g. you ran F-6 before)                       | Easiest: start over from §9.2 step 0. Or seed a fresh clinic C only: re-run §9.2 step 3 with `for c in c; do …`, then step 4.                                                                                  |
+| F-11: no cart icon on the clinic site                                                        | You are not signed in as a patient **of this clinic**                           | Use the PATIENT sign-in link from the sheet                                                                                                                                                                    |
+| S-1 shows **Demo: Simulate Payment** instead of a card form                                  | The API has no Stripe secret key, or the frontend has no publishable key        | See "Before you start" in §9.7                                                                                                                                                                                 |
+| Backend won't start: `EADDRINUSE :::4302`                                                    | Another process is on 4302                                                      | Run the `powershell.exe … Stop-Process …` line from §9.2 step 0, then start terminal 1 again                                                                                                                   |
