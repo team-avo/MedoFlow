@@ -88,7 +88,6 @@ export default function DisciplinesStepPage() {
             await api.post('/disciplines', { name })
           } catch (err) {
             // Skip duplicates silently — 409 is fine for resume flows
-            // eslint-disable-next-line no-console
             clientLog.warn('[disciplines] create failed', err)
           }
         }

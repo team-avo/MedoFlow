@@ -20,6 +20,7 @@ import {
   History,
   AlertCircle,
 } from 'lucide-react'
+import { formatDateTime } from '@/lib/timezone'
 import {
   getAppointmentById,
   getPatientEntitlements,
@@ -72,13 +73,6 @@ import {
 import { useAppToast } from '@/hooks/useAppToast'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
-
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
-}
 
 export default function ProviderAppointmentDetailPage() {
   const params = useParams()

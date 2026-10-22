@@ -17,6 +17,7 @@ import {
   AppButton,
   StickySummaryPanel,
 } from '@/components/ui-system'
+import { formatDate, formatDateTime, formatTime } from '@/lib/timezone'
 import { PageContainer } from '@/components/layout'
 import { Skeleton } from '@/components/ui/skeleton'
 import { IntakeFormsSection } from '@/components/intake/IntakeFormsSection'
@@ -32,14 +33,6 @@ import {
   Download,
   AlertCircle,
 } from 'lucide-react'
-
-function formatDateTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
-}
 
 export default function PatientAppointmentDetailPage() {
   const params = useParams()
@@ -264,13 +257,10 @@ export default function PatientAppointmentDetailPage() {
               title="Visit Details"
               items={[
                 { label: 'Provider', value: `Dr. ${appointment.provider.lastName}` },
-                { label: 'Date', value: new Date(appointment.startTime).toLocaleDateString() },
+                { label: 'Date', value: formatDate(appointment.startTime) },
                 {
                   label: 'Time',
-                  value: new Date(appointment.startTime).toLocaleTimeString([], {
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  }),
+                  value: formatTime(appointment.startTime),
                 },
                 {
                   label: 'Status',

@@ -12,6 +12,7 @@ import {
   type PatientAppointment,
   type ProviderAppointment,
 } from '@/lib/patientApi'
+import { formatDateTime } from '@/lib/timezone'
 import {
   AppCard,
   AppCardHeader,
@@ -32,14 +33,6 @@ import { RecurringSeriesDialog } from '@/components/appointments/RecurringSeries
 import { CancelSeriesDialog } from '@/components/appointments/CancelSeriesDialog'
 import { Calendar, User, Clock, CheckCircle2, AlertCircle, ArrowRight, Repeat } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-function formatDateTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
-}
 
 export default function AppointmentsPage() {
   const { user } = useAuth()

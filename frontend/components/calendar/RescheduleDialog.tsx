@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { dateKeyInZone, formatSlotTime, formatTime, formatWeekdayDate } from '@/lib/timezone'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useQuery } from '@tanstack/react-query'
@@ -21,7 +22,6 @@ import {
   isSlotUnavailableError,
 } from '@/lib/bookingErrors'
 import { useAppToast } from '@/hooks/useAppToast'
-import { format } from 'date-fns'
 import type { TimeSlot } from '@/lib/types/booking'
 
 /** The fields a reschedule needs — satisfied by both patient and staff appointment shapes. */
@@ -50,7 +50,7 @@ export function RescheduleDialog({
 }: RescheduleDialogProps) {
   const toast = useAppToast()
   const start = new Date(appointment.startTime)
-  const [date, setDate] = useState(format(start, 'yyyy-MM-dd'))
+  const [date, setDate] = useState(dateKeyInZone(start))
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [slotHoldId, setSlotHoldId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -163,8 +163,8 @@ export function RescheduleDialog({
         <DialogHeader>
           <DialogTitle>Reschedule Appointment</DialogTitle>
           <DialogDescription className="text-slate-600">
-            Currently {format(start, 'EEE, MMM d · h:mm a')}. Your current time is kept until the
-            new one is confirmed.
+            Currently {formatWeekdayDate(start)} · {formatTime(start)}. Your current time is kept
+            until the new one is confirmed.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -176,7 +176,7 @@ export function RescheduleDialog({
               id="reschedule-date"
               type="date"
               value={date}
-              min={format(new Date(), 'yyyy-MM-dd')}
+              min={dateKeyInZone()}
               onChange={(e) => setDate(e.target.value)}
               required
             />
@@ -210,10 +210,7 @@ export function RescheduleDialog({
                         : 'border-border hover:bg-muted'
                     }`}
                   >
-                    {new Date(slot.start).toLocaleTimeString([], {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
+                    {formatSlotTime(slot.start, date)}
                   </button>
                 ))}
               </div>

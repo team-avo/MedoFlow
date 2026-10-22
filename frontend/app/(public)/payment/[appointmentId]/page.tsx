@@ -11,6 +11,7 @@ import {
   getOrCreatePaymentIntent,
   demoConfirmPayment,
 } from '@/lib/paymentApi'
+import { formatDateTime } from '@/lib/timezone'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
@@ -30,14 +31,6 @@ type PaymentAppointment = PatientAppointmentDetail & {
   bookingHoldExpiresAt?: string | null
   priceAtBooking: string
   service: PatientAppointmentDetail['service'] & { defaultPrice?: string }
-}
-
-function formatDateTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  })
 }
 
 function formatAmount(amount: string | number | undefined | null) {

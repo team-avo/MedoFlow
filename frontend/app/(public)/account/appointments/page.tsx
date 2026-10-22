@@ -15,11 +15,7 @@ import {
   LoadingSkeleton,
   AppErrorState,
 } from '@/components/ui-system'
-
-function formatDateTime(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-}
+import { formatDateTime } from '@/lib/timezone'
 
 export default function AccountAppointmentsPage() {
   const router = useRouter()

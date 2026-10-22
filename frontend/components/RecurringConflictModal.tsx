@@ -3,6 +3,7 @@
 import React from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import type { RecurringConflict } from '@/lib/recurringApi'
+import { formatDateKey } from '@/lib/timezone'
 
 interface RecurringConflictModalProps {
   isOpen: boolean
@@ -14,8 +15,7 @@ interface RecurringConflictModalProps {
 }
 
 function formatConflictDate(dateStr: string) {
-  const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString(undefined, {
+  return formatDateKey(dateStr, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
