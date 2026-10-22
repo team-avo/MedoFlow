@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { dateKeyInZone, formatSlotTime } from '@/lib/timezone'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { RecurringConflictModal } from '@/components/RecurringConflictModal'
@@ -31,7 +32,6 @@ import {
 import { bookingErrorMessage } from '@/lib/bookingErrors'
 import { useAppToast } from '@/hooks/useAppToast'
 import type { TimeSlot } from '@/lib/types/booking'
-import { format } from 'date-fns'
 
 interface RecurringSeriesDialogProps {
   clinicId: string
@@ -53,7 +53,7 @@ export function RecurringSeriesDialog({
   const [patientId, setPatientId] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [providerId, setProviderId] = useState('')
-  const [date, setDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [date, setDate] = useState(() => dateKeyInZone())
   const [slot, setSlot] = useState<TimeSlot | null>(null)
   const [sessions, setSessions] = useState(6)
   const [submitting, setSubmitting] = useState(false)
@@ -227,7 +227,7 @@ export function RecurringSeriesDialog({
                   id="series-date"
                   type="date"
                   value={date}
-                  min={format(new Date(), 'yyyy-MM-dd')}
+                  min={dateKeyInZone()}
                   onChange={(e) => {
                     setDate(e.target.value)
                     setSlot(null)
@@ -274,10 +274,7 @@ export function RecurringSeriesDialog({
                           : 'border-border hover:bg-muted'
                       }`}
                     >
-                      {new Date(s.start).toLocaleTimeString([], {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
+                      {formatSlotTime(s.start, date)}
                     </button>
                   ))}
                 </div>

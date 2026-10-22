@@ -17,6 +17,7 @@ import {
   getWeekDates,
   isToday,
 } from '@/lib/calendarUtils'
+import { formatClockShort } from '@/lib/timezone'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { PageContainer } from '@/components/layout'
 import { AppButton } from '@/components/ui-system'
@@ -314,7 +315,7 @@ export default function ProviderCalendarPage() {
                                         {aptToRender.patient.name}
                                       </p>
                                       <span className="text-[9px] font-bold text-slate-400 bg-white px-1.5 py-0.5 rounded-md border border-slate-100">
-                                        {format(new Date(aptToRender.startTime), 'h:mm')}
+                                        {formatClockShort(aptToRender.startTime)}
                                       </span>
                                     </div>
                                     <p className="truncate text-[10px] font-bold text-slate-500 mt-1">

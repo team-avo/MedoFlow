@@ -4,6 +4,7 @@
  * backend rule in appointmentService.cancelAppointment: inside the window
  * (hours before start) a FIXED or PERCENTAGE fee applies; outside it, free.
  */
+import { formatDateTime } from '@/lib/timezone'
 
 export interface CancellationPolicyFields {
   cancellationWindowHours?: number | null
@@ -52,8 +53,7 @@ export function cancellationTerms(
 /** One sentence describing the policy, for review screens and cancel dialogs. */
 export function describeCancellationPolicy(
   terms: CancellationTerms,
-  formatDate: (d: Date) => string = (d) =>
-    d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  formatDate: (d: Date) => string = formatDateTime
 ): string {
   if (terms.free || !terms.freeUntil) return 'Free cancellation at any time.'
   if (terms.lateNow) {

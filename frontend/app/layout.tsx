@@ -36,8 +36,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white`}>
+    // suppressHydrationWarning: browser extensions (LanguageTool, Grammarly,
+    // password managers) add attributes to <html>/<body> before React
+    // hydrates. It applies to these two elements' own attributes only, so
+    // real mismatches inside the app still surface.
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white`}
+        suppressHydrationWarning
+      >
         <QueryProvider>
           <AuthProvider>
             <TourProvider>

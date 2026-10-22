@@ -49,7 +49,14 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
+import {
+  formatDateKey,
+  formatLongDateTime,
+  formatSlotTime,
+  formatTime,
+  formatWeekdayDate,
+} from '@/lib/timezone'
 import { clientLog } from '@/lib/clientLog'
 import { WaitlistModal } from '@/components/WaitlistModal'
 import {
@@ -304,11 +311,6 @@ function BookingPageContent() {
   const nextStep = () => setStep((s) => Math.min(s + 1, 3))
   const prevStep = () => setStep((s) => Math.max(s - 1, 0))
 
-  const formatTime = (d: string | Date) =>
-    new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  const formatDate = (d: string | Date) =>
-    new Date(d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-
   if (!clinicId) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-12">
@@ -557,7 +559,7 @@ function BookingPageContent() {
                                           e.currentTarget.style.backgroundColor = ''
                                         }}
                                       >
-                                        {format(parseISO(slot.start), 'h:mm a')}
+                                        {formatSlotTime(slot.start, selectedDateStr)}
                                       </button>
                                       {isPending && (
                                         <button
@@ -866,7 +868,18 @@ function BookingPageContent() {
                       : 'Any Available',
                 },
                 { label: 'Duration', value: service ? `${service.duration} min` : '---' },
-                { label: 'Date', value: selectedDate ? formatDate(selectedDate) : '---' },
+                {
+                  label: 'Date',
+                  // The slot's own date in the display zone once one is held;
+                  // before that, the clinic day being browsed.
+                  value: selectedSlot
+                    ? formatWeekdayDate(selectedSlot.start)
+                    : formatDateKey(selectedDateStr, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                      }),
+                },
                 { label: 'Time', value: selectedSlot ? formatTime(selectedSlot.start) : '---' },
                 { label: 'Price', value: `$${service?.defaultPrice || '0.00'}`, isTotal: true },
               ]}
@@ -961,15 +974,7 @@ function BookingConfirmation({
     return `data:text/calendar;charset=utf-8,${encodeURIComponent(ics)}`
   }, [startTime, serviceName, providerName, clinic?.name, locationName])
 
-  const startLabel = startTime
-    ? new Date(startTime).toLocaleString(undefined, {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : null
+  const startLabel = startTime ? formatLongDateTime(startTime) : null
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 text-center">
