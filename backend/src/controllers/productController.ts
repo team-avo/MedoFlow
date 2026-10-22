@@ -23,13 +23,10 @@ export const getById = asyncHandler(
 export const create = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const clinicId = req.user!.clinicId!
-    const { name, description, sku, price } = req.body as productService.CreateProductInput
-    const product = await productService.createProduct(clinicId, {
-      name,
-      description,
-      sku,
-      price,
-    })
+    const product = await productService.createProduct(
+      clinicId,
+      req.body as productService.CreateProductInput
+    )
     successResponse(res, 201, 'Product created successfully', { product })
   }
 )

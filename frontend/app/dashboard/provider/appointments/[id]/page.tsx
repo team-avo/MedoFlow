@@ -332,6 +332,11 @@ export default function ProviderAppointmentDetailPage() {
                             </Link>
                           </AppButton>
                         )}
+                        <AppButton variant="outline" size="sm" className="rounded-full" asChild>
+                          <Link href={`/dashboard/provider/visits/${visitRecord.id}/scribe`}>
+                            AI Scribe console
+                          </Link>
+                        </AppButton>
                       </div>
                     </div>
                     <div className="grid gap-4">

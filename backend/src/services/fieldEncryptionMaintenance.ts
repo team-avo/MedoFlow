@@ -32,6 +32,8 @@ const HAS_CLINIC_ID = new Set([
   'ConsultationSession',
   'FormResponse',
   'VoiceCall',
+  'RxOrderLine',
+  'PatientCommerceProfile',
 ])
 
 /** Optional scope: only rows of these clinics (staged rollout, tests). */

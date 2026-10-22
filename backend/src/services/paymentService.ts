@@ -7,6 +7,7 @@ import { PaymentRequirementType, PaymentStatus, Prisma } from '@prisma/client'
 import stripe from '../config/stripe'
 import { computeInvoiceFinancials, syncInvoiceStatusFromPayments } from './invoiceService'
 import * as commissionService from './commissionService'
+import * as patientCommerceService from './patientCommerceService'
 
 const getAmountToCharge = (appointment: {
   paymentRequirementType: PaymentRequirementType
@@ -108,10 +109,26 @@ export const ensurePaymentIntent = async (
   const amountToCharge = getAmountToCharge(appointment)
   const amountInCents = Math.round(amountToCharge * 100)
 
+  // B5.4: save the booking card for one-click purchases later. If the
+  // customer cannot be created the booking still goes ahead without it.
+  let saveCard: { customer: string; setup_future_usage: 'off_session' } | Record<string, never> = {}
+  try {
+    saveCard = {
+      customer: await patientCommerceService.ensureStripeCustomer(
+        appointment.clinicId,
+        appointment.patientId
+      ),
+      setup_future_usage: 'off_session',
+    }
+  } catch (err) {
+    console.error('Stripe customer for card-on-file failed:', err)
+  }
+
   try {
     const intent = await stripe.paymentIntents.create({
       amount: amountInCents,
       currency: 'usd',
+      ...saveCard,
       metadata: {
         appointmentId: appointment.id,
         clinicId: appointment.clinicId,
@@ -277,6 +294,19 @@ export const confirmPayment = async (
     },
     performedById,
   })
+
+  // B5.4: keep the card for one-click purchases. Stripe is asked directly,
+  // so only a payment that really succeeded with setup_future_usage counts.
+  if (pendingPayment?.stripePaymentIntentId) {
+    await patientCommerceService
+      .rememberCardFromPaymentIntent({
+        paymentIntentId: pendingPayment.stripePaymentIntentId,
+        clinicId: appointment.clinicId,
+        patientId: appointment.patientId,
+        performedById,
+      })
+      .catch((err: unknown) => console.error('Saving card on file failed:', err))
+  }
 
   return { payment, appointment: updatedAppointment }
 }

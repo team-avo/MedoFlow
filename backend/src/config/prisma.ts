@@ -50,6 +50,7 @@ export const CLINIC_SCOPED_MODELS = new Set([
   'Membership',
   'Package',
   'PatientClinicMembership',
+  'PatientCommerceProfile',
   'PatientFile',
   'PatientPackage',
   'PatientSubscription',
@@ -57,6 +58,8 @@ export const CLINIC_SCOPED_MODELS = new Set([
   'Prescription',
   'Product',
   'Provider',
+  'RxOrderLine',
+  'RxOrderProposal',
   'Service',
   'SitePage',
   'SlotHold',
@@ -389,7 +392,8 @@ export async function findManyAsStored(delegate: string, args: unknown): Promise
 }
 
 type ExtendedClient = typeof extended
-type TxClient = Parameters<Parameters<ExtendedClient['$transaction']>[0]>[0]
+/** The client an interactive `prisma.$transaction(async (tx) => …)` callback receives. */
+export type TxClient = Parameters<Parameters<ExtendedClient['$transaction']>[0]>[0]
 
 /**
  * `$transaction` that sets the RLS variables as the first statement of every

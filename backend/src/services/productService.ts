@@ -1,5 +1,6 @@
 import prisma from '../config/prisma'
 import type { ApiError } from '../types/errors'
+import type { ProductFulfillmentClass } from '@prisma/client'
 
 export const getProducts = async (clinicId: string) => {
   return prisma.product.findMany({
@@ -29,9 +30,14 @@ export const getProductById = async (id: string, clinicId: string) => {
 
 export interface CreateProductInput {
   name: string
-  description?: string
-  sku?: string
+  description?: string | null
+  sku?: string | null
   price: number
+  taxApplicable?: boolean
+  /** B5.5: RX_* products are never sold through the cart. */
+  fulfillmentClass?: ProductFulfillmentClass
+  /** B5.1: other names the Rx→Cart mapper should recognise. */
+  aliases?: string[]
 }
 
 export const createProduct = async (clinicId: string, input: CreateProductInput) => {
@@ -42,17 +48,14 @@ export const createProduct = async (clinicId: string, input: CreateProductInput)
       description: input.description,
       sku: input.sku,
       price: input.price,
+      taxApplicable: input.taxApplicable,
+      fulfillmentClass: input.fulfillmentClass,
+      aliases: input.aliases,
     },
   })
 }
 
-export interface UpdateProductInput {
-  name?: string
-  description?: string
-  sku?: string
-  price?: number
-  isActive?: boolean
-}
+export type UpdateProductInput = Partial<CreateProductInput> & { isActive?: boolean }
 
 export const updateProduct = async (id: string, clinicId: string, input: UpdateProductInput) => {
   const existing = await prisma.product.findFirst({

@@ -5,7 +5,7 @@ import * as visitService from '../services/visitService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import type { ApiError } from '../types/errors'
-import { logRead } from '../services/auditService'
+import { logRead, requestMeta } from '../services/auditService'
 import { aiScribeQueue } from '../queues/aiScribeQueue'
 
 const providerScope = async (req: Request): Promise<{ providerId: string; clinicId: string }> => {
@@ -277,13 +277,22 @@ export const approve = asyncHandler(
     const sessionId = req.params.id as string
     const { providerId, clinicId } = await providerScope(req)
 
+    const { rxConfirmation } = (req.body ?? {}) as {
+      rxConfirmation?: aiScribeService.ApproveOptions['rxConfirmation']
+    }
     const session = await aiScribeService.approveDraft(
       sessionId,
       providerId,
       clinicId,
-      req.user!.id
+      req.user!.id,
+      { rxConfirmation, ...requestMeta(req) }
     )
-    successResponse(res, 200, 'Note approved and finalized', { session })
+    successResponse(
+      res,
+      200,
+      rxConfirmation ? 'Note approved and products sent' : 'Note approved and finalized',
+      { session }
+    )
   }
 )
 

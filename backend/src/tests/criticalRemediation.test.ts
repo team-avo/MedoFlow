@@ -325,8 +325,10 @@ test('explicit payment intent creation creates a pending payment when none exist
   const originalPaymentCreate = prisma.payment.create
   const originalLogAudit = auditService.logAudit
   const originalStripeCreate = stripe.paymentIntents.create
+  const originalProfileFindFirst = prisma.patientCommerceProfile.findFirst
 
   let createdPaymentData: Record<string, unknown> | null = null
+  let intentArgs: Record<string, unknown> | null = null
 
   try {
     ;(prisma.appointment.findFirst as any) = async () => ({
@@ -346,10 +348,13 @@ test('explicit payment intent creation creates a pending payment when none exist
       createdPaymentData = data
       return { id: 'payment-1', ...data }
     }
-    ;(stripe.paymentIntents.create as any) = async () => ({
-      id: 'pi_created',
-      client_secret: 'pi_secret_created',
+    ;(prisma.patientCommerceProfile.findFirst as any) = async () => ({
+      stripeCustomerId: 'cus_existing',
     })
+    ;(stripe.paymentIntents.create as any) = async (args: Record<string, unknown>) => {
+      intentArgs = args
+      return { id: 'pi_created', client_secret: 'pi_secret_created' }
+    }
     restore(auditService, 'logAudit', (async () => {}) as any)
 
     const result = await paymentService.ensurePaymentIntent('appointment-1', 'patient-1', {
@@ -360,7 +365,11 @@ test('explicit payment intent creation creates a pending payment when none exist
     assert.equal(result.reused, false)
     assert.equal((createdPaymentData as any)?.status, 'PENDING')
     assert.equal((createdPaymentData as any)?.stripePaymentIntentId, 'pi_created')
+    // B5.4: the booking card is saved to the patient's customer for one-click later.
+    assert.equal((intentArgs as any)?.customer, 'cus_existing')
+    assert.equal((intentArgs as any)?.setup_future_usage, 'off_session')
   } finally {
+    restore(prisma.patientCommerceProfile, 'findFirst', originalProfileFindFirst)
     restore(prisma.appointment, 'findFirst', originalAppointmentFindFirst)
     restore(prisma.payment, 'findFirst', originalPaymentFindFirst)
     restore(prisma.payment, 'create', originalPaymentCreate)

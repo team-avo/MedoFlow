@@ -6,34 +6,78 @@ import { PaymentStatus, Prisma, SubscriptionStatus } from '@prisma/client'
 import stripe from '../config/stripe'
 import { recalculateInvoiceTotals } from './invoiceService'
 import * as commissionService from './commissionService'
+import * as auditService from './auditService'
+import { isPrescriptionClass } from './rxMappingService'
 
-const unsupportedMembershipError = () => {
-  const err = new Error(
-    'Membership checkout is not enabled. Sell memberships only after Stripe subscription linkage is implemented.'
-  ) as ApiError
-  err.statusCode = 400
-  err.code = 'membership_checkout_unsupported'
+const apiError = (status: number, message: string, code?: string): ApiError => {
+  const err = new Error(message) as ApiError
+  err.statusCode = status
+  if (code) err.code = code
   return err
 }
+
+const unsupportedMembershipError = () =>
+  apiError(
+    400,
+    'Membership checkout is not enabled. Sell memberships only after Stripe subscription linkage is implemented.',
+    'membership_checkout_unsupported'
+  )
+
+/** B5.5 scope guard: prescription products never go through the cart. */
+const rxRouteError = () =>
+  apiError(
+    422,
+    'Prescription products are sent to e-prescribing and cannot be bought from the cart',
+    'RX_ROUTE_EPRESCRIBE'
+  )
+
+/** Who did it, for the audit row. */
+export interface Actor {
+  userId: string
+  ipAddress?: string | null
+  userAgent?: string | null
+}
+
+const audit = (
+  clinicId: string,
+  entityType: string,
+  entityId: string,
+  action: string,
+  actor: Actor | undefined,
+  newValue?: Record<string, unknown>
+) =>
+  actor
+    ? auditService.logAudit({
+        clinicId,
+        entityType,
+        entityId,
+        action,
+        newValue,
+        performedById: actor.userId,
+        ipAddress: actor.ipAddress,
+        userAgent: actor.userAgent,
+      })
+    : Promise.resolve()
+
+// Minimum necessary: the cart shows who prescribed an item, not their profile.
+const itemInclude = {
+  service: true,
+  product: true,
+  package: true,
+  membership: true,
+  prescribedBy: { select: { id: true, firstName: true, lastName: true } },
+} satisfies Prisma.CartItemInclude
 
 export const getOrCreateCart = async (clinicId: string, patientId: string) => {
   let cart = await prisma.cart.findFirst({
     where: { clinicId, patientId, status: 'ACTIVE' },
-    include: {
-      items: {
-        include: { service: true, product: true, package: true, membership: true },
-      },
-    },
+    include: { items: { include: itemInclude, orderBy: { createdAt: 'asc' } } },
   })
 
   if (!cart) {
     cart = await prisma.cart.create({
       data: { clinicId, patientId, status: 'ACTIVE' },
-      include: {
-        items: {
-          include: { service: true, product: true, package: true, membership: true },
-        },
-      },
+      include: { items: { include: itemInclude, orderBy: { createdAt: 'asc' } } },
     })
   }
 
@@ -47,7 +91,12 @@ export interface AddCartItemInput {
   appointmentId?: string // Optional if booking a service concurrently
 }
 
-export const addToCart = async (clinicId: string, patientId: string, input: AddCartItemInput) => {
+export const addToCart = async (
+  clinicId: string,
+  patientId: string,
+  input: AddCartItemInput,
+  actor?: Actor
+) => {
   const cart = await getOrCreateCart(clinicId, patientId)
 
   let unitPrice = new Prisma.Decimal(0)
@@ -57,136 +106,210 @@ export const addToCart = async (clinicId: string, patientId: string, input: AddC
   // their cart by guessing its id.
   if (input.itemType === 'PRODUCT') {
     const product = await prisma.product.findFirst({ where: { id: input.itemId, clinicId } })
-    if (!product) {
-      const err = new Error('Product not found') as ApiError
-      err.statusCode = 404
-      throw err
-    }
+    if (!product) throw apiError(404, 'Product not found')
+    if (isPrescriptionClass(product.fulfillmentClass)) throw rxRouteError()
     unitPrice = product.price
   } else if (input.itemType === 'SERVICE') {
     const service = await prisma.service.findFirst({ where: { id: input.itemId, clinicId } })
-    if (!service) {
-      const err = new Error('Service not found') as ApiError
-      err.statusCode = 404
-      throw err
-    }
+    if (!service) throw apiError(404, 'Service not found')
     unitPrice = service.defaultPrice
   } else if (input.itemType === 'PACKAGE') {
     const pkg = await prisma.package.findFirst({ where: { id: input.itemId, clinicId } })
-    if (!pkg) {
-      const err = new Error('Package not found') as ApiError
-      err.statusCode = 404
-      throw err
-    }
+    if (!pkg) throw apiError(404, 'Package not found')
     unitPrice = pkg.price
   } else if (input.itemType === 'MEMBERSHIP') {
     throw unsupportedMembershipError()
   }
 
-  // Check if item already exists in cart (based on itemId)
+  // Merge with an item the patient added themselves. A prescribed item keeps
+  // its own row so its provenance and the patient's decision stay intact.
   const existingItem = await prisma.cartItem.findFirst({
     where: {
       cartId: cart.id,
       itemType: input.itemType,
+      rxOrderLineId: null,
       ...(input.itemType === 'PRODUCT' ? { productId: input.itemId } : {}),
       ...(input.itemType === 'SERVICE' ? { serviceId: input.itemId } : {}),
       ...(input.itemType === 'PACKAGE' ? { packageId: input.itemId } : {}),
     },
   })
 
-  if (existingItem) {
-    return prisma.cartItem.update({
-      where: { id: existingItem.id },
-      data: { quantity: existingItem.quantity + (input.quantity || 1) },
-    })
-  }
+  const item = existingItem
+    ? await prisma.cartItem.update({
+        where: { id: existingItem.id },
+        data: { quantity: existingItem.quantity + (input.quantity || 1) },
+      })
+    : await prisma.cartItem.create({
+        data: {
+          cartId: cart.id,
+          itemType: input.itemType,
+          quantity: input.quantity || 1,
+          unitPrice,
+          productId: input.itemType === 'PRODUCT' ? input.itemId : null,
+          serviceId: input.itemType === 'SERVICE' ? input.itemId : null,
+          packageId: input.itemType === 'PACKAGE' ? input.itemId : null,
+          membershipId: null,
+          appointmentId: input.appointmentId,
+        },
+      })
 
-  return prisma.cartItem.create({
-    data: {
-      cartId: cart.id,
-      itemType: input.itemType,
-      quantity: input.quantity || 1,
-      unitPrice,
-      productId: input.itemType === 'PRODUCT' ? input.itemId : null,
-      serviceId: input.itemType === 'SERVICE' ? input.itemId : null,
-      packageId: input.itemType === 'PACKAGE' ? input.itemId : null,
-      membershipId: null,
-      appointmentId: input.appointmentId,
-    },
+  await audit(clinicId, 'CartItem', item.id, 'CART_ITEM_ADDED', actor, {
+    cartId: cart.id,
+    itemType: input.itemType,
+    quantity: item.quantity,
   })
+  return item
 }
 
-export const updateCartItem = async (cartId: string, itemId: string, quantity: number) => {
-  if (quantity <= 0) {
-    return prisma.cartItem.delete({ where: { id: itemId } })
+/**
+ * An item of the caller's own cart, or 404. Items are addressed by id, so
+ * without the cartId filter one patient could change another's cart.
+ */
+const findOwnItem = async (cartId: string, itemId: string) => {
+  const item = await prisma.cartItem.findFirst({ where: { id: itemId, cartId } })
+  if (!item) throw apiError(404, 'Cart item not found')
+  return item
+}
+
+export const updateCartItem = async (
+  cartId: string,
+  itemId: string,
+  quantity: number,
+  clinicId?: string,
+  actor?: Actor
+) => {
+  await findOwnItem(cartId, itemId)
+  if (quantity <= 0) return removeCartItem(cartId, itemId, clinicId, actor)
+
+  const item = await prisma.cartItem.update({ where: { id: itemId }, data: { quantity } })
+  if (clinicId) {
+    await audit(clinicId, 'CartItem', itemId, 'CART_ITEM_UPDATED', actor, { cartId, quantity })
   }
-
-  return prisma.cartItem.update({
-    where: { id: itemId },
-    data: { quantity },
-  })
+  return item
 }
 
-export const removeCartItem = async (cartId: string, itemId: string) => {
-  return prisma.cartItem.delete({ where: { id: itemId } })
+export const removeCartItem = async (
+  cartId: string,
+  itemId: string,
+  clinicId?: string,
+  actor?: Actor
+) => {
+  await findOwnItem(cartId, itemId)
+  const item = await prisma.cartItem.delete({ where: { id: itemId } })
+  if (clinicId) await audit(clinicId, 'CartItem', itemId, 'CART_ITEM_REMOVED', actor, { cartId })
+  return item
 }
 
-export const clearCart = async (cartId: string) => {
-  return prisma.cartItem.deleteMany({ where: { cartId } })
+export const clearCart = async (cartId: string, clinicId?: string, actor?: Actor) => {
+  const result = await prisma.cartItem.deleteMany({ where: { cartId } })
+  if (clinicId) {
+    await audit(clinicId, 'Cart', cartId, 'CART_CLEARED', actor, { removed: result.count })
+  }
+  return result
 }
 
-export const checkoutCart = async (clinicId: string, patientId: string) => {
+/** B5.3 / F5.2: the patient accepts or declines an item their provider prescribed. */
+export const setItemDecision = async (
+  clinicId: string,
+  patientId: string,
+  itemId: string,
+  decision: 'ACCEPTED' | 'DECLINED',
+  actor?: Actor
+) => {
   const cart = await prisma.cart.findFirst({
     where: { clinicId, patientId, status: 'ACTIVE' },
-    include: { items: true },
+    select: { id: true },
+  })
+  if (!cart) throw apiError(404, 'Cart item not found')
+  const item = await findOwnItem(cart.id, itemId)
+  if (!item.rxOrderLineId) {
+    throw apiError(400, 'Only prescribed items need a decision', 'not_prescribed')
+  }
+  const updated = await prisma.cartItem.update({
+    where: { id: itemId },
+    data: { patientDecision: decision },
+  })
+  await audit(clinicId, 'CartItem', itemId, 'CART_ITEM_DECISION', actor, {
+    cartId: cart.id,
+    decision,
+  })
+  return updated
+}
+
+/**
+ * The checkout rules shared by every way of paying for a cart:
+ *  - prescribed items need the patient's accept/decline first;
+ *  - declined items are not charged;
+ *  - prescription products never reach payment (B5.5).
+ */
+export const preparePayableCart = async (clinicId: string, patientId: string) => {
+  const cart = await prisma.cart.findFirst({
+    where: { clinicId, patientId, status: 'ACTIVE' },
+    include: { items: { include: { product: { select: { fulfillmentClass: true } } } } },
   })
 
-  if (!cart || cart.items.length === 0) {
-    const err = new Error('Cart is empty or not found') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-
+  if (!cart || cart.items.length === 0) throw apiError(400, 'Cart is empty or not found')
   if (cart.items.some((item) => item.itemType === 'MEMBERSHIP')) {
     throw unsupportedMembershipError()
   }
-
-  let totalAmount = new Prisma.Decimal(0)
-  for (const item of cart.items) {
-    totalAmount = totalAmount.plus(item.unitPrice.times(item.quantity))
+  if (
+    cart.items.some((item) => item.product && isPrescriptionClass(item.product.fulfillmentClass))
+  ) {
+    throw rxRouteError()
+  }
+  if (cart.items.some((item) => item.rxOrderLineId && item.patientDecision === 'PENDING')) {
+    throw apiError(
+      409,
+      'Accept or decline the items your provider prescribed before paying',
+      'RX_DECISION_REQUIRED'
+    )
   }
 
-  // Find a fallback provider since the database requires providerId on Invoices
-  // In a retail/cart context, we assign the first active provider of the clinic.
+  const payable = cart.items.filter((item) => item.patientDecision !== 'DECLINED')
+  if (payable.length === 0)
+    throw apiError(400, 'There is nothing to pay for', 'cart_nothing_payable')
+
   const fallbackProvider = await prisma.provider.findFirst({
     where: { clinicId, isActive: true },
     select: { id: true },
   })
-
   if (!fallbackProvider) {
-    const err = new Error('No active provider found for this clinic to assign billing') as ApiError
-    err.statusCode = 400
-    throw err
+    throw apiError(400, 'No active provider found for this clinic to assign billing')
   }
 
-  // Create an invoice from the cart
+  return { cart, payable, fallbackProviderId: fallbackProvider.id }
+}
+
+type PayableCart = Awaited<ReturnType<typeof preparePayableCart>>
+
+/** A DRAFT invoice for the payable items, with tax applied. */
+export const createCartInvoice = async (
+  clinicId: string,
+  patientId: string,
+  { payable, fallbackProviderId }: PayableCart,
+  status: 'DRAFT' | 'PAID' = 'DRAFT'
+) => {
+  let totalAmount = new Prisma.Decimal(0)
+  for (const item of payable) totalAmount = totalAmount.plus(item.unitPrice.times(item.quantity))
+
   const invoice = await prisma.invoice.create({
     data: {
       clinicId,
       patientId,
-      providerId: fallbackProvider.id,
+      providerId: fallbackProviderId,
       locationId: null,
-      status: 'DRAFT',
+      status,
       subtotal: totalAmount,
       taxAmount: 0,
       totalAmount,
       items: {
-        create: cart.items.map((item) => ({
+        create: payable.map((item) => ({
           serviceId: item.serviceId,
           productId: item.productId,
           packageId: item.packageId,
           membershipId: item.membershipId,
-          providerId: fallbackProvider.id,
+          // A prescribed item is attributed to the prescribing provider.
+          providerId: item.prescribedByProviderId ?? fallbackProviderId,
           description: `Cart Item: ${item.itemType}`,
           unitPrice: item.unitPrice,
           quantity: item.quantity,
@@ -196,15 +319,16 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
     },
   })
 
-  // Calculate tax and update invoice totals
-  await recalculateInvoiceTotals(invoice.id)
+  if (status === 'DRAFT') await recalculateInvoiceTotals(invoice.id)
+  const updated = await prisma.invoice.findUnique({ where: { id: invoice.id, clinicId } })
+  if (!updated) throw new Error('Failed to retrieve updated invoice')
+  return updated
+}
 
-  // Re-fetch invoice to get updated amounts for Stripe
-  const updatedInvoice = await prisma.invoice.findUnique({
-    where: { id: invoice.id, clinicId },
-  })
-
-  if (!updatedInvoice) throw new Error('Failed to retrieve updated invoice')
+export const checkoutCart = async (clinicId: string, patientId: string, actor?: Actor) => {
+  const prepared = await preparePayableCart(clinicId, patientId)
+  const { cart, fallbackProviderId } = prepared
+  const updatedInvoice = await createCartInvoice(clinicId, patientId, prepared)
 
   // Convert to cents for Stripe
   const amountInCents = Math.round(updatedInvoice.totalAmount.toNumber() * 100)
@@ -232,7 +356,7 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
       prisma.payment.create({
         data: {
           clinicId,
-          providerId: fallbackProvider.id,
+          providerId: fallbackProviderId,
           invoiceId: updatedInvoice.id,
           patientId,
           amount: updatedInvoice.totalAmount,
@@ -250,11 +374,13 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
     ])
   } catch (err) {
     console.error('Stripe Cart PaymentIntent Error:', err)
-    const apiError = new Error('Unable to start checkout payment') as ApiError
-    apiError.statusCode = 502
-    apiError.code = 'payment_intent_failed'
-    throw apiError
+    throw apiError(502, 'Unable to start checkout payment', 'payment_intent_failed')
   }
+
+  await audit(clinicId, 'Cart', cart.id, 'CART_CHECKOUT', actor, {
+    invoiceId: updatedInvoice.id,
+    channel: 'STRIPE_ELEMENTS',
+  })
 
   return {
     invoice: updatedInvoice,
@@ -262,90 +388,21 @@ export const checkoutCart = async (clinicId: string, patientId: string) => {
   }
 }
 
-export const demoCheckoutCart = async (clinicId: string, patientId: string) => {
-  const cart = await prisma.cart.findFirst({
-    where: { clinicId, patientId, status: 'ACTIVE' },
-    include: { items: true },
-  })
+export const demoCheckoutCart = async (clinicId: string, patientId: string, actor?: Actor) => {
+  const prepared = await preparePayableCart(clinicId, patientId)
+  const { cart, payable, fallbackProviderId } = prepared
+  const invoice = await createCartInvoice(clinicId, patientId, prepared, 'PAID')
 
-  if (!cart || cart.items.length === 0) {
-    const err = new Error('Cart is empty or not found') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-
-  let totalAmount = new Prisma.Decimal(0)
-  for (const item of cart.items) {
-    totalAmount = totalAmount.plus(item.unitPrice.times(item.quantity))
-  }
-
-  // Find a fallback provider since the database requires providerId on Invoices
-  const fallbackProvider = await prisma.provider.findFirst({
-    where: { clinicId, isActive: true },
-    select: { id: true },
-  })
-
-  if (!fallbackProvider) {
-    const err = new Error('No active provider found for this clinic to assign billing') as ApiError
-    err.statusCode = 400
-    throw err
-  }
-
-  // Create a PAID invoice
-  const invoice = await prisma.invoice.create({
-    data: {
-      clinicId,
-      patientId,
-      providerId: fallbackProvider.id,
-      locationId: null,
-      appointmentId: null,
-      status: 'PAID',
-      subtotal: totalAmount,
-      taxAmount: 0,
-      totalAmount,
-      items: {
-        create: cart.items.map((item) => ({
-          serviceId: item.serviceId,
-          productId: item.productId,
-          packageId: item.packageId,
-          membershipId: item.membershipId,
-          providerId: fallbackProvider.id,
-          disciplineId: null,
-          description: `Demo Cart Item: ${item.itemType}`,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          totalPrice: item.unitPrice.times(item.quantity),
-        })),
-      },
-    },
-    include: { items: true },
-  })
-
-  // Create a PAID payment record
+  // One PAID payment per checkout. (This used to be written twice, which
+  // double-counted revenue for every demo order.)
   await prisma.payment.create({
     data: {
       clinicId,
       invoiceId: invoice.id,
       patientId,
-      providerId: fallbackProvider.id,
+      providerId: fallbackProviderId,
       appointmentId: null,
-      amount: totalAmount,
-      status: PaymentStatus.PAID,
-      paymentChannel: 'DEMO',
-      paymentMethod: 'DEMO_MODE',
-      recordedAt: new Date(),
-    },
-  })
-
-  // Create a PAID payment record
-  await prisma.payment.create({
-    data: {
-      clinicId,
-      invoiceId: invoice.id,
-      patientId,
-      providerId: null,
-      appointmentId: null,
-      amount: totalAmount,
+      amount: invoice.totalAmount,
       status: PaymentStatus.PAID,
       paymentChannel: 'DEMO',
       paymentMethod: 'DEMO_MODE',
@@ -354,7 +411,7 @@ export const demoCheckoutCart = async (clinicId: string, patientId: string) => {
   })
 
   // Fulfill items
-  for (const item of cart.items) {
+  for (const item of payable) {
     if (item.productId) {
       await prisma.inventoryItem.updateMany({
         where: { productId: item.productId, clinicId },
@@ -403,5 +460,14 @@ export const demoCheckoutCart = async (clinicId: string, patientId: string) => {
   // Calculate commissions
   await commissionService.calculateCommissions(invoice.id)
 
-  return { invoice }
+  await audit(clinicId, 'Cart', cart.id, 'CART_CHECKOUT', actor, {
+    invoiceId: invoice.id,
+    channel: 'DEMO',
+  })
+
+  const withItems = await prisma.invoice.findUnique({
+    where: { id: invoice.id, clinicId },
+    include: { items: true },
+  })
+  return { invoice: withItems ?? invoice }
 }

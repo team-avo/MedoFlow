@@ -28,6 +28,14 @@ export const ENCRYPTED_FIELDS: Readonly<Record<string, Readonly<Record<string, F
   ConsultationSession: { transcriptText: 's' },
   FormResponse: { responses: 'j' },
   VoiceCall: { transcript: 'j', summary: 's' },
+  RxOrderLine: { rawText: 's' },
+  PatientCommerceProfile: {
+    shippingName: 's',
+    shippingLine1: 's',
+    shippingLine2: 's',
+    shippingCity: 's',
+    shippingPostalCode: 's',
+  },
 }
 
 export const ENVELOPE_PREFIX = 'fle:v1:'

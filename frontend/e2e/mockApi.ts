@@ -90,13 +90,14 @@ export function corsHeaders(route: Route, extra: Record<string, string> = {}) {
   }
 }
 
-export type MockRole = 'FRONT_DESK' | 'SUPER_ADMIN' | 'PATIENT'
+export type MockRole = 'FRONT_DESK' | 'SUPER_ADMIN' | 'PATIENT' | 'PROVIDER'
 
 /** The signed-in identity per role (synthetic). Patient values double as the PHI probe. */
 export const MOCK_USERS: Record<MockRole, { id: string; name: string; email: string }> = {
   FRONT_DESK: { id: 'user-e2e-1', name: 'Synthetic Front Desk', email: STAFF_EMAIL },
   SUPER_ADMIN: { id: 'user-e2e-admin', name: 'Synthetic Admin', email: 'admin.e2e@example.test' },
   PATIENT: { id: 'patient-e2e-1', name: 'Quinn Marlowe', email: 'quinn.marlowe@example.test' },
+  PROVIDER: { id: 'user-e2e-provider', name: 'Avery Stone', email: 'provider.e2e@example.test' },
 }
 
 export async function installMockApi(

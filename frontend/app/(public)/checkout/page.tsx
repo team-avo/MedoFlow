@@ -9,8 +9,11 @@ import { toast } from 'sonner'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
 import { StripePaymentForm } from '@/components/StripePaymentForm'
-import { useCart } from '@/hooks/useCart'
+import { useCart, isPayable } from '@/hooks/useCart'
 import { useClinicContext } from '@/hooks/useClinicContext'
+import { OneClickPay } from '@/components/store/OneClickPay'
+import { PrescribedBadge, DecisionButtons } from '@/components/store/CartModal'
+import { getOnFile } from '@/lib/rxCartApi'
 import { LogIn, ShoppingBag, Package, ShieldCheck, Check, ArrowRight } from 'lucide-react'
 
 const stripePromise = loadStripe(
@@ -20,7 +23,18 @@ const stripePromise = loadStripe(
 const DEFAULT_THEME = '#0F766E'
 
 export default function CheckoutPage() {
-  const { cart, isLoading, isAuthenticated, fetchCartItems } = useCart()
+  const { cart, isLoading, isAuthenticated, fetchCartItems, setDecision, pendingDecisions } =
+    useCart()
+  const queryClient = useQueryClient()
+  // F5.3: a returning patient's card + address from booking. Same cache key
+  // as <OneClickPay>, so this is one request.
+  const { data: onFile } = useQuery({
+    queryKey: ['carts', 'one-click'],
+    queryFn: getOnFile,
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  })
+  const [useDifferentCard, setUseDifferentCard] = useState(false)
   const [isDemoSubmitting, setIsDemoSubmitting] = useState(false)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<null | {
@@ -43,9 +57,7 @@ export default function CheckoutPage() {
   const billingReturnPath = clinicCtx
     ? `/clinic/${clinicCtx.routeId}` // patient hub modal lives there
     : '/?view=billing'
-  const appointmentsReturnPath = clinicCtx
-    ? `/clinic/${clinicCtx.routeId}`
-    : '/?view=appointments'
+  const appointmentsReturnPath = clinicCtx ? `/clinic/${clinicCtx.routeId}` : '/?view=appointments'
 
   const handleInitiateCheckout = async () => {
     if (!isAuthenticated) {
@@ -71,8 +83,14 @@ export default function CheckoutPage() {
       // Snapshot what the patient bought BEFORE we clear the local cart so
       // we can render the success card.
       const snapshot = {
-        items: (cart?.items ?? []).map((it: any) => ({
-          name: it.product?.name || it.package?.name || it.membership?.name || it.service?.name || it.name || 'Item',
+        items: (cart?.items ?? []).filter(isPayable).map((it: any) => ({
+          name:
+            it.product?.name ||
+            it.package?.name ||
+            it.membership?.name ||
+            it.service?.name ||
+            it.name ||
+            'Item',
           qty: it.quantity,
           price: Number(it.unitPrice),
         })),
@@ -116,11 +134,10 @@ export default function CheckoutPage() {
           >
             <Check className="h-7 w-7" />
           </div>
-          <h1 className="mt-5 text-2xl font-black text-slate-900 sm:text-3xl">
-            You're all set!
-          </h1>
+          <h1 className="mt-5 text-2xl font-black text-slate-900 sm:text-3xl">You're all set!</h1>
           <p className="mt-2 text-sm text-slate-500">
-            Payment received{clinicCtx?.clinic ? ` by ${clinicCtx.clinic.name}` : ''}. A receipt is on its way to your email.
+            Payment received{clinicCtx?.clinic ? ` by ${clinicCtx.clinic.name}` : ''}. A receipt is
+            on its way to your email.
           </p>
 
           <ul className="mt-6 divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50/40 text-left">
@@ -128,14 +145,20 @@ export default function CheckoutPage() {
               <li key={i} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-slate-800">{it.name}</p>
-                  <p className="text-xs text-slate-400">Qty {it.qty} × ${it.price.toFixed(2)}</p>
+                  <p className="text-xs text-slate-400">
+                    Qty {it.qty} × ${it.price.toFixed(2)}
+                  </p>
                 </div>
-                <span className="text-sm font-bold text-slate-900">${(it.price * it.qty).toFixed(2)}</span>
+                <span className="text-sm font-bold text-slate-900">
+                  ${(it.price * it.qty).toFixed(2)}
+                </span>
               </li>
             ))}
             <li className="flex items-center justify-between px-4 py-3">
               <span className="text-sm font-bold text-slate-700">Total paid</span>
-              <span className="text-base font-black" style={{ color: themeColor }}>${confirmation.total.toFixed(2)}</span>
+              <span className="text-base font-black" style={{ color: themeColor }}>
+                ${confirmation.total.toFixed(2)}
+              </span>
             </li>
           </ul>
 
@@ -181,10 +204,25 @@ export default function CheckoutPage() {
     )
   }
 
-  const subtotal = cart.items.reduce(
-    (sum: number, item: any) => sum + Number(item.unitPrice) * item.quantity,
-    0
-  )
+  // Declined prescribed items stay listed but are not charged.
+  const subtotal = cart.items
+    .filter(isPayable)
+    .reduce((sum: number, item: any) => sum + Number(item.unitPrice) * item.quantity, 0)
+  const oneClick = isAuthenticated && !!onFile?.eligible && !useDifferentCard
+
+  const handleOneClickPaid = async () => {
+    const snapshot = {
+      items: cart.items.filter(isPayable).map((it: any) => ({
+        name: it.name || it.product?.name || 'Item',
+        qty: it.quantity,
+        price: Number(it.unitPrice),
+      })),
+      total: subtotal,
+    }
+    await fetchCartItems()
+    await queryClient.invalidateQueries({ queryKey: ['carts', 'one-click'] })
+    setConfirmation(snapshot)
+  }
 
   return (
     <div className="container mx-auto max-w-4xl px-4 py-8 sm:py-12 lg:px-0">
@@ -193,7 +231,10 @@ export default function CheckoutPage() {
           Review Order
         </h1>
         {clinicCtx?.clinic && (
-          <p className="text-[12px] font-bold uppercase tracking-widest" style={{ color: themeColor }}>
+          <p
+            className="text-[12px] font-bold uppercase tracking-widest"
+            style={{ color: themeColor }}
+          >
             {clinicCtx.clinic.name}
           </p>
         )}
@@ -240,9 +281,17 @@ export default function CheckoutPage() {
                         <div className="text-sm text-slate-500 font-medium">
                           Quantity: {item.quantity} × ${Number(item.unitPrice).toFixed(2)}
                         </div>
+                        <PrescribedBadge item={item} />
+                        <DecisionButtons
+                          item={item}
+                          accent={themeColor}
+                          onDecide={(decision) => setDecision(item.id, decision)}
+                        />
                       </div>
                     </div>
-                    <div className="font-black text-slate-900 text-xl">
+                    <div
+                      className={`font-black text-xl ${isPayable(item) ? 'text-slate-900' : 'text-slate-400 line-through'}`}
+                    >
                       ${(Number(item.unitPrice) * item.quantity).toFixed(2)}
                     </div>
                   </div>
@@ -280,14 +329,36 @@ export default function CheckoutPage() {
                   <Button
                     className="w-full h-14 text-lg rounded-2xl bg-white hover:bg-white/90 font-bold shadow-2xl shadow-black/20"
                     style={{ color: themeColor }}
-                    onClick={() => router.push(`/?auth=login&returnUrl=/checkout${clinicQuery ? `?clinic=${clinicQuery}` : ''}`)}
+                    onClick={() =>
+                      router.push(
+                        `/?auth=login&returnUrl=/checkout${clinicQuery ? `?clinic=${clinicQuery}` : ''}`
+                      )
+                    }
                   >
                     Login to Checkout
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-4 pt-4">
-                  {!clientSecret ? (
+                  {oneClick ? (
+                    <div className="space-y-3">
+                      <div className="rounded-2xl bg-white p-5 text-slate-900">
+                        <OneClickPay
+                          total={subtotal}
+                          pendingDecisions={pendingDecisions}
+                          accent={themeColor}
+                          onPaid={handleOneClickPaid}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setUseDifferentCard(true)}
+                        className="w-full text-center text-xs font-semibold text-white/70 hover:text-white"
+                      >
+                        Use a different card
+                      </button>
+                    </div>
+                  ) : !clientSecret ? (
                     <div className="space-y-4">
                       <Button
                         className="w-full h-14 text-lg rounded-2xl bg-white hover:bg-white/90 font-bold shadow-2xl shadow-black/20"
@@ -313,8 +384,14 @@ export default function CheckoutPage() {
                           buttonLabel={`Pay $${subtotal.toFixed(2)}`}
                           onSuccess={async () => {
                             const snapshot = {
-                              items: (cart?.items ?? []).map((it: any) => ({
-                                name: it.product?.name || it.package?.name || it.membership?.name || it.service?.name || it.name || 'Item',
+                              items: (cart?.items ?? []).filter(isPayable).map((it: any) => ({
+                                name:
+                                  it.product?.name ||
+                                  it.package?.name ||
+                                  it.membership?.name ||
+                                  it.service?.name ||
+                                  it.name ||
+                                  'Item',
                                 qty: it.quantity,
                                 price: Number(it.unitPrice),
                               })),
@@ -357,7 +434,7 @@ export default function CheckoutPage() {
 
 // ─────────────────────── Local helper ────────────────────────────────
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getClinic } from '@/lib/clinicApi'
 import type { Clinic } from '@/lib/types/booking'
 

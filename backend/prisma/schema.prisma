@@ -160,6 +160,50 @@ enum CartItemType {
   MEMBERSHIP
 }
 
+enum ProductFulfillmentClass {
+  SUPPLEMENT
+  OTC
+  AESTHETIC
+  RX_NON_SCHEDULED
+  RX_SCHEDULED
+}
+
+enum CartItemPatientDecision {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum PrescriptionStatus {
+  DRAFT
+  PENDING_EPRESCRIBE
+  SENT
+}
+
+enum RxProposalStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum RxMatchStatus {
+  MATCHED
+  AMBIGUOUS
+  UNMAPPED
+}
+
+enum RxRoute {
+  CART
+  EPRESCRIBE
+  MANUAL
+}
+
+enum RxLineDecision {
+  PENDING
+  CONFIRMED
+  REMOVED
+}
+
 enum PackageStatus {
   ACTIVE
   EXHAUSTED
@@ -291,6 +335,9 @@ model Clinic {
   voiceAgentConfig          VoiceAgentConfig?
   voiceCalls                VoiceCall[]
   breakGlassGrants          BreakGlassGrant[]
+  rxOrderProposals          RxOrderProposal[]
+  rxOrderLines              RxOrderLine[]
+  patientCommerceProfiles   PatientCommerceProfile[]
 
   @@index([tenantId])
 }
@@ -396,6 +443,8 @@ model User {
   carts                         Cart[]                     @relation("PatientCarts")
   patientPackages               PatientPackage[]           @relation("PatientPackages")
   patientSubscriptions          PatientSubscription[]      @relation("PatientSubscriptions")
+  rxOrderProposals              RxOrderProposal[]          @relation("RxProposalPatient")
+  commerceProfiles              PatientCommerceProfile[]   @relation("PatientCommerceProfiles")
 
   @@index([customRoleId])
 }
@@ -473,6 +522,8 @@ model Provider {
   consultationSessions   ConsultationSession[]
   commissionRules        CommissionRule[]
   commissionRecords      CommissionRecord[]
+  rxOrderProposals       RxOrderProposal[]
+  prescribedCartItems    CartItem[]                   @relation("CartItemPrescribedBy")
   scribeTemplate         ScribeTemplate?              @relation(fields: [scribeTemplateId], references: [id], onDelete: SetNull)
 
   @@index([clinicId])
@@ -851,16 +902,20 @@ model Payment {
 }
 
 model Product {
-  id            String   @id @default(cuid())
-  clinicId      String
-  name          String
-  description   String?
-  sku           String?
-  price         Decimal  @db.Decimal(10, 2)
-  taxApplicable Boolean  @default(false)
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String                  @id @default(cuid())
+  clinicId         String
+  name             String
+  description      String?
+  sku              String?
+  price            Decimal                 @db.Decimal(10, 2)
+  taxApplicable    Boolean                 @default(false)
+  isActive         Boolean                 @default(true)
+  /// B5.5: how the product may be sold. RX_* never goes through the one-click cart.
+  fulfillmentClass ProductFulfillmentClass @default(SUPPLEMENT)
+  /// B5.1: extra names the Rx→Cart mapper matches (e.g. "vit d3", "cholecalciferol").
+  aliases          String[]                @default([])
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
 
   clinic                 Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   inventoryItem          InventoryItem?
@@ -868,6 +923,7 @@ model Product {
   commissionRules        CommissionRule[]
   invoiceItems           InvoiceItem[]
   recommendedForServices Service[]        @relation("ServiceRecommendations")
+  rxOrderLines           RxOrderLine[]
 
   @@unique([clinicId, name])
   @@index([clinicId])
@@ -1040,6 +1096,7 @@ model AIScribeSession {
   provider            Provider             @relation(fields: [providerId], references: [id], onDelete: Restrict)
   clinic              Clinic               @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   consultationSession ConsultationSession?
+  rxOrderProposal     RxOrderProposal?
 
   @@index([visitRecordId])
   @@index([providerId])
@@ -1064,19 +1121,23 @@ model VisitNoteVersion {
 }
 
 model Prescription {
-  id            String   @id @default(cuid())
+  id            String             @id @default(cuid())
   clinicId      String
   appointmentId String
   providerId    String
   patientId     String
-  notes         String   @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  notes         String             @db.Text
+  /// B5.5: Rx items routed off the cart wait here for e-prescribing.
+  status        PrescriptionStatus @default(DRAFT)
+  rxOrderLineId String?            @unique
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
 
-  clinic      Clinic      @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
-  provider    Provider    @relation(fields: [providerId], references: [id], onDelete: Restrict)
-  patient     User        @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  appointment Appointment  @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  provider    Provider     @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  patient     User         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  rxOrderLine RxOrderLine? @relation(fields: [rxOrderLineId], references: [id], onDelete: SetNull)
 }
 
 model RefreshToken {
@@ -1410,15 +1471,22 @@ model CartItem {
 
   appointmentId String? @unique
 
+  /// B5.3 provenance: set when the item came from a provider-confirmed Rx→Cart proposal.
+  rxOrderLineId          String?                  @unique
+  prescribedByProviderId String?
+  patientDecision        CartItemPatientDecision?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cart        Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  service     Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
-  package     Package?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
-  membership  Membership?  @relation(fields: [membershipId], references: [id], onDelete: SetNull)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  rxOrderLine  RxOrderLine? @relation(fields: [rxOrderLineId], references: [id], onDelete: SetNull)
+  prescribedBy Provider?    @relation("CartItemPrescribedBy", fields: [prescribedByProviderId], references: [id], onDelete: SetNull)
+  cart         Cart         @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  service      Service?     @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  package      Package?     @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  membership   Membership?  @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
 
   @@index([cartId])
   @@index([serviceId])
@@ -1633,4 +1701,89 @@ model VoiceCallEvent {
 
   @@index([callId])
   @@index([type])
+}
+
+// --- COMPONENT 5: PRESCRIPTION → CART (B5) ---
+
+/// Products the scribe detected in one visit, mapped to the clinic catalog and
+/// waiting for the provider's explicit confirmation (B5.1 / B5.2).
+model RxOrderProposal {
+  id                String           @id @default(cuid())
+  clinicId          String
+  aiScribeSessionId String           @unique
+  visitRecordId     String
+  appointmentId     String
+  patientId         String
+  providerId        String
+  status            RxProposalStatus @default(PENDING)
+  confirmedById     String?
+  confirmedAt       DateTime?
+  cartId            String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  clinic   Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  session  AIScribeSession @relation(fields: [aiScribeSessionId], references: [id], onDelete: Cascade)
+  provider Provider        @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  patient  User            @relation("RxProposalPatient", fields: [patientId], references: [id], onDelete: Restrict)
+  lines    RxOrderLine[]
+
+  @@index([clinicId])
+  @@index([patientId])
+}
+
+/// One detected order. Every scribe order becomes exactly one line, so nothing
+/// is dropped: unmatched text stays here as UNMAPPED / MANUAL.
+model RxOrderLine {
+  id               String         @id @default(cuid())
+  clinicId         String
+  proposalId       String
+  /// The order as the scribe heard it. PHI: sealed by field-level encryption.
+  rawText          String         @db.Text
+  quantity         Int            @default(1)
+  matchedProductId String?
+  matchStatus      RxMatchStatus
+  route            RxRoute
+  decision         RxLineDecision @default(PENDING)
+  position         Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  proposal       RxOrderProposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  matchedProduct Product?        @relation(fields: [matchedProductId], references: [id], onDelete: SetNull)
+  cartItem       CartItem?
+  prescription   Prescription?
+
+  @@index([clinicId])
+  @@index([proposalId])
+}
+
+/// B5.4: the patient's card and shipping address on file, saved at booking.
+/// The card itself stays at Stripe; only its id, brand and last 4 live here.
+model PatientCommerceProfile {
+  id                     String   @id @default(cuid())
+  clinicId               String
+  patientId              String
+  stripeCustomerId       String?
+  defaultPaymentMethodId String?
+  cardBrand              String?
+  cardLast4              String?
+  cardExpMonth           Int?
+  cardExpYear            Int?
+  shippingName           String?
+  shippingLine1          String?
+  shippingLine2          String?
+  shippingCity           String?
+  shippingState          String?
+  shippingPostalCode     String?
+  shippingCountry        String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  clinic  Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  patient User   @relation("PatientCommerceProfiles", fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, patientId])
+  @@index([clinicId])
 }
