@@ -169,7 +169,7 @@ pnpm run typecheck                         # → clean
 pnpm run lint                              # → ✔ No ESLint warnings or errors
 pnpm run test:coverage                     # → 16 files, 149 passed; statements 32.9 %, branches 80.2 %, functions 56.7 % (floors 19/75/50)
 node scripts/audit-frontend.js             # → ✓ no unaccepted high/critical
-pnpm exec next build                       # → ✓ Compiled successfully
+pnpm run build                             # → ✓ Compiled successfully (next build --webpack since Next 16)
 ```
 
 ### 4.2 B3.1 — presigned files (backend)
@@ -259,7 +259,7 @@ E2E (Windows: two terminals):
 
 ```bash
 # terminal 1
-NEXT_PUBLIC_API_URL=http://127.0.0.1:3999 pnpm exec next build && pnpm test:e2e:serve
+NEXT_PUBLIC_API_URL=http://127.0.0.1:3999 pnpm run build && pnpm test:e2e:serve
 # terminal 2
 E2E_EXTERNAL_SERVER=1 pnpm test:e2e
 ```
@@ -303,7 +303,7 @@ PORT=4302 NODE_ENV=development FIELD_ENCRYPTION_ACTIVE_KID=live1 CORS_ORIGIN=htt
 # → [field-encryption] keys loaded (active "live1", 1 total) · [db] connected as "medoflow_app" — row-level security is enforced
 
 cd ../frontend    # second terminal
-NEXT_PUBLIC_API_URL=http://127.0.0.1:4302 pnpm exec next build && pnpm test:e2e:serve
+NEXT_PUBLIC_API_URL=http://127.0.0.1:4302 pnpm run build && pnpm test:e2e:serve
 # third terminal
 E2E_LIVE_API=http://127.0.0.1:4302 E2E_LIVE_SEED="$(cat ../backend/uploads/.live-seed.json)" \
   E2E_LIVE_PASSWORD="$E2E_LIVE_PASSWORD" E2E_EXTERNAL_SERVER=1 pnpm exec playwright test e2e/live-records.spec.ts
