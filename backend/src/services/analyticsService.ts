@@ -44,15 +44,17 @@ const createApiError = (message: string, statusCode: number, code: string) => {
 
 const toNumber = (value?: Prisma.Decimal | number | string | null) => Number(value ?? 0)
 
+// Day boundaries and weekdays are UTC so results do not depend on the host timezone
+// (production runs in UTC).
 const startOfDay = (date: Date) => {
   const next = new Date(date)
-  next.setHours(0, 0, 0, 0)
+  next.setUTCHours(0, 0, 0, 0)
   return next
 }
 
 const endOfDay = (date: Date) => {
   const next = new Date(date)
-  next.setHours(23, 59, 59, 999)
+  next.setUTCHours(23, 59, 59, 999)
   return next
 }
 
@@ -142,7 +144,7 @@ const projectAvailabilityMinutes = (
     cursor <= range.dateTo;
     cursor = new Date(cursor.getTime() + MS_PER_DAY)
   ) {
-    totalMinutes += byWeekday[cursor.getDay()] ?? 0
+    totalMinutes += byWeekday[cursor.getUTCDay()] ?? 0
   }
   return totalMinutes
 }

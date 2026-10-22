@@ -5,6 +5,7 @@ import {
   getAllowedClinicIds,
   type TenantContext,
 } from './tenantContext'
+import { sealWriteArgs, openResult, assertNoEncryptedFilter } from '../utils/fieldCrypto'
 
 // One client per process in development (survives hot reloads).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -346,19 +347,46 @@ const extended = basePrisma.$extends({
         const ctx = getTenantContext()
         assertTenantScope(model, operation, args, ctx)
         assertDeletePolicy(model, operation, ctx)
+        // B3.2: clinical text is sealed on the way in and opened on the way out.
+        assertNoEncryptedFilter(model, args)
+        const sealedArgs = sealWriteArgs(model, operation, args) as typeof args
 
         // Inside $transaction (interactive or batch) the variables were set
         // by the transaction's first statement.
         const inTransaction = (rest as { __internalParams?: { transaction?: unknown } })
           .__internalParams?.transaction
-        if (!isRlsEnabled() || inTransaction) return query(args)
+        if (!isRlsEnabled() || inTransaction) return openResult(await query(sealedArgs))
 
-        const [, result] = await basePrisma.$transaction([setRlsConfig(basePrisma), query(args)])
-        return result
+        const [, result] = await basePrisma.$transaction([
+          setRlsConfig(basePrisma),
+          query(sealedArgs),
+        ])
+        return openResult(result)
       },
     },
   },
 })
+
+/**
+ * Maintenance only (B3.2 backfill / key rotation): rows exactly as stored —
+ * encrypted fields stay sealed. Goes around the query extension, so it is
+ * restricted to an explicit tenant-bypass scope; RLS variables are still set.
+ */
+export async function findManyAsStored(delegate: string, args: unknown): Promise<unknown[]> {
+  if (!getTenantContext()?.bypassReason) {
+    throw new Error('findManyAsStored requires a withTenantBypass scope')
+  }
+  const d = (
+    basePrisma as unknown as Record<
+      string,
+      { findMany: (a: unknown) => ReturnType<PrismaClient['user']['findMany']> }
+    >
+  )[delegate]
+  if (!d) throw new Error(`Unknown Prisma delegate "${delegate}"`)
+  if (!isRlsEnabled()) return d.findMany(args)
+  const [, rows] = await basePrisma.$transaction([setRlsConfig(basePrisma), d.findMany(args)])
+  return rows
+}
 
 type ExtendedClient = typeof extended
 type TxClient = Parameters<Parameters<ExtendedClient['$transaction']>[0]>[0]

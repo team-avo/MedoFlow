@@ -47,6 +47,8 @@ import {
   StickySummaryPanel,
 } from '@/components/ui-system'
 import { PageContainer } from '@/components/layout'
+import { PrescriptionForm } from '@/components/records/PrescriptionForm'
+import { extractApiError } from '@/lib/apiErrors'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { AppInput } from '@/components/ui-system'
 import {
@@ -83,7 +85,6 @@ export default function ProviderAppointmentDetailPage() {
 
   const [addServiceOpen, setAddServiceOpen] = useState(false)
   const [recordSheetOpen, setRecordSheetOpen] = useState(false)
-  const [prescriptionNotes, setPrescriptionNotes] = useState('')
   const [prescriptionOpen, setPrescriptionOpen] = useState(false)
   const [manualNoteOpen, setManualNoteOpen] = useState(false)
 
@@ -128,12 +129,11 @@ export default function ProviderAppointmentDetailPage() {
     mutationFn: (notes: string) =>
       createPrescription({ appointmentId: id, patientId: appointment!.patientId, notes }),
     onSuccess: () => {
-      setPrescriptionNotes('')
       setPrescriptionOpen(false)
       refetchPrescriptions()
       toast.success('Prescription added')
     },
-    onError: () => toast.error('Failed to create prescription'),
+    onError: (err) => toast.error(extractApiError(err, 'Failed to create prescription').message),
   })
 
   const createInvoiceMutation = useMutation({
@@ -374,31 +374,11 @@ export default function ProviderAppointmentDetailPage() {
                 </AppCardHeader>
                 <AppCardContent className="p-8 space-y-4">
                   {prescriptionOpen && (
-                    <div className="p-6 bg-slate-50 rounded-3xl border-2 border-primary-100 animate-in zoom-in-95 space-y-4">
-                      <textarea
-                        className="w-full bg-white rounded-2xl p-4 text-sm border-slate-200 outline-none focus:border-primary-600"
-                        rows={4}
-                        placeholder="Enter medication, dosage, and instructions..."
-                        value={prescriptionNotes}
-                        onChange={(e) => setPrescriptionNotes(e.target.value)}
-                      />
-                      <div className="flex justify-end gap-2">
-                        <AppButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setPrescriptionOpen(false)}
-                        >
-                          Cancel
-                        </AppButton>
-                        <AppButton
-                          size="sm"
-                          className="rounded-full px-6"
-                          onClick={() => createPrescriptionMutation.mutate(prescriptionNotes)}
-                        >
-                          Save Prescription
-                        </AppButton>
-                      </div>
-                    </div>
+                    <PrescriptionForm
+                      onSubmit={(notes) => createPrescriptionMutation.mutate(notes)}
+                      onCancel={() => setPrescriptionOpen(false)}
+                      isSubmitting={createPrescriptionMutation.isPending}
+                    />
                   )}
                   <div className="space-y-3">
                     {prescriptions.map((rx: any) => (

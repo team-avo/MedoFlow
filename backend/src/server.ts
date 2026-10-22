@@ -5,6 +5,7 @@ import app from './app'
 import prisma, { getDatabaseRoleInfo } from './config/prisma'
 import { startCronJobs } from './scheduler/cronJobs'
 import { createAiScribeWorker } from './queues/aiScribeQueue'
+import { initFieldEncryption } from './config/fieldKeys'
 import type { Server } from 'http'
 
 const PORT = process.env.PORT || 3000
@@ -81,6 +82,21 @@ const bootstrap = async (): Promise<void> => {
   // Every console.* line is PHI-scrubbed before it reaches the log drain (B0.3.5).
   installConsoleScrubber()
   validateProductionEnv()
+  // B3.2: load (or KMS-unwrap) the field-encryption keys before any query.
+  try {
+    const ring = await initFieldEncryption()
+    console.warn(
+      ring
+        ? `[field-encryption] keys loaded (active "${ring.activeKid}", ${ring.keys.size} total)`
+        : '[field-encryption] no keys configured — clinical text is stored unencrypted'
+    )
+  } catch (err) {
+    console.error(
+      '[FATAL] Field encryption keys could not be loaded:',
+      err instanceof Error ? err.message : err
+    )
+    process.exit(1)
+  }
   await connectDatabase()
   validateDatabaseRole(await getDatabaseRoleInfo())
   startCronJobs()

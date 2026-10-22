@@ -1,0 +1,408 @@
+{
+  "$comment": "B3.3 / F3.2 parity: the backend (backend/src/validation/clinicalRecordsSchemas.ts) and the frontend (frontend/lib/schemas/clinicalRecords.ts) must both accept every `valid` payload and reject every `invalid` one. Both test suites load this file. Synthetic values only.",
+  "treatmentPlanCreate": {
+    "valid": [
+      {
+        "case": "minimal",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Knee rehab",
+          "totalSessions": 6,
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "full",
+        "payload": {
+          "patientId": "pat_1",
+          "providerId": "prov_1",
+          "disciplineId": "disc_1",
+          "name": "Knee rehab",
+          "totalSessions": 12,
+          "startDate": "2026-10-01",
+          "endDate": "2026-12-01",
+          "goals": ["Walk 5 km", "Climb stairs"],
+          "notes": "Synthetic note"
+        }
+      },
+      {
+        "case": "nullable optionals",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 1,
+          "startDate": "2026-10-01T09:00:00.000Z",
+          "endDate": null,
+          "goals": null,
+          "notes": null
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "missing name",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "totalSessions": 6,
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "blank name",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "   ",
+          "totalSessions": 6,
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "zero sessions",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 0,
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "fractional sessions",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 2.5,
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "too many sessions",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 501,
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "sessions as string",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": "6",
+          "startDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "bad start date",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 6,
+          "startDate": "next tuesday"
+        }
+      },
+      {
+        "case": "end before start",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 6,
+          "startDate": "2026-10-10",
+          "endDate": "2026-10-01"
+        }
+      },
+      {
+        "case": "empty goal",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 6,
+          "startDate": "2026-10-01",
+          "goals": [""]
+        }
+      },
+      {
+        "case": "goals not a list",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 6,
+          "startDate": "2026-10-01",
+          "goals": "walk"
+        }
+      },
+      {
+        "case": "unknown key (mass assignment)",
+        "payload": {
+          "patientId": "pat_1",
+          "disciplineId": "disc_1",
+          "name": "Plan",
+          "totalSessions": 6,
+          "startDate": "2026-10-01",
+          "clinicId": "other_clinic"
+        }
+      }
+    ]
+  },
+  "treatmentPlanUpdate": {
+    "valid": [
+      { "case": "empty update", "payload": {} },
+      { "case": "progress", "payload": { "sessionsCompleted": 3 } },
+      {
+        "case": "edit",
+        "payload": {
+          "name": "Knee rehab v2",
+          "totalSessions": 10,
+          "sessionsCompleted": 2,
+          "startDate": "2026-10-01",
+          "endDate": null,
+          "goals": ["Walk"],
+          "notes": null
+        }
+      }
+    ],
+    "invalid": [
+      { "case": "negative progress", "payload": { "sessionsCompleted": -1 } },
+      { "case": "blank name", "payload": { "name": "" } },
+      {
+        "case": "status cannot be set directly",
+        "payload": { "status": "COMPLETED" }
+      },
+      {
+        "case": "end before start",
+        "payload": { "startDate": "2026-10-10", "endDate": "2026-10-01" }
+      }
+    ]
+  },
+  "prescriptionCreate": {
+    "valid": [
+      {
+        "case": "notes",
+        "payload": {
+          "appointmentId": "apt_1",
+          "notes": "Vitamin D 1000 IU daily"
+        }
+      },
+      {
+        "case": "with patient",
+        "payload": {
+          "appointmentId": "apt_1",
+          "patientId": "pat_1",
+          "notes": "Rest"
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "empty notes",
+        "payload": { "appointmentId": "apt_1", "notes": "" }
+      },
+      {
+        "case": "whitespace notes",
+        "payload": { "appointmentId": "apt_1", "notes": "   " }
+      },
+      { "case": "missing appointment", "payload": { "notes": "Rest" } },
+      {
+        "case": "notes too long",
+        "payload": { "appointmentId": "apt_1", "notes": "@@LONG_5001@@" }
+      }
+    ]
+  },
+  "formTemplateCreate": {
+    "valid": [
+      {
+        "case": "clinic scope",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [
+            {
+              "id": "field_1",
+              "type": "text",
+              "label": "Reason for visit",
+              "required": true
+            },
+            {
+              "id": "field_2",
+              "type": "select",
+              "label": "Pain level",
+              "options": [
+                { "value": "low", "label": "Low" },
+                { "value": "high", "label": "High" }
+              ]
+            },
+            {
+              "id": "field_3",
+              "type": "checkbox",
+              "label": "I consent",
+              "required": true
+            }
+          ]
+        }
+      },
+      {
+        "case": "discipline scope",
+        "payload": {
+          "name": "Physio intake",
+          "description": "Before your first visit",
+          "scope": "DISCIPLINE",
+          "disciplineId": "disc_1",
+          "fields": [{ "id": "a", "type": "number", "label": "Age" }]
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "no fields",
+        "payload": { "name": "Intake", "scope": "CLINIC", "fields": [] }
+      },
+      {
+        "case": "blank label",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [{ "id": "a", "type": "text", "label": "" }]
+        }
+      },
+      {
+        "case": "select without options",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [{ "id": "a", "type": "select", "label": "Pick" }]
+        }
+      },
+      {
+        "case": "duplicate field ids",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [
+            { "id": "a", "type": "text", "label": "One" },
+            { "id": "a", "type": "text", "label": "Two" }
+          ]
+        }
+      },
+      {
+        "case": "unknown field type",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [{ "id": "a", "type": "file", "label": "Upload" }]
+        }
+      },
+      {
+        "case": "discipline scope without discipline",
+        "payload": {
+          "name": "Intake",
+          "scope": "DISCIPLINE",
+          "fields": [{ "id": "a", "type": "text", "label": "One" }]
+        }
+      },
+      {
+        "case": "clinic scope with a service",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "serviceId": "svc_1",
+          "fields": [{ "id": "a", "type": "text", "label": "One" }]
+        }
+      }
+    ]
+  },
+  "formAnswers": {
+    "fields": [
+      {
+        "id": "reason",
+        "type": "text",
+        "label": "Reason for visit",
+        "required": true
+      },
+      { "id": "history", "type": "textarea", "label": "History" },
+      { "id": "age", "type": "number", "label": "Age", "required": true },
+      {
+        "id": "pain",
+        "type": "select",
+        "label": "Pain level",
+        "required": true,
+        "options": [
+          { "value": "low", "label": "Low" },
+          { "value": "high", "label": "High" }
+        ]
+      },
+      {
+        "id": "consent",
+        "type": "checkbox",
+        "label": "I consent",
+        "required": true
+      },
+      { "id": "newsletter", "type": "checkbox", "label": "Newsletter" }
+    ],
+    "valid": [
+      {
+        "case": "all required answered",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true
+        }
+      },
+      {
+        "case": "with optionals",
+        "answers": {
+          "reason": "Knee pain",
+          "history": "None",
+          "age": 40,
+          "pain": "high",
+          "consent": true,
+          "newsletter": false
+        }
+      }
+    ],
+    "invalid": [
+      {
+        "case": "missing required text",
+        "answers": { "age": 40, "pain": "low", "consent": true }
+      },
+      {
+        "case": "blank required text",
+        "answers": { "reason": "  ", "age": 40, "pain": "low", "consent": true }
+      },
+      {
+        "case": "number as text",
+        "answers": {
+          "reason": "x",
+          "age": "forty",
+          "pain": "low",
+          "consent": true
+        }
+      },
+      {
+        "case": "select value not offered",
+        "answers": {
+          "reason": "x",
+          "age": 40,
+          "pain": "extreme",
+          "consent": true
+        }
+      },
+      {
+        "case": "required checkbox unticked",
+        "answers": { "reason": "x", "age": 40, "pain": "low", "consent": false }
+      }
+    ]
+  }
+}

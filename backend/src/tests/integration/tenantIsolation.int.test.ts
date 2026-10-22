@@ -40,7 +40,7 @@ describe('clinic A actors cannot reach clinic B records', () => {
       ['patient appointments', `/appointments/patient/${B.users.patient.id}`],
       ['patient entitlements', `/patients/${B.users.patient.id}/entitlements`],
       ['patient files', `/files/patient/${B.users.patient.id}`],
-      ['file download', `/files/${B.patientFileId}/download`],
+      ['file download url', `/files/${B.patientFileId}/download-url`],
       ['visit record', `/visits/${B.visitRecordId}`],
       ['visit by appointment', `/visits/appointment/${B.appointmentId}`],
       ['patient visits', `/visits/patient/${B.users.patient.id}`],
@@ -72,7 +72,7 @@ describe('clinic A actors cannot reach clinic B records', () => {
     for (const path of [
       `/appointments/${B.appointmentId}`,
       `/visits/${B.visitRecordId}`,
-      `/files/patient/me/${B.patientFileId}/download`,
+      `/files/patient/me/${B.patientFileId}/download-url`,
       `/invoices/${B.invoiceId}`,
     ]) {
       const res = await api(server.url, path, { token: tokens.patient })

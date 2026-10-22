@@ -21,9 +21,14 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
-    "seed:demo": "ts-node prisma/seed_demo.ts"
+    "seed:demo": "ts-node prisma/seed_demo.ts",
+    "ops:encrypt-phi": "node dist/cli/encryptPhiFields.js",
+    "ops:encrypt-phi:dev": "ts-node --transpile-only src/cli/encryptPhiFields.ts",
+    "ops:migrate-patient-files": "node dist/cli/migratePatientFiles.js",
+    "ops:migrate-patient-files:dev": "ts-node --transpile-only src/cli/migratePatientFiles.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1152.0",
     "@aws-sdk/client-s3": "^3.1150.0",
     "@aws-sdk/s3-request-presigner": "^3.1150.0",
     "@prisma/client": "^6.0.0",
@@ -62,6 +67,7 @@
     "@types/nodemailer": "^7.0.11",
     "@types/stripe": "^8.0.416",
     "@vitest/coverage-v8": "^3.1.2",
+    "eslint": "^8.57.1",
     "eslint-plugin-security": "^3.0.1",
     "nodemon": "^3.1.7",
     "ts-node": "^10.9.2",

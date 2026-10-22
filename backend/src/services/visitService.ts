@@ -34,6 +34,15 @@ const validateAppointmentForProvider = async (
   return appointment
 }
 
+/** Which SOAP sections a write touches (names only — never the text). */
+const soapFieldsPresent = (d: {
+  subjective?: string | null
+  objective?: string | null
+  assessment?: string | null
+  plan?: string | null
+}): string[] =>
+  (['subjective', 'objective', 'assessment', 'plan'] as const).filter((k) => d[k] !== undefined)
+
 export const createVisitRecord = async (
   data: CreateVisitRecordData,
   providerId: string,
@@ -99,7 +108,22 @@ export const createVisitRecord = async (
       where: { id: created.id, clinicId },
       data: { currentVersionId: version.id },
     })
-    return created
+    return { ...created, versionId: version.id }
+  })
+
+  // B0.3.2 / B3.3: the note text is never copied into the audit log —
+  // the version id points at the immutable (encrypted) snapshot.
+  await auditService.logAudit({
+    clinicId,
+    entityType: 'VisitRecord',
+    entityId: record.id,
+    action: 'VISIT_RECORD_CREATED',
+    newValue: {
+      appointmentId,
+      versionId: record.versionId,
+      fields: soapFieldsPresent({ subjective, objective, assessment, plan }),
+    },
+    performedById: createdById,
   })
 
   return prisma.visitRecord.findFirst({
@@ -211,6 +235,17 @@ export const updateVisitRecord = async (
       plan: data.plan !== undefined ? data.plan : record.plan,
       createdById: performedById,
     },
+  })
+
+  await auditService.logAudit({
+    clinicId,
+    entityType: 'VisitRecord',
+    entityId: id,
+    action: 'VISIT_RECORD_UPDATED',
+    fieldChanged: soapFieldsPresent(data).join(','),
+    oldValue: { versionId: record.currentVersionId },
+    newValue: { versionId: version.id },
+    performedById,
   })
 
   return prisma.visitRecord.update({
