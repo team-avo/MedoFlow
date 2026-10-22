@@ -14,7 +14,7 @@ import { defineConfig, devices } from '@playwright/test'
  *   pnpm test:e2e                     build + start on :4310, run (CI, Linux/macOS)
  *   E2E_SKIP_BUILD=1 pnpm test:e2e    reuse the last e2e build
  *   Windows: Playwright cannot stop its server there, so run it yourself —
- *     terminal 1: NEXT_PUBLIC_API_URL=http://127.0.0.1:3999 pnpm exec next build && pnpm test:e2e:serve
+ *     terminal 1: NEXT_PUBLIC_API_URL=http://127.0.0.1:3999 pnpm run build && pnpm test:e2e:serve
  *     terminal 2: E2E_EXTERNAL_SERVER=1 pnpm test:e2e
  */
 const PORT = 4310
@@ -42,7 +42,7 @@ export default defineConfig({
         // every OS — `next start` forks a child that outlives it on Windows.
         command: process.env.E2E_SKIP_BUILD
           ? `node scripts/e2e-server.js ${PORT}`
-          : `node node_modules/next/dist/bin/next build && node scripts/e2e-server.js ${PORT}`,
+          : `node node_modules/next/dist/bin/next build --webpack && node scripts/e2e-server.js ${PORT}`,
         url: `http://127.0.0.1:${PORT}`,
         timeout: 600_000,
         // Never reuse: a stale server would test an old build.

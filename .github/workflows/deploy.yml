@@ -166,7 +166,7 @@ jobs:
         env:
           # e2e build: the API is simulated in the browser (e2e/mockApi.ts).
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3999
-        run: pnpm exec next build
+        run: pnpm run build
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium
       - name: Browser e2e (F0.2 idle logoff + MFA, F1 booking / waitlist / recurring / cancel-reschedule, F3 presigned files)

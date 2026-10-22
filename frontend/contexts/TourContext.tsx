@@ -121,7 +121,6 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       patchUser({ hasSeenTour: true, tourCompletedAt: new Date().toISOString() })
     } catch (err) {
       // Non-fatal — tour will just try to auto-start again on next login.
-      // eslint-disable-next-line no-console
       clientLog.warn('[TourContext] failed to persist hasSeenTour', err)
     }
   }, [patchUser])

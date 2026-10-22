@@ -195,7 +195,6 @@ export default function ServicesStepPage() {
               defaultPrice: d.defaultPrice,
             })
           } catch (err) {
-            // eslint-disable-next-line no-console
             clientLog.warn('[services] create failed', err)
           }
         }
