@@ -57,6 +57,15 @@ import {
   isSlotUnavailableError,
 } from '@/lib/bookingErrors'
 import { cancellationTerms, describeCancellationPolicy } from '@/lib/cancellationPolicy'
+import {
+  addDaysToDateKey,
+  dateKeyInZone,
+  formatDateKey,
+  formatLongDate,
+  formatSlotTime,
+  formatTimeRange,
+  displayTimeZoneLabel,
+} from '@/lib/timezone'
 
 // ───────────────────────── Context ─────────────────────────
 
@@ -573,7 +582,7 @@ function ScheduleStep({
 }) {
   const router = useRouter()
   const [locations, setLocations] = React.useState<Location[]>([])
-  const [date, setDate] = React.useState<string>(() => initialDate ?? todayISO())
+  const [date, setDate] = React.useState<string>(() => initialDate ?? dateKeyInZone())
   const [slots, setSlots] = React.useState<TimeSlot[] | null>(null)
   const [loadingSlots, setLoadingSlots] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -700,7 +709,7 @@ function ScheduleStep({
                 onClick={() => onPick(s, locationId)}
                 className="rounded-xl border border-slate-200 bg-white py-2.5 text-[13px] font-semibold text-slate-800 transition-colors hover:border-slate-900 hover:bg-slate-900 hover:text-white"
               >
-                {formatClock(s.start, s.timezone)}
+                {formatSlotTime(s.start, date)}
               </button>
             ))}
           </div>
@@ -710,7 +719,7 @@ function ScheduleStep({
       {locations[0] && (
         <p className="flex items-center gap-1.5 text-[11.5px] text-slate-500">
           <MapPin className="h-3.5 w-3.5" />
-          {locations[0].name} · {locations[0].timezone}
+          {locations[0].name} · times shown in {displayTimeZoneLabel()}
         </p>
       )}
     </div>
@@ -734,12 +743,6 @@ function ReviewStep({
   const policy = describeCancellationPolicy(
     cancellationTerms(svc, { startTime: slot.start, priceAtBooking: svc.defaultPrice })
   )
-  const d = new Date(slot.start)
-  const longDate = d.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  })
 
   return (
     <div className="space-y-5">
@@ -755,13 +758,13 @@ function ReviewStep({
               : 'Any available'}
           </ReviewRow>
           <ReviewRow icon={CalendarCheck} label="Date">
-            {longDate}
+            {formatLongDate(slot.start)}
           </ReviewRow>
           <ReviewRow icon={Clock} label="Time">
-            {formatClock(slot.start, slot.timezone)} – {formatClock(slot.end, slot.timezone)}
+            {formatTimeRange(slot.start, slot.end)}
           </ReviewRow>
           <ReviewRow icon={MapPin} label="Timezone">
-            {slot.timezone}
+            {displayTimeZoneLabel()} (your time)
           </ReviewRow>
         </dl>
       </div>
@@ -911,47 +914,17 @@ function UnauthorizedState({ onClose }: { onClose: () => void }) {
 
 // ───────────────────────── Helpers ─────────────────────────
 
-function todayISO(): string {
-  const d = new Date()
-  return isoDate(d)
-}
-
-function isoDate(d: Date): string {
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
-}
-
 function buildDateOptions() {
-  const out: Array<{ value: string; weekday: string; day: string; month: string }> = []
-  const now = new Date()
-  for (let i = 0; i < 14; i++) {
-    const d = new Date(now)
-    d.setDate(now.getDate() + i)
-    out.push({
-      value: isoDate(d),
-      weekday: d.toLocaleDateString(undefined, { weekday: 'short' }),
-      day: String(d.getDate()),
-      month: d.toLocaleDateString(undefined, { month: 'short' }),
-    })
-  }
-  return out
-}
-
-function formatClock(iso: string, timezone: string) {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: timezone,
-    }).format(new Date(iso))
-  } catch {
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
-  }
+  // Clinic calendar days from "today" in the display zone. Labels format the
+  // date key itself, so a chip always reads as the day it requests.
+  const today = dateKeyInZone()
+  return Array.from({ length: 14 }, (_, i) => {
+    const value = addDaysToDateKey(today, i)
+    return {
+      value,
+      weekday: formatDateKey(value, { weekday: 'short' }),
+      day: formatDateKey(value, { day: 'numeric' }),
+      month: formatDateKey(value, { month: 'short' }),
+    }
+  })
 }

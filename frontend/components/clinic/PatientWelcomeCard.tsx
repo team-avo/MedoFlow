@@ -15,6 +15,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CalendarCheck, ClipboardList, Receipt, Sparkles } from 'lucide-react'
 import { getMyAppointments, getMyInvoices, type PatientAppointment } from '@/lib/patientApi'
 import type { PatientHubTab } from './PatientHubModal'
+import { formatShortDateTime as formatDateTime } from '@/lib/timezone'
 
 interface InvoiceLite {
   id: string
@@ -29,21 +30,6 @@ interface Props {
   themeColor: string
   routeId: string
   onOpenHub: (tab: PatientHubTab) => void
-}
-
-function formatDateTime(iso: string) {
-  try {
-    const d = new Date(iso)
-    return d.toLocaleString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  } catch {
-    return iso
-  }
 }
 
 function pickNextAppointment(list: PatientAppointment[] | undefined): PatientAppointment | null {

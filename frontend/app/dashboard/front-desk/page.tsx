@@ -16,6 +16,7 @@ import {
   KPIStatCard,
   DateRangeFilter,
 } from '@/components/ui-system'
+import { formatTime } from '@/lib/timezone'
 import type { DateRangeOption, DateRange } from '@/components/ui-system/DateRangeFilter'
 import { PageContainer } from '@/components/layout'
 import { AppTable } from '@/components/ui-system/AppTable'
@@ -29,13 +30,6 @@ import {
   Users,
   Clock,
 } from 'lucide-react'
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
 
 export default function FrontDeskDashboardPage() {
   const { user } = useAuth()

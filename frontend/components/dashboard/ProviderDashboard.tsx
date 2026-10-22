@@ -15,6 +15,7 @@ import {
   AppPageHeader,
   KPIStatCard,
 } from '@/components/ui-system'
+import { formatDayHeading, formatTime } from '@/lib/timezone'
 import { PageContainer } from '@/components/layout'
 import {
   Calendar,
@@ -31,13 +32,6 @@ import {
 } from 'lucide-react'
 import { cn, getGreetingName } from '@/lib/utils'
 
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
-}
-
 function isSameDay(a: Date, b: Date) {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -51,11 +45,7 @@ function dayLabel(d: Date, today: Date): string {
   const tomorrow = new Date(today)
   tomorrow.setDate(today.getDate() + 1)
   if (isSameDay(d, tomorrow)) return 'Tomorrow'
-  return d.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatDayHeading(d)
 }
 
 /**
@@ -162,10 +152,7 @@ function ProviderDashboardContent() {
       const thisEnd = new Date(todaysUpcoming[i]!.endTime).getTime()
       const nextStart = new Date(todaysUpcoming[i + 1]!.startTime).getTime()
       if (nextStart - thisEnd >= 30 * 60_000) {
-        return new Date(thisEnd).toLocaleTimeString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-        })
+        return formatTime(thisEnd)
       }
     }
     return todaysUpcoming.length ? '—' : '12:30 PM'
