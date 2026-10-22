@@ -18,6 +18,7 @@ import {
   startScribeFromMeeting,
   syncGoogleMeetings,
 } from '@/lib/googleCalendarApi'
+import { formatDateTime, formatTime } from '@/lib/timezone'
 
 function ProviderMeetingsPageContent() {
   const { user } = useAuth()
@@ -213,8 +214,7 @@ function ProviderMeetingsPageContent() {
                     {event.summary || 'Untitled meeting'}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {new Date(event.startTime).toLocaleString()} -{' '}
-                    {new Date(event.endTime).toLocaleTimeString()}
+                    {formatDateTime(event.startTime)} - {formatTime(event.endTime)}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {event.meetLink && (
@@ -275,8 +275,7 @@ function ProviderMeetingsPageContent() {
               <option value="">Select appointment</option>
               {(candidateAppointments ?? []).map((apt) => (
                 <option key={apt.id} value={apt.id}>
-                  {new Date(apt.startTime).toLocaleString()} | {apt.patient.name} |{' '}
-                  {apt.service.name}
+                  {formatDateTime(apt.startTime)} | {apt.patient.name} | {apt.service.name}
                 </option>
               ))}
             </select>

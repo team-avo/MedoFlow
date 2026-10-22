@@ -28,12 +28,10 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react'
+import { formatShortDateTime as formatDateTime } from '@/lib/timezone'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter, usePathname } from 'next/navigation'
-import {
-  getMyAppointments,
-  type PatientAppointment,
-} from '@/lib/patientApi'
+import { getMyAppointments, type PatientAppointment } from '@/lib/patientApi'
 import { cn } from '@/lib/utils'
 
 export type PatientHubTab = 'overview' | 'appointments' | 'visits' | 'profile'
@@ -160,14 +158,9 @@ export function PatientHubModal({
               />
             )}
             {tab === 'visits' && (
-              <VisitsPanel
-                appointments={appointments}
-                loading={appointmentsLoading}
-              />
+              <VisitsPanel appointments={appointments} loading={appointmentsLoading} />
             )}
-            {tab === 'profile' && (
-              <ProfilePanel themeColor={themeColor} />
-            )}
+            {tab === 'profile' && <ProfilePanel themeColor={themeColor} />}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -213,12 +206,16 @@ function OverviewPanel({
           className="rounded-2xl border p-5"
           style={{ backgroundColor: `${themeColor}10`, borderColor: `${themeColor}30` }}
         >
-          <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: themeColor }}>
+          <p
+            className="text-[10px] font-black uppercase tracking-widest"
+            style={{ color: themeColor }}
+          >
             Your next visit
           </p>
           <p className="mt-2 text-xl font-bold text-slate-900">{next.service.name}</p>
           <p className="mt-1 text-sm text-slate-600">
-            {formatDateTime(next.startTime)} · Dr. {next.provider.firstName} {next.provider.lastName}
+            {formatDateTime(next.startTime)} · Dr. {next.provider.firstName}{' '}
+            {next.provider.lastName}
           </p>
           {next.location?.name && (
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
@@ -238,10 +235,7 @@ function OverviewPanel({
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Upcoming" value={String(upcoming.length)} />
         <StatCard label="Completed" value={String(past.length)} />
-        <StatCard
-          label="Total visits"
-          value={String((appointments ?? []).length)}
-        />
+        <StatCard label="Total visits" value={String((appointments ?? []).length)} />
       </div>
 
       {/* Shop tile — routes to the dedicated clinic storefront */}
@@ -264,9 +258,7 @@ function OverviewPanel({
             </span>
             <div>
               <p className="text-[15px] font-bold text-slate-900">Shop the storefront</p>
-              <p className="mt-0.5 text-[12px] text-slate-500">
-                Curated products from your clinic
-              </p>
+              <p className="mt-0.5 text-[12px] text-slate-500">Curated products from your clinic</p>
             </div>
           </div>
           <ArrowRight
@@ -361,10 +353,12 @@ function VisitsPanel({
         <div key={appt.id} className="rounded-2xl border border-slate-100 bg-white p-5">
           <p className="text-sm font-bold text-slate-900">{appt.service.name}</p>
           <p className="mt-1 text-xs text-slate-500">
-            {formatDateTime(appt.startTime)} · Dr. {appt.provider.firstName} {appt.provider.lastName}
+            {formatDateTime(appt.startTime)} · Dr. {appt.provider.firstName}{' '}
+            {appt.provider.lastName}
           </p>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            Visit complete. Detailed notes are reviewed by your clinician and shared with you on request.
+            Visit complete. Detailed notes are reviewed by your clinician and shared with you on
+            request.
           </p>
         </div>
       ))}
@@ -488,15 +482,4 @@ function StatusBadge({ status, themeColor }: { status: string; themeColor: strin
       {s.label}
     </span>
   )
-}
-
-function formatDateTime(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

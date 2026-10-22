@@ -11,7 +11,7 @@ import { CancelAppointmentDialog } from '@/components/appointments/CancelAppoint
 import { CancelSeriesDialog } from '@/components/appointments/CancelSeriesDialog'
 import { RescheduleDialog } from './RescheduleDialog'
 import { useAppToast } from '@/hooks/useAppToast'
-import { format } from 'date-fns'
+import { formatDate, formatTime } from '@/lib/timezone'
 
 interface AppointmentSheetProps {
   appointment: ProviderAppointment | null
@@ -88,7 +88,7 @@ export function AppointmentSheet({
             <div>
               <p className="text-sm font-medium text-muted-foreground">Date & Time</p>
               <p className="mt-1">
-                {format(new Date(appointment.startTime), 'EEEE, MMM d, yyyy · h:mm a')}
+                {formatDate(appointment.startTime)} · {formatTime(appointment.startTime)}
               </p>
             </div>
             <div>

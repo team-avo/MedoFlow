@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, DM_Sans } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { TourProvider } from '@/contexts/TourContext'
@@ -9,14 +9,23 @@ import { GlobalApiLoader } from '@/components/common/GlobalApiLoader'
 import { TourOverlay } from '@/components/tour/TourOverlay'
 import { Toaster } from '@/components/ui/sonner'
 
-const inter = Inter({
-  subsets: ['latin'],
+// Self-hosted fonts (app/fonts, SIL OFL 1.1 — licences alongside). The build
+// used to download them from Google Fonts via next/font/google; an occasional
+// unexpected Google response crashed `next build` (and so deploys), so the
+// files — the same latin variable-weight woff2s Google serves — are in the repo.
+const inter = localFont({
+  src: './fonts/inter-latin-wght.woff2',
+  weight: '100 900',
+  style: 'normal',
+  display: 'swap',
   variable: '--font-inter',
 })
 
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
+const dmSans = localFont({
+  src: './fonts/dm-sans-latin-wght.woff2',
+  weight: '400 700',
+  style: 'normal',
+  display: 'swap',
   variable: '--font-dm-sans',
 })
 
@@ -36,8 +45,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white`}>
+    // suppressHydrationWarning: browser extensions (LanguageTool, Grammarly,
+    // password managers) add attributes to <html>/<body> before React
+    // hydrates. It applies to these two elements' own attributes only, so
+    // real mismatches inside the app still surface.
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={`${inter.variable} ${dmSans.variable} font-sans antialiased bg-white`}
+        suppressHydrationWarning
+      >
         <QueryProvider>
           <AuthProvider>
             <TourProvider>

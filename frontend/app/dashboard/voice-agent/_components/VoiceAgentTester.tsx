@@ -137,7 +137,6 @@ export function VoiceAgentTester() {
     return () => {
       teardown()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const teardown = () => {

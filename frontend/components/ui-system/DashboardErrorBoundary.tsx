@@ -33,7 +33,6 @@ export class DashboardErrorBoundary extends React.Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, _info: React.ErrorInfo): void {
-    // eslint-disable-next-line no-console
     clientLog.error('[DashboardErrorBoundary] render error', error)
   }
 
