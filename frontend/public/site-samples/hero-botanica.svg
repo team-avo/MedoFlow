@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Fresh herbs illustration"><title>Fresh herbs illustration</title>
+<rect width="1200" height="800" fill="#f4f6ec"/>
+<circle cx="640" cy="420" r="300" fill="#e2e8d2"/>
+<path transform="translate(640 700) rotate(0)" d="M0 0 C 90 -75 90 -225 0 -300 C -90 -225 -90 -75 0 0 Z" fill="#3f6212" opacity="1"/><path transform="translate(640 700) rotate(-32)" d="M0 0 C 78 -65 78 -195 0 -260 C -78 -195 -78 -65 0 0 Z" fill="#1a2e05" opacity="0.85"/><path transform="translate(640 700) rotate(32)" d="M0 0 C 78 -65 78 -195 0 -260 C -78 -195 -78 -65 0 0 Z" fill="#3f6212" opacity="0.75"/><path transform="translate(640 700) rotate(-64)" d="M0 0 C 60 -50 60 -150 0 -200 C -60 -150 -60 -50 0 0 Z" fill="#b45309" opacity="0.7"/><path transform="translate(640 700) rotate(64)" d="M0 0 C 60 -50 60 -150 0 -200 C -60 -150 -60 -50 0 0 Z" fill="#b45309" opacity="0.6"/>
+<rect x="520" y="660" width="240" height="120" rx="30" fill="#b45309"/></svg>

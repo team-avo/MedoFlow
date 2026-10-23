@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Bright clinic illustration"><title>Bright clinic illustration</title>
+<rect width="1200" height="800" fill="#eff6ff"/>
+<circle cx="980" cy="160" r="220" fill="#dbeafe"/>
+<rect x="220" y="260" width="760" height="460" rx="24" fill="#fff" stroke="#dbeafe" stroke-width="6"/>
+<rect x="220" y="200" width="760" height="90" rx="20" fill="#1d4ed8"/>
+<path d="M591 218h18v18h18v18h-18v18h-18v-18h-18v-18h18z" fill="#fff"/>
+<rect x="290" y="350" width="170" height="150" rx="14" fill="#dbeafe"/><rect x="515" y="350" width="170" height="150" rx="14" fill="#dbeafe"/><rect x="740" y="350" width="170" height="150" rx="14" fill="#dbeafe"/>
+<rect x="530" y="560" width="140" height="160" rx="12" fill="#1e3a8a"/>
+<rect x="120" y="718" width="960" height="12" rx="6" fill="#0ea5e9" opacity=".5"/>
+<path transform="translate(150 718) rotate(-15)" d="M0 0 C 42 -35 42 -105 0 -140 C -42 -105 -42 -35 0 0 Z" fill="#0ea5e9" opacity="0.8"/><path transform="translate(1060 718) rotate(20)" d="M0 0 C 36 -30 36 -90 0 -120 C -36 -90 -36 -30 0 0 Z" fill="#1d4ed8" opacity="0.6"/></svg>

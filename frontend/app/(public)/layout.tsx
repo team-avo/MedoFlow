@@ -20,6 +20,7 @@ import { CartModalProvider } from '@/components/store/CartModal'
 import { CartProvider } from '@/hooks/useCart'
 import { ProductDetailProvider } from '@/components/store/ProductDetailModal'
 import { BookingModalProvider } from '@/components/booking/BookingModal'
+import { MedoflowFullScreen } from '@/components/common/MedoflowLoader'
 
 // Routes within (public) that require authentication.
 // `/book` is intentionally NOT here — the clinic page handles its own
@@ -45,7 +46,17 @@ function isClinicSite(pathname: string | null, search: URLSearchParams | null): 
   return false
 }
 
+// useSearchParams needs a Suspense boundary for static rendering; the root
+// app/loading.tsx used to provide it (moved per area for Component 8).
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <React.Suspense fallback={<MedoflowFullScreen subtitle="Loading clinical OS" />}>
+      <PublicLayoutInner>{children}</PublicLayoutInner>
+    </React.Suspense>
+  )
+}
+
+function PublicLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const { isAuthenticated, isLoading } = useAuth()

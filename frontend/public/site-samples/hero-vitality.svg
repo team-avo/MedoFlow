@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" role="img" aria-label="Dynamic movement illustration"><title>Dynamic movement illustration</title>
+<rect width="1200" height="800" fill="#0b1324"/>
+<path d="M-50 650 L 500 180 L 640 260 L 1250 -40 V 800 H -50Z" fill="#ea580c" opacity=".9"/>
+<path d="M-50 760 L 600 380 L 700 440 L 1250 120 V 800 H -50Z" fill="#facc15" opacity=".85"/>
+<circle cx="860" cy="250" r="56" fill="#fff"/>
+<path d="M860 310 L 800 460 L 700 520 M 820 420 L 940 500 L 990 640 M 830 360 L 960 330" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>

@@ -20,6 +20,9 @@ import {
   Sparkles,
   Zap,
   Globe,
+  Inbox,
+  LayoutTemplate,
+  PenSquare,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/common/BrandLogo'
 
@@ -114,7 +117,12 @@ const superAdminSections: SidebarSection[] = [
   },
   {
     title: 'Website',
-    items: [{ href: '/dashboard/site/pages', label: 'Page Builder', icon: Globe }],
+    items: [
+      { href: '/dashboard/site', label: 'Website', icon: Globe },
+      { href: '/dashboard/site/editor', label: 'Editor', icon: PenSquare },
+      { href: '/dashboard/site/templates', label: 'Templates', icon: LayoutTemplate },
+      { href: '/dashboard/site/leads', label: 'Enquiries', icon: Inbox },
+    ],
   },
   {
     title: 'Insights',
@@ -148,6 +156,22 @@ const frontDeskSections: SidebarSection[] = [
     title: 'Finance',
     items: [{ href: '/dashboard/front-desk/invoices', label: 'Billing', icon: Receipt }],
   },
+  {
+    title: 'Website',
+    items: [{ href: '/dashboard/site/leads', label: 'Enquiries', icon: Inbox }],
+  },
+]
+
+// MARKETING: the clinic website only (Component 8).
+const marketingSections: SidebarSection[] = [
+  {
+    title: 'Website',
+    items: [
+      { href: '/dashboard/site', label: 'Website', icon: Globe },
+      { href: '/dashboard/site/editor', label: 'Editor', icon: PenSquare },
+      { href: '/dashboard/site/templates', label: 'Templates', icon: LayoutTemplate },
+    ],
+  },
 ]
 
 /**
@@ -176,7 +200,9 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
           ? superAdminSections
           : user?.role === 'FRONT_DESK'
             ? frontDeskSections
-            : []
+            : user?.role === 'MARKETING'
+              ? marketingSections
+              : []
 
   const asideClass = cn(
     'flex flex-col text-white relative overflow-hidden',

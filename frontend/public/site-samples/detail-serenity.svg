@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" role="img" aria-label="Calm interior detail illustration"><title>Calm interior detail illustration</title>
+<rect width="1000" height="750" fill="#fbf6f0"/>
+<rect x="160" y="120" width="300" height="420" rx="150" fill="#f0e4d7"/>
+<circle cx="680" cy="330" r="140" fill="#c8a27c" opacity=".5"/>
+<rect x="120" y="560" width="760" height="40" rx="20" fill="#9a6b4f" opacity=".7"/>
+<path transform="translate(310 540) rotate(0)" d="M0 0 C 66 -55 66 -165 0 -220 C -66 -165 -66 -55 0 0 Z" fill="#9a6b4f" opacity="0.8"/><path transform="translate(310 540) rotate(-35)" d="M0 0 C 54 -45 54 -135 0 -180 C -54 -135 -54 -45 0 0 Z" fill="#5c4033" opacity="0.6"/><path transform="translate(310 540) rotate(35)" d="M0 0 C 54 -45 54 -135 0 -180 C -54 -135 -54 -45 0 0 Z" fill="#c8a27c" opacity="0.8"/></svg>

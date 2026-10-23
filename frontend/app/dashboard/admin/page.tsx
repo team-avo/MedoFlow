@@ -44,7 +44,8 @@ import { AppButton } from '@/components/ui-system'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { WebsiteGeneratorModal } from '@/components/clinic/WebsiteGeneratorModal'
+import { LaunchWebsiteModal } from '@/components/site/builder/LaunchWebsiteModal'
+import { siteApi } from '@/lib/site/siteApi'
 import { getClinic } from '@/lib/clinicApi'
 
 export default function AdminDashboardPage() {
@@ -80,10 +81,15 @@ function AdminDashboardContent() {
     enabled: !!user?.clinicId,
   })
 
-  const websiteSlug = currentClinic?.slug ?? null
-  const websiteUrl = websiteSlug
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/clinic/${websiteSlug}`
-    : null
+  // Component 8: the website is live once it has been published; its address
+  // is the canonical one (custom domain, subdomain, or <app>/s/<slug>).
+  const { data: siteOverview } = useQuery({
+    queryKey: ['site', 'overview'],
+    queryFn: siteApi.getSite,
+    enabled: !!user?.clinicId,
+  })
+  const websiteLive = !!siteOverview?.publishedAt
+  const websiteUrl = websiteLive ? siteOverview!.urls.canonical : null
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-overview', dateRangeOption],
@@ -105,7 +111,7 @@ function AdminDashboardContent() {
         description="High-level clinic health and financial overview"
         actions={
           <div className="flex items-center gap-3">
-            {!websiteSlug && (
+            {!websiteLive && (
               <button
                 type="button"
                 onClick={() => setGeneratorOpen(true)}
@@ -126,13 +132,10 @@ function AdminDashboardContent() {
         }
       />
 
-      <WebsiteGeneratorModal
+      <LaunchWebsiteModal
         open={generatorOpen}
         onOpenChange={setGeneratorOpen}
-        mode={websiteSlug ? 'edit' : 'create'}
         defaultName={currentClinic?.name ?? user?.clinic?.name ?? ''}
-        defaultLogoUrl={currentClinic?.logoUrl ?? undefined}
-        defaultThemeColor={currentClinic?.themeColor ?? undefined}
       />
 
       <WebsiteStatusBanner
@@ -569,10 +572,7 @@ function WebsiteStatusBanner({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <a
-            href={websiteUrl.replace(
-              typeof window !== 'undefined' ? window.location.origin : '',
-              ''
-            )}
+            href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
@@ -581,14 +581,13 @@ function WebsiteStatusBanner({
             <ExternalLink className="h-4 w-4" />
             Open site
           </a>
-          <button
-            type="button"
-            onClick={onGenerate}
+          <a
+            href="/dashboard/site"
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
           >
             <Wand2 className="h-4 w-4" />
-            Edit branding
-          </button>
+            Edit website
+          </a>
         </div>
       </div>
     </div>
