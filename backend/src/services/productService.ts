@@ -1,6 +1,7 @@
 import prisma from '../config/prisma'
 import type { ApiError } from '../types/errors'
 import type { ProductFulfillmentClass } from '@prisma/client'
+import { uniqueEntitySlug } from '../site/services/slugService'
 
 export const getProducts = async (clinicId: string) => {
   return prisma.product.findMany({
@@ -45,6 +46,7 @@ export const createProduct = async (clinicId: string, input: CreateProductInput)
     data: {
       clinicId,
       name: input.name,
+      slug: await uniqueEntitySlug('product', clinicId, input.name),
       description: input.description,
       sku: input.sku,
       price: input.price,

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" role="img" aria-label="Skincare bottles illustration"><title>Skincare bottles illustration</title>
+<rect width="1000" height="750" fill="#f0e4d7"/>
+<rect x="0" y="560" width="1000" height="190" fill="#c8a27c" opacity=".4"/>
+<rect x="260" y="300" width="140" height="280" rx="30" fill="#9a6b4f"/><rect x="300" y="250" width="60" height="60" rx="10" fill="#5c4033"/>
+<rect x="450" y="360" width="120" height="220" rx="60" fill="#fff"/><rect x="485" y="320" width="50" height="50" rx="8" fill="#c8a27c"/>
+<rect x="620" y="400" width="160" height="180" rx="24" fill="#5c4033" opacity=".85"/>
+<path transform="translate(180 580) rotate(-20)" d="M0 0 C 48 -40 48 -120 0 -160 C -48 -120 -48 -40 0 0 Z" fill="#9a6b4f" opacity="0.5"/><path transform="translate(840 580) rotate(18)" d="M0 0 C 42 -35 42 -105 0 -140 C -42 -105 -42 -35 0 0 Z" fill="#9a6b4f" opacity="0.5"/></svg>

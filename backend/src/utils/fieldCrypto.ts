@@ -36,6 +36,7 @@ export const ENCRYPTED_FIELDS: Readonly<Record<string, Readonly<Record<string, F
     shippingCity: 's',
     shippingPostalCode: 's',
   },
+  SiteLead: { name: 's', email: 's', phone: 's', message: 's' },
 }
 
 export const ENVELOPE_PREFIX = 'fle:v1:'

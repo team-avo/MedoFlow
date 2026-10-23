@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" role="img" aria-label="Care team illustration"><title>Care team illustration</title>
+<rect width="1000" height="750" fill="#eff6ff"/>
+<circle cx="220" cy="300" r="90" fill="#1d4ed8" opacity=".9"/><rect x="90" y="410" width="260" height="260" rx="120" fill="#1d4ed8" opacity=".75"/><circle cx="500" cy="300" r="90" fill="#0ea5e9" opacity=".9"/><rect x="370" y="410" width="260" height="260" rx="120" fill="#0ea5e9" opacity=".75"/><circle cx="780" cy="300" r="90" fill="#1e3a8a" opacity=".9"/><rect x="650" y="410" width="260" height="260" rx="120" fill="#1e3a8a" opacity=".75"/>
+<path d="M490 490h20v20h20v20h-20v20h-20v-20h-20v-20h20z" fill="#fff"/></svg>

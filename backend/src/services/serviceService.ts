@@ -2,6 +2,7 @@ import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
+import { uniqueEntitySlug } from '../site/services/slugService'
 
 export interface CreateServiceData {
   disciplineId: string
@@ -47,6 +48,7 @@ export const createService = async (
       clinicId,
       disciplineId: data.disciplineId,
       name: data.name,
+      slug: await uniqueEntitySlug('service', clinicId, data.name),
       duration: data.duration,
       defaultPrice: data.defaultPrice,
       taxApplicable: data.taxApplicable ?? false,

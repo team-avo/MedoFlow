@@ -332,6 +332,12 @@ model Clinic {
   customRoles               CustomRole[]
   scribeTemplates           ScribeTemplate[]
   sitePages                 SitePage[]
+  site                      Site?
+  siteDomains               SiteDomain[]
+  siteAssets                SiteAsset[]
+  sitePageRevisions         SitePageRevision[]
+  siteRedirects             SiteRedirect[]
+  siteLeads                 SiteLead[]
   voiceAgentConfig          VoiceAgentConfig?
   voiceCalls                VoiceCall[]
   breakGlassGrants          BreakGlassGrant[]
@@ -348,21 +354,35 @@ model Clinic {
 // editor and on the public route. draftSectionsJson is what the editor
 // writes to; sectionsJson is what the public site renders. Publishing
 // copies draft → published.
+//
+// Every draft field (draftSectionsJson, draftTitle, draftSeo*) is editor
+// state only; the public renderer reads the live columns, which change only
+// on publish (B8.1).
 model SitePage {
-  id                String         @id @default(cuid())
-  clinicId          String
-  slug              String
-  title             String
-  status            SitePageStatus @default(DRAFT)
-  sectionsJson      Json           @default("[]")
-  draftSectionsJson Json           @default("[]")
-  seoTitle          String?
-  seoDescription    String?
-  publishedAt       DateTime?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
+  id                  String         @id @default(cuid())
+  clinicId            String
+  slug                String
+  kind                SitePageKind   @default(STANDARD)
+  title               String
+  status              SitePageStatus @default(DRAFT)
+  sectionsJson        Json           @default("[]")
+  draftSectionsJson   Json           @default("[]")
+  seoTitle            String?
+  seoDescription      String?
+  draftTitle          String?
+  draftSeoTitle       String?
+  draftSeoDescription String?
+  ogImageAssetId      String?
+  showInNav           Boolean        @default(false)
+  navOrder            Int            @default(0)
+  noindex             Boolean        @default(false)
+  version             Int            @default(0)
+  publishedAt         DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
-  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinic    Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  revisions SitePageRevision[]
 
   @@unique([clinicId, slug])
   @@index([clinicId])
@@ -372,6 +392,157 @@ model SitePage {
 enum SitePageStatus {
   DRAFT
   PUBLISHED
+}
+
+// HOME → "/", SERVICES → "/services", TEAM → "/team", CONTACT → "/contact",
+// LEGAL → "/legal/<slug>", STANDARD → "/<slug>" (site/routing/routeKeys.ts).
+enum SitePageKind {
+  HOME
+  STANDARD
+  SERVICES
+  TEAM
+  CONTACT
+  LEGAL
+}
+
+// One public website per clinic. settingsDraftJson holds the theme, header,
+// footer, announcement bar and SEO defaults the builder edits;
+// settingsPublishedJson is the copy the public site renders.
+model Site {
+  id                    String    @id @default(cuid())
+  clinicId              String    @unique
+  templateKey           String?
+  settingsDraftJson     Json      @default("{}")
+  settingsPublishedJson Json?
+  version               Int       @default(0)
+  publishedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+enum SiteDomainKind {
+  SUBDOMAIN
+  CUSTOM
+}
+
+enum SiteDomainStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+// Host names that serve a clinic's site (B8.2). A SUBDOMAIN row is
+// "<label>.<SITE_ROOT_DOMAIN>" and is verified on creation; a CUSTOM row
+// is a clinic-owned domain and serves traffic only once VERIFIED.
+model SiteDomain {
+  id            String           @id @default(cuid())
+  clinicId      String
+  hostname      String           @unique
+  kind          SiteDomainKind
+  status        SiteDomainStatus @default(PENDING)
+  isPrimary     Boolean          @default(false)
+  verifyToken   String?
+  providerRef   String?
+  sslStatus     String?
+  lastError     String?
+  lastCheckedAt DateTime?
+  verifiedAt    DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+}
+
+enum SiteAssetStatus {
+  PENDING
+  AVAILABLE
+  REJECTED
+}
+
+// Public website images (logo, hero, gallery). Stored in the public site
+// assets bucket — never the patient-files (PHI) bucket.
+model SiteAsset {
+  id           String          @id @default(cuid())
+  clinicId     String
+  storageKey   String
+  url          String?
+  mimeType     String
+  size         Int
+  width        Int?
+  height       Int?
+  alt          String          @default("")
+  status       SiteAssetStatus @default(PENDING)
+  uploadedById String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, status])
+}
+
+// Snapshot written on every publish; the builder can restore one to the draft.
+model SitePageRevision {
+  id            String   @id @default(cuid())
+  clinicId      String
+  pageId        String
+  version       Int
+  title         String
+  sectionsJson  Json
+  metaJson      Json     @default("{}")
+  publishedById String?
+  createdAt     DateTime @default(now())
+
+  clinic Clinic   @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  page   SitePage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, version])
+  @@index([clinicId])
+}
+
+// Old path → new path on a clinic site. `auto` rows are written when a page
+// or entity slug changes, so published links keep working.
+model SiteRedirect {
+  id        String   @id @default(cuid())
+  clinicId  String
+  fromPath  String
+  toPath    String
+  code      Int      @default(301)
+  auto      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, fromPath])
+}
+
+enum SiteLeadStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
+// Contact-form submission from a clinic website. Treated as PHI: every
+// free-text field is sealed with field-level encryption (utils/fieldCrypto).
+model SiteLead {
+  id         String         @id @default(cuid())
+  clinicId   String
+  name       String
+  email      String
+  phone      String?
+  message    String
+  sourcePath String?
+  status     SiteLeadStatus @default(NEW)
+  readAt     DateTime?
+  createdAt  DateTime       @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, status, createdAt])
 }
 
 model CustomRole {
@@ -487,6 +658,7 @@ model Provider {
   userId              String?    @unique
   firstName           String
   lastName            String
+  slug                String?
   email               String?
   phone               String?
   bufferMinutes       Int        @default(0)
@@ -526,6 +698,7 @@ model Provider {
   prescribedCartItems    CartItem[]                   @relation("CartItemPrescribedBy")
   scribeTemplate         ScribeTemplate?              @relation(fields: [scribeTemplateId], references: [id], onDelete: SetNull)
 
+  @@unique([clinicId, slug])
   @@index([clinicId])
 }
 
@@ -681,6 +854,7 @@ model Service {
   clinicId                String
   disciplineId            String
   name                    String
+  slug                    String?
   duration                Int
   defaultPrice            Decimal  @db.Decimal(10, 2)
   taxApplicable           Boolean  @default(false)
@@ -712,6 +886,7 @@ model Service {
   recommendedProducts Product[]           @relation("ServiceRecommendations")
 
   @@unique([clinicId, name])
+  @@unique([clinicId, slug])
   @@index([clinicId])
   @@index([disciplineId])
 }
@@ -905,6 +1080,7 @@ model Product {
   id               String                  @id @default(cuid())
   clinicId         String
   name             String
+  slug             String?
   description      String?
   sku              String?
   price            Decimal                 @db.Decimal(10, 2)
@@ -926,6 +1102,7 @@ model Product {
   rxOrderLines           RxOrderLine[]
 
   @@unique([clinicId, name])
+  @@unique([clinicId, slug])
   @@index([clinicId])
 }
 

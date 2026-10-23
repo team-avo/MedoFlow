@@ -32,9 +32,9 @@ export const listClinics = asyncHandler(
         slug: true,
         logoUrl: true,
         themeColor: true,
-        subscriptionPlan: true,
       },
       orderBy: { name: 'asc' },
+      take: 200,
     })
     successResponse(res, 200, 'Clinics retrieved', { clinics })
   }
@@ -55,7 +55,6 @@ export const getClinic = asyncHandler(
         slug: true,
         logoUrl: true,
         themeColor: true,
-        subscriptionPlan: true,
       },
     })
     if (!clinic) {
@@ -109,7 +108,9 @@ export const getClinicProviders = asyncHandler(
         id: true,
         firstName: true,
         lastName: true,
-        email: true,
+        slug: true,
+        bio: true,
+        headshotUrl: true,
         disciplines: { include: { discipline: { select: { id: true, name: true } } } },
         locationAssignments: {
           where: { location: { isActive: true } },
@@ -172,8 +173,9 @@ export const getClinicProducts = asyncHandler(
         // B5.5: prescription products are never sold from the storefront.
         fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
       },
+      // Stock level only — supplier, batch, expiry and storage stay internal (B8.5).
       include: {
-        inventoryItem: true,
+        inventoryItem: { select: { quantityInStock: true } },
       },
       orderBy: { name: 'asc' },
     })
@@ -228,8 +230,9 @@ export const getProduct = asyncHandler(
         isActive: true,
         fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
       },
+      // Stock level only — supplier, batch, expiry and storage stay internal (B8.5).
       include: {
-        inventoryItem: true,
+        inventoryItem: { select: { quantityInStock: true } },
       },
     })
     if (!product) {

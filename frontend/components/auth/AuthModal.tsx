@@ -22,6 +22,7 @@ import React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
+import { isOnClinicSiteHost } from '@/lib/site/host'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { ArrowRight, Lock, Mail, ShieldCheck, User as UserIcon } from 'lucide-react'
@@ -452,7 +453,9 @@ function LoginForm({ onSuccess, themeColor }: { onSuccess: () => void; themeColo
   // staff/admin (non-PATIENT) get routed to their dashboard.
   const finish = (user: User) => {
     onSuccess()
-    const isPatientOnClinicSite = user.role === 'PATIENT' && pathname?.startsWith('/clinic/')
+    const isPatientOnClinicSite =
+      user.role === 'PATIENT' &&
+      (pathname?.startsWith('/clinic/') || pathname?.startsWith('/s/') || isOnClinicSiteHost())
     const target = returnUrl ? returnUrl : isPatientOnClinicSite ? pathname! : landingForRole(user)
     router.replace(target)
     router.refresh()

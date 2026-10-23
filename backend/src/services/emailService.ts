@@ -292,3 +292,19 @@ If you didn't expect this invite, you can safely ignore this email.
 
   await sendEmail({ to, subject, html, text })
 }
+
+/**
+ * New contact-form enquiry on a clinic website (B8.5). The email carries no
+ * enquiry content — contact-form messages are PHI and are read only inside
+ * the dashboard, where every read is audited.
+ */
+export async function sendSiteLeadNotification(params: {
+  to: string
+  clinicName: string
+  inboxUrl: string
+}): Promise<void> {
+  const subject = `New website enquiry for ${params.clinicName}`
+  const text = `You have a new enquiry from your website.\n\nSign in to read it: ${params.inboxUrl}\n`
+  const html = `<p>You have a new enquiry from your website.</p><p><a href="${params.inboxUrl}">Sign in to read it</a></p>`
+  await sendEmail({ to: params.to, subject, html, text })
+}

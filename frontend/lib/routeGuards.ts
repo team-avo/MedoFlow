@@ -72,6 +72,17 @@ export function dashboardRedirect(user: GuardUser | null, pathname: string): str
   ) {
     return '/dashboard'
   }
+  // Website builder (Component 8) — same roles the /site API allows:
+  // editors are owners + marketing; enquiries (PHI) owners + front desk;
+  // domains owners only.
+  if (matches(pathname, '/dashboard/site')) {
+    const allowed = matches(pathname, '/dashboard/site/leads')
+      ? ['SUPER_ADMIN', 'FRONT_DESK']
+      : matches(pathname, '/dashboard/site/domains')
+        ? ['SUPER_ADMIN']
+        : ['SUPER_ADMIN', 'MARKETING']
+    if (!allowed.includes(user.role)) return '/dashboard'
+  }
   return null
 }
 

@@ -112,15 +112,37 @@ export async function createClinicByPlatform(input: CreateClinicByPlatformInput)
       },
     })
 
+    // Website at <subdomain>.<SITE_ROOT_DOMAIN> and /s/<subdomain> (Component 8).
+    const slugTaken = await tx.clinic.findUnique({
+      where: { slug: subdomain },
+      select: { id: true },
+    })
     const clinic = await tx.clinic.create({
       data: {
         tenantId: tenant.id,
         name: input.clinicName,
         email: clinicEmail,
+        slug: slugTaken ? null : subdomain,
         isActive: true,
         aiEnabled: true,
       },
     })
+    const labelTaken = await tx.siteDomain.findUnique({
+      where: { hostname: subdomain },
+      select: { id: true },
+    })
+    if (!labelTaken) {
+      await tx.siteDomain.create({
+        data: {
+          clinicId: clinic.id,
+          hostname: subdomain,
+          kind: 'SUBDOMAIN',
+          status: 'VERIFIED',
+          verifiedAt: new Date(),
+          isPrimary: true,
+        },
+      })
+    }
 
     // Owner created without a password — they'll set it via the invite link.
     const user = await tx.user.create({

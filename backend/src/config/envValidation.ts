@@ -4,6 +4,8 @@ import { getAuditRetentionYears, MIN_AUDIT_RETENTION_YEARS } from '../services/a
 import { isSecretBoxConfigured } from '../utils/secretBox'
 import { getSseMode, isS3Configured } from '../services/fileStorage/s3Driver'
 import { fieldEncryptionConfigProblem } from './fieldKeys'
+import { patientFilesBucket } from '../services/fileStorage'
+import { domainProviderName } from '../site/config'
 
 /**
  * Configuration problems found at boot. `fatal` entries stop a production
@@ -72,6 +74,37 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   // field-level encryption; production refuses to store them in the clear.
   const fieldKeyProblem = fieldEncryptionConfigProblem(env)
   if (fieldKeyProblem) fatal(fieldKeyProblem)
+
+  // B8.2 — public URLs must be https once the app is on real domains.
+  for (const name of ['FRONTEND_URL', 'BACKEND_URL', 'APP_URL']) {
+    const v = env[name]
+    if (v && !/^https:\/\//.test(v) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(v)) {
+      fatal(`${name} must be an https:// URL (got "${v}")`)
+    }
+  }
+  try {
+    if (domainProviderName(env) === 'cloudflare' && (!env.CF_API_TOKEN || !env.CF_ZONE_ID)) {
+      fatal('DOMAIN_PROVIDER=cloudflare needs CF_API_TOKEN and CF_ZONE_ID')
+    }
+  } catch (e) {
+    fatal((e as Error).message)
+  }
+  if (!env.SITE_PREVIEW_SECRET) {
+    warn(
+      'SITE_PREVIEW_SECRET is not set — website preview links are signed with a key derived from JWT_SECRET'
+    )
+  }
+  // B8.5 — website images are public; they must never share the PHI bucket.
+  if (env.SITE_ASSETS_BUCKET && env.SITE_ASSETS_BUCKET === patientFilesBucket(env)) {
+    fatal(
+      'SITE_ASSETS_BUCKET must differ from the patient-files bucket (website images are public)'
+    )
+  }
+  if (isS3Configured(env) && (!env.SITE_ASSETS_BUCKET || !env.SITE_ASSETS_PUBLIC_BASE_URL)) {
+    warn(
+      'SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL are not set — website image uploads are disabled'
+    )
+  }
 
   if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
     warn('STRIPE_SECRET_KEY is not set — Stripe payment features will not function')

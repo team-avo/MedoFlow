@@ -37,6 +37,15 @@ describe('dashboard guard', () => {
     ['FRONT_DESK', '/dashboard/front-desk', null],
     ['FRONT_DESK', '/dashboard/services', '/dashboard'],
     ['ACCOUNTING', '/dashboard/front-desk', '/dashboard'],
+    // Component 8 — website builder
+    ['SUPER_ADMIN', '/dashboard/site/editor', null],
+    ['MARKETING', '/dashboard/site/editor', null],
+    ['MARKETING', '/dashboard/site/domains', '/dashboard'],
+    ['MARKETING', '/dashboard/site/leads', '/dashboard'],
+    ['FRONT_DESK', '/dashboard/site/leads', null],
+    ['FRONT_DESK', '/dashboard/site', '/dashboard'],
+    ['PROVIDER', '/dashboard/site/templates', '/dashboard'],
+    ['SUPER_ADMIN', '/dashboard/site/domains', null],
     ['MARKETING', '/dashboard/locations', '/dashboard'],
   ])('%s on %s → %s', (role, path, expected) => {
     expect(dashboardRedirect(u(role), path)).toBe(expected)

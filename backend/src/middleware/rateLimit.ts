@@ -72,3 +72,44 @@ export const publicLookupRateLimit = rateLimit({
     error: 'Too many requests. Please try again later.',
   },
 })
+
+/**
+ * Public storefront/booking routes called straight from browsers (B8.5):
+ * 300 per minute per IP. PUBLIC_API_RATE_LIMIT_MAX overrides.
+ */
+export const publicApiRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: () => Number(process.env.PUBLIC_API_RATE_LIMIT_MAX) || 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please slow down.' },
+})
+
+/**
+ * Clinic-site rendering (B8.5). The frontend Worker calls these on behalf of
+ * every visitor, so requests arrive from a handful of Cloudflare IPs — the
+ * ceiling is deliberately high and the real protection is caching
+ * (s-maxage + ETag). SITE_RENDER_RATE_LIMIT_MAX overrides.
+ */
+export const siteRenderRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: () => Number(process.env.SITE_RENDER_RATE_LIMIT_MAX) || 1200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many requests. Please slow down.' },
+})
+
+/**
+ * Website contact form (B8.5): 5 enquiries per 10 minutes per IP — a real
+ * visitor sends one. SITE_LEAD_RATE_LIMIT_MAX overrides.
+ */
+export const siteLeadRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: () => Number(process.env.SITE_LEAD_RATE_LIMIT_MAX) || 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many messages. Please try again later or call the clinic.',
+  },
+})

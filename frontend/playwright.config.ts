@@ -29,7 +29,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: `http://127.0.0.1:${PORT}`,
+    // E2E_BASE_URL (with E2E_EXTERNAL_SERVER=1): drive another running app,
+    // e.g. the dev server of the Component 8 manual test on localhost:3000.
+    baseURL: process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

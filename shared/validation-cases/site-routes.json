@@ -1,0 +1,207 @@
+{
+  "description": "Component 8 clinic-site routing parity cases. Run by backend/src/tests/siteRouting.test.ts against backend/src/site/routing/* and by frontend/tests/unit/siteRouting.test.ts against frontend/lib/site/*. Both implementations must give the same answer for every case.",
+  "match": [
+    { "path": "/", "expect": { "type": "route", "key": "home", "params": {} } },
+    {
+      "path": "/about-us",
+      "expect": {
+        "type": "route",
+        "key": "page",
+        "params": { "slug": "about-us" }
+      }
+    },
+    {
+      "path": "/services",
+      "expect": { "type": "route", "key": "services", "params": {} }
+    },
+    {
+      "path": "/services/new-patient-visit",
+      "expect": {
+        "type": "route",
+        "key": "service",
+        "params": { "slug": "new-patient-visit" }
+      }
+    },
+    {
+      "path": "/team",
+      "expect": { "type": "route", "key": "team", "params": {} }
+    },
+    {
+      "path": "/team/dr-alex-rivera",
+      "expect": {
+        "type": "route",
+        "key": "provider",
+        "params": { "slug": "dr-alex-rivera" }
+      }
+    },
+    {
+      "path": "/store",
+      "expect": { "type": "route", "key": "store", "params": {} }
+    },
+    {
+      "path": "/store/vitamin-d3",
+      "expect": {
+        "type": "route",
+        "key": "product",
+        "params": { "slug": "vitamin-d3" }
+      }
+    },
+    {
+      "path": "/book",
+      "expect": { "type": "route", "key": "book", "params": {} }
+    },
+    {
+      "path": "/book/follow-up",
+      "expect": {
+        "type": "route",
+        "key": "book",
+        "params": { "slug": "follow-up" }
+      }
+    },
+    {
+      "path": "/contact",
+      "expect": { "type": "route", "key": "contact", "params": {} }
+    },
+    {
+      "path": "/legal/privacy",
+      "expect": {
+        "type": "route",
+        "key": "legal",
+        "params": { "slug": "privacy" }
+      }
+    },
+    {
+      "path": "/preview/clx1abc2def3ghi4",
+      "expect": {
+        "type": "route",
+        "key": "preview",
+        "params": { "pageId": "clx1abc2def3ghi4" }
+      }
+    },
+    {
+      "path": "/sitemap.xml",
+      "expect": { "type": "route", "key": "sitemap", "params": {} }
+    },
+    {
+      "path": "/robots.txt",
+      "expect": { "type": "route", "key": "robots", "params": {} }
+    },
+    {
+      "path": "/favicon.ico",
+      "expect": { "type": "route", "key": "favicon", "params": {} }
+    },
+    {
+      "path": "/About-Us",
+      "expect": { "type": "redirect", "to": "/about-us" }
+    },
+    {
+      "path": "/about-us/",
+      "expect": { "type": "redirect", "to": "/about-us" }
+    },
+    {
+      "path": "//services",
+      "expect": { "type": "redirect", "to": "/services" }
+    },
+    { "path": "/dashboard", "expect": { "type": "none" } },
+    { "path": "/login", "expect": { "type": "none" } },
+    { "path": "/home", "expect": { "type": "none" } },
+    { "path": "/-bad", "expect": { "type": "none" } },
+    { "path": "/services/x/y", "expect": { "type": "none" } },
+    { "path": "/a/b/c/d", "expect": { "type": "none" } },
+    { "path": "/legal", "expect": { "type": "none" } },
+    { "path": "/preview/short", "expect": { "type": "none" } },
+    { "path": "/our-team.html", "expect": { "type": "none" } },
+    { "path": "/%E0%A4%A", "expect": { "type": "none" } }
+  ],
+  "build": [
+    { "key": "home", "params": {}, "expect": "/" },
+    { "key": "page", "params": { "slug": "about-us" }, "expect": "/about-us" },
+    {
+      "key": "service",
+      "params": { "slug": "follow-up" },
+      "expect": "/services/follow-up"
+    },
+    {
+      "key": "provider",
+      "params": { "slug": "dr-lee" },
+      "expect": "/team/dr-lee"
+    },
+    {
+      "key": "product",
+      "params": { "slug": "vitamin-d3" },
+      "expect": "/store/vitamin-d3"
+    },
+    { "key": "book", "params": {}, "expect": "/book" },
+    {
+      "key": "book",
+      "params": { "slug": "follow-up" },
+      "expect": "/book/follow-up"
+    },
+    {
+      "key": "legal",
+      "params": { "slug": "privacy" },
+      "expect": "/legal/privacy"
+    },
+    { "key": "page", "params": { "slug": "dashboard" }, "expect": null },
+    { "key": "service", "params": {}, "expect": null }
+  ],
+  "base": [
+    { "base": "", "path": "/", "expect": "/" },
+    { "base": "", "path": "/team", "expect": "/team" },
+    { "base": "/s/everwell", "path": "/", "expect": "/s/everwell" },
+    { "base": "/s/everwell", "path": "/team", "expect": "/s/everwell/team" },
+    {
+      "base": "https://everwell.example",
+      "path": "/",
+      "expect": "https://everwell.example/"
+    },
+    {
+      "base": "https://everwell.example/",
+      "path": "/team",
+      "expect": "https://everwell.example/team"
+    }
+  ],
+  "hosts": {
+    "env": {
+      "SITE_ROOT_DOMAIN": "medoflow.test",
+      "APP_HOSTS": "app.medoflow.test,localhost,127.0.0.1,*.workers.dev"
+    },
+    "cases": [
+      { "host": "app.medoflow.test", "expect": { "mode": "app" } },
+      { "host": "localhost:3000", "expect": { "mode": "app" } },
+      { "host": "127.0.0.1:4310", "expect": { "mode": "app" } },
+      { "host": "medoflow-web.acct.workers.dev", "expect": { "mode": "app" } },
+      { "host": "api.medoflow.test", "expect": { "mode": "api" } },
+      {
+        "host": "everwell.medoflow.test",
+        "expect": { "mode": "site-subdomain", "label": "everwell" }
+      },
+      {
+        "host": "EverWell.MedoFlow.test.",
+        "expect": { "mode": "site-subdomain", "label": "everwell" }
+      },
+      {
+        "host": "everwell.medoflow.test:443",
+        "expect": { "mode": "site-subdomain", "label": "everwell" }
+      },
+      { "host": "www.medoflow.test", "expect": { "mode": "invalid" } },
+      { "host": "a.b.medoflow.test", "expect": { "mode": "invalid" } },
+      { "host": "medoflow.test", "expect": { "mode": "invalid" } },
+      {
+        "host": "www.everwellclinic.com",
+        "expect": {
+          "mode": "site-custom",
+          "hostname": "www.everwellclinic.com"
+        }
+      },
+      {
+        "host": "everwellclinic.com",
+        "expect": { "mode": "site-custom", "hostname": "everwellclinic.com" }
+      },
+      { "host": "10.0.0.5", "expect": { "mode": "invalid" } },
+      { "host": "[::1]:3000", "expect": { "mode": "invalid" } },
+      { "host": "bad_host.com", "expect": { "mode": "invalid" } },
+      { "host": "", "expect": { "mode": "invalid" } }
+    ]
+  }
+}

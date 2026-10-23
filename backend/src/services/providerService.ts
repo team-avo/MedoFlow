@@ -5,6 +5,7 @@ import * as auditService from './auditService'
 import * as passwordSetupService from './passwordSetupService'
 import * as emailService from './emailService'
 import { clinicScope, withTenantBypass } from '../config/tenantContext'
+import { uniqueEntitySlug } from '../site/services/slugService'
 
 export interface CreateProviderServiceInput {
   serviceId: string
@@ -315,6 +316,7 @@ export const createProvider = async (
       userId: user.id,
       firstName: data.firstName,
       lastName: data.lastName,
+      slug: await uniqueEntitySlug('provider', clinicId, `${data.firstName} ${data.lastName}`),
       email,
       phone: data.phone,
       disciplines: {

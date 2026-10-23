@@ -34,6 +34,14 @@ process.env.SESSION_IDLE_TIMEOUT_MINUTES = process.env.SESSION_IDLE_TIMEOUT_MINU
 process.env.AUTH_RATE_LIMIT_MAX = '1000'
 process.env.REFRESH_RATE_LIMIT_MAX = '1000'
 process.env.PUBLIC_LOOKUP_RATE_LIMIT_MAX = '1000'
+process.env.PUBLIC_API_RATE_LIMIT_MAX = '100000'
+process.env.SITE_RENDER_RATE_LIMIT_MAX = '100000'
+process.env.SITE_LEAD_RATE_LIMIT_MAX = '1000'
+// C8: clinic subdomains under 'site.test' in the suites.
+process.env.SITE_ROOT_DOMAIN = 'site.test'
+process.env.APP_HOSTS = 'app.site.test,localhost,127.0.0.1'
+process.env.DOMAIN_PROVIDER = 'manual'
+process.env.SITE_PREVIEW_SECRET = crypto.randomBytes(32).toString('hex')
 delete process.env.STRIPE_WEBHOOK_SECRET
 delete process.env.ALERT_WEBHOOK_URL
 delete process.env.REDIS_URL

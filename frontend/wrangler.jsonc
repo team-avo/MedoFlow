@@ -13,4 +13,10 @@
   "observability": { "enabled": true },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "medoflow-web" }]
+  // Component 8 — custom domains (arh-agent-docs/cloudflare-custom-domains-setup-guide.md).
+  // Enable only after the <root> zone is active in this Cloudflare account:
+  // "routes": [
+  //   { "pattern": "app.<root>", "custom_domain": true },
+  //   { "pattern": "*.<root>/*", "zone_name": "<root>" }
+  // ]   (api.<root> is excluded with a Worker-less route in the dashboard — see the guide)
 }

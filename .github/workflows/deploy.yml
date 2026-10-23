@@ -266,6 +266,11 @@ jobs:
           # Public, build-time values (inlined into the browser bundle).
           NEXT_PUBLIC_API_URL: ${{ vars.BACKEND_URL }}
           NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY }}
+          # Clinic websites (Component 8). Empty until the root domain is live:
+          # sites are then served at <FRONTEND_URL>/s/<slug> only.
+          NEXT_PUBLIC_SITE_ROOT_DOMAIN: ${{ vars.SITE_ROOT_DOMAIN }}
+          NEXT_PUBLIC_APP_HOSTS: ${{ vars.APP_HOSTS }}
+          NEXT_PUBLIC_APP_URL: ${{ vars.FRONTEND_URL }}
         run: pnpm run cf:build
       - name: Deploy to Cloudflare Workers
         working-directory: frontend

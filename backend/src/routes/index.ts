@@ -37,7 +37,7 @@ import tenantRoutes from './tenants'
 import onboardingRoutes from './onboarding'
 import platformRoutes from './platform'
 import lifecycleRoutes from './lifecycle'
-import sitePagesRoutes from './sitePages'
+import { siteAdminRouter, legacySitePagesRouter } from '../site'
 import voiceAgentRoutes from './voiceAgent'
 
 const router = Router()
@@ -80,7 +80,8 @@ router.use('/roles', roleRoutes)
 router.use('/onboarding', onboardingRoutes)
 router.use('/platform/lifecycle', lifecycleRoutes)
 router.use('/platform', platformRoutes)
-router.use('/site-pages', sitePagesRoutes)
+router.use('/site', siteAdminRouter)
+router.use('/site-pages', legacySitePagesRouter)
 router.use('/voice-agent', voiceAgentRoutes)
 
 export default router

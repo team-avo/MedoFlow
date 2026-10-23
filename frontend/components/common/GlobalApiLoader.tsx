@@ -14,6 +14,7 @@ import { useIsFetching, useIsMutating } from '@tanstack/react-query'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { MedoflowLoader } from './MedoflowLoader'
+import { isOnClinicSiteHost } from '@/lib/site/host'
 
 function GlobalApiLoaderContent() {
   const isFetching = useIsFetching()
@@ -46,7 +47,8 @@ function GlobalApiLoaderContent() {
   }, [isFetching, isMutating])
 
   const visible = showApi || showNav
-  if (!visible) return null
+  // Clinic websites (Component 8) never show MedoFlow chrome to their visitors.
+  if (!visible || pathname?.startsWith('/s/') || isOnClinicSiteHost()) return null
 
   return (
     <div
