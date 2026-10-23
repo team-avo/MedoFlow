@@ -1,4 +1,3 @@
-import type { SitePageKind } from '@prisma/client'
 import type { SectionType } from '../content/sections'
 import type { SiteSettings } from '../content/settings'
 
@@ -9,8 +8,16 @@ export interface TemplateSection {
   settings: Record<string, unknown>
 }
 
+/**
+ * The Prisma `SitePageKind` enum, as a plain union. Templates are also loaded
+ * by the frontend e2e mock (frontend/e2e/siteMock.ts), where no Prisma client
+ * is generated, so this file must not import `@prisma/client`. siteService.ts
+ * fails to compile if the two ever differ.
+ */
+export type TemplatePageKind = 'HOME' | 'STANDARD' | 'SERVICES' | 'TEAM' | 'CONTACT' | 'LEGAL'
+
 export interface TemplatePage {
-  kind: SitePageKind
+  kind: TemplatePageKind
   slug: string
   title: string
   seoTitle?: string

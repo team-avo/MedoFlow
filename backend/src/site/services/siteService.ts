@@ -4,7 +4,8 @@
  * publish. Like pages, settings have a draft the builder edits and a
  * published copy the public site renders.
  */
-import type { Prisma } from '@prisma/client'
+import type { Prisma, SitePageKind } from '@prisma/client'
+import type { TemplatePageKind } from '../templates/types'
 import prisma from '../../config/prisma'
 import {
   defaultSiteSettings,
@@ -21,6 +22,16 @@ import { ensureEntitySlugs } from './slugService'
 import { ensureDefaultSubdomain, siteBaseUrls } from './domainService'
 import * as pages from './pageService'
 import { createPreviewToken } from './previewToken'
+
+// Templates declare page kinds without importing Prisma (templates/types.ts).
+// This fails to compile if that union and the SitePageKind enum ever differ.
+type SameKinds = [TemplatePageKind] extends [SitePageKind]
+  ? [SitePageKind] extends [TemplatePageKind]
+    ? true
+    : false
+  : false
+const templateKindsMatchPrisma: SameKinds = true
+void templateKindsMatchPrisma
 
 async function clinicBrand(clinicId: string) {
   const clinic = await prisma.clinic.findFirst({
