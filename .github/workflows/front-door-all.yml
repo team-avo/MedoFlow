@@ -1,0 +1,40 @@
+# Cloudflare Pages front door for many clinics at once (ADR 0005).
+# Run by hand: Actions › "Front door (Pages) — many clinics" › Run workflow,
+# labels = everwell,brightsmile,…  Run "Front door (Pages)" with an empty label
+# first, so the Pages project exists.
+name: Front door (Pages) — many clinics
+
+on:
+  workflow_dispatch:
+    inputs:
+      labels:
+        description: 'Clinic subdomains, comma-separated (e.g. everwell,brightsmile)'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: medoflow-dev-env
+    defaults:
+      run:
+        working-directory: frontend/cf-front-door
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      LABELS: ${{ inputs.labels }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Deploy each clinic
+        run: |
+          set -e
+          for label in $(echo "$LABELS" | tr ',' ' '); do
+            echo "$label" | grep -Eq '^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])$' || { echo "skip invalid '$label'"; continue; }
+            case "$label" in
+              medoflow|www|app|api|admin|preview|sites) echo "skip reserved '$label'"; continue;;
+            esac
+            npx --yes wrangler@4.150.0 pages deploy --branch "$label" --commit-dirty=true
+            echo "- https://$label.medoflow.pages.dev" >> "$GITHUB_STEP_SUMMARY"
+          done

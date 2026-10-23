@@ -1,0 +1,52 @@
+# Cloudflare Pages front door (ADR 0005, zero-cost clinic addresses).
+# Run by hand: Actions › "Front door (Pages)" › Run workflow.
+#   label empty   → production branch `medoflow` → https://medoflow.pages.dev (the app)
+#   label=<clinic> → branch deployment          → https://<clinic>.medoflow.pages.dev
+# Needs CLOUDFLARE_API_TOKEN with Account · Cloudflare Pages · Edit (as well as
+# Workers Scripts · Edit) in the `medoflow-dev-env` environment.
+name: Front door (Pages)
+
+on:
+  workflow_dispatch:
+    inputs:
+      label:
+        description: 'Clinic subdomain (e.g. everwell). Leave empty for the app address.'
+        required: false
+        default: ''
+
+concurrency:
+  group: front-door-${{ inputs.label || 'production' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: medoflow-dev-env
+    defaults:
+      run:
+        working-directory: frontend/cf-front-door
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER: npx --yes wrangler@4.150.0
+      LABEL: ${{ inputs.label }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check the label
+        if: inputs.label != ''
+        run: |
+          echo "$LABEL" | grep -Eq '^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])$' \
+            || { echo "::error::'$LABEL' is not a valid subdomain"; exit 1; }
+          case "$LABEL" in
+            medoflow|www|app|api|admin|preview|sites) echo "::error::reserved name"; exit 1;;
+          esac
+      - name: Create the Pages project (first run only)
+        run: $WRANGLER pages project create medoflow --production-branch medoflow || echo "Project exists — continuing"
+      - name: Deploy
+        run: $WRANGLER pages deploy --branch "${LABEL:-medoflow}" --commit-dirty=true | tee deploy.log
+      - name: Show the address
+        run: |
+          echo "### Front door deployed" >> "$GITHUB_STEP_SUMMARY"
+          grep -Eo 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | sort -u | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
