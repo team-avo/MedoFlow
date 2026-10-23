@@ -1,8 +1,10 @@
 /**
  * Seeds one synthetic clinic for the live front-end ↔ back-end checks of
- * Component 3 (frontend/e2e/live-records.spec.ts) and Component 5
+ * Component 3 (frontend/e2e/live-records.spec.ts), Component 5
  * (frontend/e2e/live-rx-cart.spec.ts, and the manual guide in
- * development-log-docs/commerce-pres-cart-WALKTHROUGH-AND-VERIFICATION.md).
+ * development-log-docs/commerce-pres-cart-WALKTHROUGH-AND-VERIFICATION.md) and
+ * Component 8 (frontend/e2e/live-site.spec.ts, and the manual guide in
+ * development-log-docs/component-website-builder-WALKTHROUGH-AND-VERIFICATION.md).
  * Development databases only — never point this at a database holding real data.
  *
  *   E2E_LIVE_PASSWORD=<any synthetic password> \
@@ -208,6 +210,8 @@ async function main() {
   process.stdout.write(
     `${JSON.stringify({
       clinicId: clinic.id,
+      clinicSlug: clinic.slug,
+      serviceId: service.id,
       appointmentId: appointment.id,
       templateId: template.id,
       disciplineId: discipline.id,

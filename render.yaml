@@ -40,6 +40,15 @@ services:
       - key: AUDIT_RETENTION_YEARS
         value: '6'
       # Frontend origin(s) allowed by CORS (comma-separated).
+      # Component 8 cut-over (arh-agent-docs/cloudflare-custom-domains-setup-guide.md):
+      # once app.<root> / api.<root> / *.<root> are live, set
+      #   CORS_ORIGIN=https://app.<root>,https://*.<root>   (verified custom domains are
+      #   allowed automatically)  FRONTEND_URL/APP_URL=https://app.<root>
+      #   BACKEND_URL=https://api.<root>  SITE_ROOT_DOMAIN=<root>  APP_HOSTS=app.<root>
+      #   SITE_CNAME_TARGET=sites.<root>  SITE_PREVIEW_SECRET (secret)
+      #   SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL  (public R2 bucket)
+      #   DOMAIN_PROVIDER=cloudflare + CF_API_TOKEN / CF_ZONE_ID (secrets)
+      #   TRUST_PROXY=2 if api.<root> is proxied (orange cloud), else 1
       - key: CORS_ORIGIN
         value: https://medoflow-web.advertout-medoflow.workers.dev
       - key: FRONTEND_URL

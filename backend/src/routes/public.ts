@@ -1,12 +1,13 @@
 import { Router } from 'express'
 import * as publicController from '../controllers/publicController'
-import * as sitePageService from '../services/sitePageService'
 import { validateRequest } from '../middleware/validateRequest'
 import { withPublicScope } from '../middleware/auth'
-import { publicLookupRateLimit } from '../middleware/rateLimit'
+import { publicApiRateLimit, publicLookupRateLimit } from '../middleware/rateLimit'
 import { asyncHandler } from '../utils/asyncHandler'
 import { successResponse } from '../utils/apiResponse'
 import { publicAvailabilitySchema, publicSlotHoldSchema } from '../validation/module2Schemas'
+import { sitePublicRouter } from '../site'
+import { publishedPageForClinic } from '../site/services/renderService'
 
 const router = Router()
 
@@ -16,6 +17,13 @@ const router = Router()
 // handlers must scope queries explicitly by params.id.
 router.use(withPublicScope('public_routes'))
 
+// Clinic websites (Component 8): render, resolve, sitemap, contact form.
+// Their own limiter — the frontend Worker calls render for every visitor.
+router.use('/sites', sitePublicRouter)
+
+// Everything else here is called straight from browsers.
+router.use(publicApiRateLimit)
+
 router.get('/clinics', publicController.listClinics)
 router.get('/clinics/:id', publicController.getClinic)
 router.get('/clinics/:id/services', publicController.getClinicServices)
@@ -24,13 +32,12 @@ router.get('/clinics/:id/locations', publicController.getClinicLocations)
 router.get('/clinics/:id/products', publicController.getClinicProducts)
 router.get('/clinics/:id/packages', publicController.getClinicPackages)
 router.get('/clinics/:id/memberships', publicController.getClinicMemberships)
+// Legacy single-page read (first builder). `:id` is a clinic id or slug;
+// only PUBLISHED pages of active clinics are returned (B8.1).
 router.get(
   '/clinics/:id/pages/:slug',
   asyncHandler(async (req, res) => {
-    const page = await sitePageService.getPublishedBySlug(
-      String(req.params['id']),
-      String(req.params['slug'])
-    )
+    const page = await publishedPageForClinic(String(req.params['id']), String(req.params['slug']))
     if (!page) {
       res.status(404).json({ success: false, message: 'Page not found' })
       return

@@ -129,16 +129,38 @@ export async function provisionTenant(data: SignupData) {
       },
     })
 
-    // 3. Create Clinic (tied to tenant)
+    // 3. Create Clinic (tied to tenant). Its website lives at
+    //    <subdomain>.<SITE_ROOT_DOMAIN> and /s/<subdomain> (Component 8).
+    const slugTaken = await tx.clinic.findUnique({
+      where: { slug: subdomain },
+      select: { id: true },
+    })
     const clinic = await tx.clinic.create({
       data: {
         tenantId: tenant.id,
         name: data.clinicName,
         email: clinicEmail,
+        slug: slugTaken ? null : subdomain,
         isActive: true,
         aiEnabled: true,
       },
     })
+    const labelTaken = await tx.siteDomain.findUnique({
+      where: { hostname: subdomain },
+      select: { id: true },
+    })
+    if (!labelTaken) {
+      await tx.siteDomain.create({
+        data: {
+          clinicId: clinic.id,
+          hostname: subdomain,
+          kind: 'SUBDOMAIN',
+          status: 'VERIFIED',
+          verifiedAt: new Date(),
+          isPrimary: true,
+        },
+      })
+    }
 
     // 4. Create owner User (SUPER_ADMIN of their clinic)
     const user = await tx.user.create({
@@ -178,7 +200,13 @@ export async function checkSubdomainAvailability(subdomain: string): Promise<boo
   const sanitized = sanitizeSubdomain(subdomain)
   if (!isValidSubdomain(sanitized) || RESERVED_SUBDOMAINS.has(sanitized)) return false
   const existing = await prisma.brand.findUnique({ where: { subdomain: sanitized } })
-  return existing === null
+  if (existing) return false
+  // Also free as a clinic-site label (Component 8).
+  const site = await prisma.siteDomain.findUnique({
+    where: { hostname: sanitized },
+    select: { id: true },
+  })
+  return site === null
 }
 
 export async function getTenantBySubdomain(subdomain: string) {

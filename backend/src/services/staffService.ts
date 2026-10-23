@@ -5,6 +5,7 @@ import type { ApiError } from '../types/errors'
 import * as passwordSetupService from './passwordSetupService'
 import * as emailService from './emailService'
 import * as auditService from './auditService'
+import { uniqueEntitySlug } from '../site/services/slugService'
 
 const PLACEHOLDER_PASSWORD = 'pending-setup'
 
@@ -245,6 +246,7 @@ export const linkAdminAsProvider = async (
     data: {
       firstName,
       lastName,
+      slug: await uniqueEntitySlug('provider', clinicId, `${firstName} ${lastName}`),
       clinicId,
       userId,
     },

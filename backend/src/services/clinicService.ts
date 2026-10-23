@@ -2,6 +2,7 @@ import prisma from '../config/prisma'
 import type { Clinic } from '@prisma/client'
 import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
+import { ensureDefaultSubdomain, siteBaseUrls } from '../site/services/domainService'
 
 export interface CreateClinicData {
   name: string
@@ -423,8 +424,10 @@ export const generateWebsite = async (
     performedById,
   })
 
+  await ensureDefaultSubdomain(clinicId)
+  const urls = await siteBaseUrls(clinicId)
   return {
     ...updated,
-    websiteUrl: `/clinic/${updated.slug}`,
+    websiteUrl: urls.canonical,
   }
 }

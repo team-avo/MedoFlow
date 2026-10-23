@@ -5,6 +5,7 @@ import { successResponse } from '../utils/apiResponse'
 import { validateRequest } from '../middleware/validateRequest'
 import { authRateLimit } from '../middleware/rateLimit'
 import { withPublicScope } from '../middleware/auth'
+import { siteBaseUrls } from '../site/services/domainService'
 import * as tenantService from '../services/tenantService'
 
 const router = Router()
@@ -38,7 +39,9 @@ router.post(
       tenantId: result.tenant.id,
       clinicId: result.clinic.id,
       subdomain: result.subdomain,
-      dashboardUrl: `https://${result.subdomain}.medoflow.com`,
+      dashboardUrl: `${(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '')}/dashboard`,
+      // The clinic's public website (Component 8).
+      siteUrl: (await siteBaseUrls(result.clinic.id)).canonical,
       user: result.user,
     })
   })

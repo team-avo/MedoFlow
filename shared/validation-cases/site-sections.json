@@ -1,0 +1,218 @@
+{
+  "description": "Component 8 section-schema parity cases. Run by backend/src/tests/siteRouting.test.ts against backend/src/site/content/sections.ts (parseSection) and by frontend/tests/unit/siteSections.test.ts against frontend/lib/site/sections.ts (validateSection). The section type list and each type's variants must also match exactly.",
+  "types": {
+    "hero": ["centered", "split", "image"],
+    "trust-bar": ["stats", "logos"],
+    "service-grid": ["cards", "list", "featured"],
+    "provider-bios": ["grid", "carousel"],
+    "image-with-text": ["image-left", "image-right"],
+    "gallery": ["grid", "strip"],
+    "testimonials": ["cards", "quote"],
+    "faq": ["accordion", "two-column"],
+    "pricing": ["packages", "memberships", "both"],
+    "featured-products": ["grid", "row"],
+    "locations-hours": ["cards", "split"],
+    "contact-form": ["simple", "split"],
+    "booking-cta": ["banner", "split"],
+    "video": ["contained", "wide"],
+    "rich-text": ["left", "center"],
+    "steps": ["numbered", "cards"],
+    "spacer": ["small", "medium", "large"]
+  },
+  "valid": [
+    {
+      "name": "minimal hero",
+      "section": {
+        "id": "s_aaaa0001",
+        "type": "hero",
+        "settings": { "headline": "Welcome" }
+      }
+    },
+    {
+      "name": "hero with typed CTAs and a sample image",
+      "section": {
+        "id": "s_aaaa0002",
+        "type": "hero",
+        "variant": "split",
+        "settings": {
+          "headline": "Care that listens",
+          "primaryCta": { "label": "Book", "link": { "kind": "booking" } },
+          "secondaryCta": {
+            "label": "Services",
+            "link": { "kind": "route", "route": "services" }
+          },
+          "image": { "src": "/site-samples/hero-clarity.svg", "alt": "Clinic" }
+        }
+      }
+    },
+    {
+      "name": "faq items",
+      "section": {
+        "id": "s_aaaa0003",
+        "type": "faq",
+        "settings": {
+          "items": [
+            { "question": "Do you take new patients?", "answer": "Yes." }
+          ]
+        }
+      }
+    },
+    {
+      "name": "external https link",
+      "section": {
+        "id": "s_aaaa0004",
+        "type": "booking-cta",
+        "settings": {
+          "heading": "Book",
+          "cta": {
+            "label": "Call",
+            "link": { "kind": "external", "href": "tel:+15550100" }
+          }
+        }
+      }
+    },
+    {
+      "name": "youtube video",
+      "section": {
+        "id": "s_aaaa0005",
+        "type": "video",
+        "settings": { "url": "https://www.youtube.com/watch?v=abcdefgh123" }
+      }
+    },
+    {
+      "name": "uploaded image",
+      "section": {
+        "id": "s_aaaa0006",
+        "type": "gallery",
+        "settings": { "images": [{ "assetId": "clxasset0001", "alt": "Room" }] }
+      }
+    },
+    {
+      "name": "hidden spacer",
+      "section": {
+        "id": "s_aaaa0007",
+        "type": "spacer",
+        "variant": "large",
+        "hidden": true,
+        "settings": { "divider": true }
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "unknown type",
+      "section": { "id": "s_bbbb0001", "type": "iframe", "settings": {} }
+    },
+    {
+      "name": "unknown variant",
+      "section": {
+        "id": "s_bbbb0002",
+        "type": "hero",
+        "variant": "fullscreen",
+        "settings": { "headline": "x" }
+      }
+    },
+    {
+      "name": "missing required headline",
+      "section": { "id": "s_bbbb0003", "type": "hero", "settings": {} }
+    },
+    {
+      "name": "unknown field",
+      "section": {
+        "id": "s_bbbb0004",
+        "type": "hero",
+        "settings": { "headline": "x", "html": "<b>" }
+      }
+    },
+    {
+      "name": "javascript: link",
+      "section": {
+        "id": "s_bbbb0005",
+        "type": "hero",
+        "settings": {
+          "headline": "x",
+          "primaryCta": {
+            "label": "Go",
+            "link": { "kind": "external", "href": "javascript:alert(1)" }
+          }
+        }
+      }
+    },
+    {
+      "name": "plain http link",
+      "section": {
+        "id": "s_bbbb0006",
+        "type": "hero",
+        "settings": {
+          "headline": "x",
+          "primaryCta": {
+            "label": "Go",
+            "link": { "kind": "external", "href": "http://example.test" }
+          }
+        }
+      }
+    },
+    {
+      "name": "unknown route",
+      "section": {
+        "id": "s_bbbb0007",
+        "type": "hero",
+        "settings": {
+          "headline": "x",
+          "primaryCta": {
+            "label": "Go",
+            "link": { "kind": "route", "route": "dashboard" }
+          }
+        }
+      }
+    },
+    {
+      "name": "remote image url",
+      "section": {
+        "id": "s_bbbb0008",
+        "type": "gallery",
+        "settings": {
+          "images": [{ "src": "https://evil.example/x.png", "alt": "" }]
+        }
+      }
+    },
+    {
+      "name": "image with both upload and sample",
+      "section": {
+        "id": "s_bbbb0009",
+        "type": "gallery",
+        "settings": {
+          "images": [
+            {
+              "assetId": "clx1",
+              "src": "/site-samples/hero-clarity.svg",
+              "alt": ""
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "non-allowlisted video",
+      "section": {
+        "id": "s_bbbb0010",
+        "type": "video",
+        "settings": { "url": "https://evil.example/embed/1" }
+      }
+    },
+    {
+      "name": "bad section id",
+      "section": { "id": "hero-1", "type": "spacer", "settings": {} }
+    },
+    {
+      "name": "too many faq items",
+      "section": {
+        "id": "s_bbbb0012",
+        "type": "faq",
+        "settings": {
+          "items": "@repeat:31:{\"question\":\"q\",\"answer\":\"a\"}"
+        }
+      }
+    }
+  ]
+}
