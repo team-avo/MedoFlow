@@ -35,6 +35,6 @@ jobs:
             case "$label" in
               medoflow|www|app|api|admin|preview|sites) echo "skip reserved '$label'"; continue;;
             esac
-            npx --yes wrangler@4.150.0 pages deploy --branch "$label" --commit-dirty=true
+            npx --yes wrangler@4.150.0 pages deploy ./public --project-name medoflow --branch "$label" --commit-dirty=true
             echo "- https://$label.medoflow.pages.dev" >> "$GITHUB_STEP_SUMMARY"
           done

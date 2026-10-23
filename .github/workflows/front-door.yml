@@ -45,8 +45,13 @@ jobs:
       - name: Create the Pages project (first run only)
         run: $WRANGLER pages project create medoflow --production-branch medoflow || echo "Project exists — continuing"
       - name: Deploy
-        run: $WRANGLER pages deploy --branch "${LABEL:-medoflow}" --commit-dirty=true | tee deploy.log
+        run: |
+          set -o pipefail
+          $WRANGLER pages deploy ./public --project-name medoflow --branch "${LABEL:-medoflow}" --commit-dirty=true | tee deploy.log
       - name: Show the address
         run: |
           echo "### Front door deployed" >> "$GITHUB_STEP_SUMMARY"
-          grep -Eo 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | sort -u | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          grep -Eo 'https://[a-z0-9.-]+\.pages\.dev' deploy.log | sort -u | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY" \
+            || { echo "::error::no pages.dev address in the deploy output"; exit 1; }
+          if [ -n "$LABEL" ]; then addr="https://$LABEL.medoflow.pages.dev"; else addr="https://medoflow.pages.dev"; fi
+          echo "**Your address: $addr**" >> "$GITHUB_STEP_SUMMARY"
