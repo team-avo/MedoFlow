@@ -82,7 +82,7 @@ export const treatmentPlanFormSchema = z
     disciplineId: z.string().min(1, 'Discipline is required'),
     providerId: z.string().optional(),
     totalSessions: z.coerce
-      .number({ invalid_type_error: 'Enter a number' })
+      .number({ error: 'Enter a number' })
       .int('Whole sessions only')
       .min(1, 'At least 1 session required')
       .max(LIMITS.sessionsMax, `At most ${LIMITS.sessionsMax} sessions`),
@@ -185,6 +185,10 @@ export type FormFieldDefinition = z.infer<typeof formFieldSchema>
 const blankToUndefined = (v: unknown) =>
   v === '' || v === null || (typeof v === 'number' && Number.isNaN(v)) ? undefined : v
 
+/** "Required" for a missing answer; zod's default message for any other type error. */
+const requiredError = (issue: { input?: unknown }) =>
+  issue.input === undefined ? 'Required' : undefined
+
 /**
  * Builds the answer schema for a template — the same rules the API applies
  * (backend answerProblems): required fields answered (blank text counts as
@@ -199,9 +203,8 @@ export function buildAnswersSchema(fields: FormFieldDefinition[]) {
         ? z.boolean().refine((v) => v === true, 'Required')
         : z.boolean().optional()
     } else if (f.type === 'number') {
-      const num = z
-        .number({ required_error: 'Required', invalid_type_error: 'Enter a number' })
-        .finite()
+      // zod 4 numbers already reject NaN and ±Infinity (zod 3 needed .finite()).
+      const num = z.number({ error: (issue) => requiredError(issue) ?? 'Enter a number' })
       shape[f.id] = z.preprocess(
         (v) => {
           const b = blankToUndefined(v)
@@ -212,12 +215,12 @@ export function buildAnswersSchema(fields: FormFieldDefinition[]) {
     } else if (f.type === 'select') {
       const values = (f.options ?? []).map((o) => o.value)
       const pick = z
-        .string({ required_error: 'Required' })
+        .string({ error: requiredError })
         .refine((v) => values.includes(v), 'Choose one of the options')
       shape[f.id] = z.preprocess(blankToUndefined, f.required ? pick : pick.optional())
     } else {
       const text = z
-        .string({ required_error: 'Required' })
+        .string({ error: requiredError })
         .max(LIMITS.answerMax, `At most ${LIMITS.answerMax} characters`)
       shape[f.id] = f.required
         ? text.refine((v) => v.trim().length > 0, 'Required')

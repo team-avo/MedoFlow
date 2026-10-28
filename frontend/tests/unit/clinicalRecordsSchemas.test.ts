@@ -88,12 +88,36 @@ describe('F3.2 intake answers match the API rules (shared cases)', () => {
     expect(r.success).toBe(true)
     expect(r.success && r.data).toEqual({ n: undefined, s: undefined })
   })
+  it('shows "Required" for a missing answer and "Enter a number" for a non-number', () => {
+    const required = buildAnswersSchema([
+      { id: 'n', type: 'number', label: 'N', required: true },
+      {
+        id: 's',
+        type: 'select',
+        label: 'S',
+        required: true,
+        options: [{ value: 'a', label: 'A' }],
+      },
+      { id: 't', type: 'text', label: 'T', required: true },
+    ])
+    const message = (answers: Record<string, unknown>, id: string) => {
+      const r = required.safeParse(answers)
+      return r.success ? undefined : r.error.issues.find((i) => i.path[0] === id)?.message
+    }
+    expect(message({}, 'n')).toBe('Required')
+    expect(message({}, 's')).toBe('Required')
+    expect(message({}, 't')).toBe('Required')
+    expect(message({ n: 'abc' }, 'n')).toBe('Enter a number')
+    expect(message({ n: Infinity }, 'n')).toBe('Enter a number')
+  })
 })
 
 describe('F3.2 form-input schemas use the same limits', () => {
   it('plan form: coerces inputs and enforces the API limits', () => {
     const base = { name: 'Plan', disciplineId: 'd', startDate: '2026-10-01', totalSessions: '6' }
     expect(treatmentPlanFormSchema.safeParse(base).success).toBe(true)
+    const notANumber = treatmentPlanFormSchema.safeParse({ ...base, totalSessions: 'abc' })
+    expect(notANumber.success || notANumber.error.issues[0]?.message).toBe('Enter a number')
     for (const bad of [
       { ...base, totalSessions: '0' },
       { ...base, totalSessions: '501' },

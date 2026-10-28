@@ -82,7 +82,7 @@ function ServiceForm({
     setValue,
     watch,
     formState: { errors },
-  } = useForm<ServiceFormData>({
+  } = useForm<z.input<typeof serviceSchema>, unknown, ServiceFormData>({
     resolver: zodResolver(serviceSchema),
     defaultValues: defaultValues || {
       name: '',

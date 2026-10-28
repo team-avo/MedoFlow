@@ -82,7 +82,7 @@ export function CreatePlanModal({
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<PlanFormData>({
+  } = useForm<z.input<typeof planSchema>, unknown, PlanFormData>({
     resolver: zodResolver(planSchema),
     defaultValues: {
       name: '',
