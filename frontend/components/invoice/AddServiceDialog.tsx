@@ -1,33 +1,33 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { addInvoiceItem, type InvoiceItem } from '@/lib/invoiceApi';
-import { getDashboardServices } from '@/lib/serviceApi';
-import { useAppToast } from '@/hooks/useAppToast';
+} from '@/components/ui/select'
+import { addInvoiceItem, type InvoiceItem } from '@/lib/invoiceApi'
+import { getDashboardServices } from '@/lib/serviceApi'
+import { useAppToast } from '@/hooks/useAppToast'
 
 interface AddServiceDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  invoiceId: string;
-  onSuccess: (item: InvoiceItem) => void;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  invoiceId: string
+  onSuccess: (item: InvoiceItem) => void
 }
 
 export function AddServiceDialog({
@@ -36,68 +36,68 @@ export function AddServiceDialog({
   invoiceId,
   onSuccess,
 }: AddServiceDialogProps) {
-  const toast = useAppToast();
-  const [serviceId, setServiceId] = useState<string>('');
-  const [description, setDescription] = useState('');
-  const [unitPrice, setUnitPrice] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const toast = useAppToast()
+  const [serviceId, setServiceId] = useState<string>('')
+  const [description, setDescription] = useState('')
+  const [unitPrice, setUnitPrice] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const { data: services = [] } = useQuery({
+  const { data: services = [], isLoading: servicesLoading } = useQuery({
     queryKey: ['dashboard-services'],
     queryFn: () => getDashboardServices(),
     enabled: open,
-  });
+  })
 
-  const selectedService = services.find((s) => s.id === serviceId);
+  const selectedService = services.find((s) => s.id === serviceId)
 
   useEffect(() => {
     if (selectedService) {
-      setDescription(selectedService.name);
-      setUnitPrice(selectedService.defaultPrice);
+      setDescription(selectedService.name)
+      setUnitPrice(selectedService.defaultPrice)
     }
-  }, [selectedService]);
+  }, [selectedService])
 
   const reset = () => {
-    setServiceId('');
-    setDescription('');
-    setUnitPrice('');
-    setQuantity(1);
-  };
+    setServiceId('')
+    setDescription('')
+    setUnitPrice('')
+    setQuantity(1)
+  }
 
   const handleClose = (open: boolean) => {
-    if (!open) reset();
-    onOpenChange(open);
-  };
+    if (!open) reset()
+    onOpenChange(open)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
     if (!serviceId || !description || !unitPrice) {
-      toast.error('Service, description, and price are required');
-      return;
+      toast.error('Service, description, and price are required')
+      return
     }
-    const price = parseFloat(unitPrice);
+    const price = parseFloat(unitPrice)
     if (Number.isNaN(price) || price < 0) {
-      toast.error('Invalid price');
-      return;
+      toast.error('Invalid price')
+      return
     }
-    setIsSubmitting(true);
+    setIsSubmitting(true)
     try {
       const item = await addInvoiceItem(invoiceId, {
         serviceId,
         description,
         unitPrice: price,
         quantity,
-      });
-      toast.success('Service added to invoice');
-      onSuccess(item);
-      handleClose(false);
+      })
+      toast.success('Service added to invoice')
+      onSuccess(item)
+      handleClose(false)
     } catch {
-      toast.error('Failed to add service');
+      toast.error('Failed to add service')
     } finally {
-      setIsSubmitting(false);
+      setIsSubmitting(false)
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -108,9 +108,11 @@ export function AddServiceDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-2 block text-sm font-medium">Service</label>
-            <Select value={serviceId} onValueChange={setServiceId}>
+            <Select value={serviceId} onValueChange={setServiceId} disabled={servicesLoading}>
               <SelectTrigger>
-                <SelectValue placeholder="Select service" />
+                <SelectValue
+                  placeholder={servicesLoading ? 'Loading services…' : 'Select service'}
+                />
               </SelectTrigger>
               <SelectContent>
                 {services.map((s) => (
@@ -140,9 +142,13 @@ export function AddServiceDialog({
                 onChange={(e) => setUnitPrice(e.target.value)}
                 placeholder="0.00"
               />
-              {selectedService && unitPrice !== '' && parseFloat(unitPrice) !== parseFloat(selectedService.defaultPrice) && (
-                <Badge variant="destructive" className="shrink-0 text-xs">Overridden</Badge>
-              )}
+              {selectedService &&
+                unitPrice !== '' &&
+                parseFloat(unitPrice) !== parseFloat(selectedService.defaultPrice) && (
+                  <Badge variant="destructive" className="shrink-0 text-xs">
+                    Overridden
+                  </Badge>
+                )}
             </div>
           </div>
           <div>
@@ -155,11 +161,7 @@ export function AddServiceDialog({
             />
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleClose(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => handleClose(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
@@ -169,6 +171,5 @@ export function AddServiceDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
-

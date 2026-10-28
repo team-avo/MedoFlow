@@ -164,17 +164,9 @@ function ProviderDashboardContent() {
     <PageContainer className="space-y-8">
       {/* Hero — gradient welcome card with live "next up" chip */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#1C8B81] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-10 bottom-0 h-60 w-60 rounded-full bg-[#14B8A6]/25 blur-3xl"
-        />
         <div className="relative flex flex-col gap-8 p-8 lg:flex-row lg:items-center lg:justify-between lg:p-10">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
               <span className="h-1.5 w-1.5 rounded-full bg-[#14B8A6]" />
               Clinical Workspace
             </div>
@@ -188,7 +180,7 @@ function ProviderDashboardContent() {
 
           {/* Next-up chip */}
           {currentAppointment ? (
-            <div className="flex min-w-[280px] flex-col gap-3 rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur-sm">
+            <div className="flex min-w-0 flex-col sm:min-w-[260px] gap-3 rounded-2xl border border-white/15 bg-white/10 p-5">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/65">
                   Next up
@@ -234,7 +226,7 @@ function ProviderDashboardContent() {
               </div>
             </div>
           ) : (
-            <div className="flex min-w-[280px] flex-col gap-3 rounded-2xl border border-white/15 bg-white/5 p-5 backdrop-blur-sm">
+            <div className="flex min-w-0 flex-col sm:min-w-[260px] gap-3 rounded-2xl border border-white/15 bg-white/5 p-5">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/65">
                 Your week
               </p>
@@ -331,7 +323,7 @@ function ProviderDashboardContent() {
                           <div
                             key={apt.id}
                             className={cn(
-                              'group flex items-center gap-4 rounded-2xl border p-4 transition-all',
+                              'group flex items-center gap-4 rounded-2xl border p-4 transition-colors',
                               isCurrent
                                 ? 'border-[#0D9488]/40 bg-gradient-to-r from-[#F0FDFA] to-white shadow-[0_0_0_3px_rgba(13,148,136,0.08)]'
                                 : imminent
@@ -426,14 +418,6 @@ function ProviderDashboardContent() {
         {/* Side rail — Scribe primer + quick links */}
         <div className="space-y-6">
           <AppCard className="relative overflow-hidden border-none bg-gradient-to-br from-[#1E3A5F] via-[#233F63] to-[#0F766E] text-white shadow-card">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-3xl"
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -bottom-10 -left-4 h-32 w-32 rounded-full bg-[#14B8A6]/25 blur-2xl"
-            />
             <AppCardContent className="relative space-y-5 p-7">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
                 <Zap className="h-3 w-3" />

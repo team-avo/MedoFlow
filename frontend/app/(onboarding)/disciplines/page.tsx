@@ -7,6 +7,7 @@ import api from '@/lib/api'
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell'
 import { AppInput } from '@/components/ui-system'
 import { clientLog } from '@/lib/clientLog'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const SUGGESTED = [
   'Longevity',
@@ -26,6 +27,8 @@ export default function DisciplinesStepPage() {
   const [customList, setCustomList] = React.useState<string[]>([])
 
   // Pre-populate if user has disciplines already
+  const [loading, setLoading] = React.useState(true)
+
   React.useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -43,6 +46,8 @@ export default function DisciplinesStepPage() {
         }
       } catch {
         /* noop */
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     })()
     return () => {
@@ -80,7 +85,7 @@ export default function DisciplinesStepPage() {
       title="What kinds of care do you provide?"
       subtitle="Pick what applies. This shapes the services you'll offer next."
       nextLabel="Save & continue"
-      nextDisabled={total === 0}
+      nextDisabled={loading || total === 0}
       onNext={async () => {
         const payload = [...Array.from(selected), ...customList]
         for (const name of payload) {
@@ -95,73 +100,79 @@ export default function DisciplinesStepPage() {
         router.push('/services')
       }}
     >
-      <div className="flex flex-wrap gap-2">
-        {SUGGESTED.map((d) => {
-          const active = selected.has(d)
-          return (
-            <button
-              key={d}
-              type="button"
-              onClick={() => toggle(d)}
-              className={
-                active
-                  ? 'inline-flex items-center gap-1.5 rounded-full border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white'
-                  : 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-indigo-400'
-              }
-            >
-              {active && <Check className="h-3.5 w-3.5" />}
-              {d}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-8">
-        <p className="mb-2 text-sm font-medium text-slate-700">Add a custom discipline</p>
-        <div className="flex gap-2">
-          <AppInput
-            value={customInput}
-            onChange={(e) => setCustomInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                addCustom()
-              }
-            }}
-            placeholder="e.g. Chiropractic"
-            className="flex-1"
-          />
-          <button
-            type="button"
-            onClick={addCustom}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-indigo-400"
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </button>
-        </div>
-
-        {customList.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {customList.map((n) => (
-              <span
-                key={n}
-                className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
-              >
-                {n}
+      {loading ? (
+        <LoadingSkeleton variant="card" />
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {SUGGESTED.map((d) => {
+              const active = selected.has(d)
+              return (
                 <button
+                  key={d}
                   type="button"
-                  onClick={() => removeCustom(n)}
-                  className="text-slate-500 hover:text-rose-600"
-                  aria-label={`Remove ${n}`}
+                  onClick={() => toggle(d)}
+                  className={
+                    active
+                      ? 'inline-flex items-center gap-1.5 rounded-full border border-indigo-600 bg-indigo-600 px-4 py-2 text-sm font-medium text-white'
+                      : 'inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-indigo-400'
+                  }
                 >
-                  <X className="h-3 w-3" />
+                  {active && <Check className="h-3.5 w-3.5" />}
+                  {d}
                 </button>
-              </span>
-            ))}
+              )
+            })}
           </div>
-        )}
-      </div>
+
+          <div className="mt-8">
+            <p className="mb-2 text-sm font-medium text-slate-700">Add a custom discipline</p>
+            <div className="flex gap-2">
+              <AppInput
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addCustom()
+                  }
+                }}
+                placeholder="e.g. Chiropractic"
+                className="flex-1"
+              />
+              <button
+                type="button"
+                onClick={addCustom}
+                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-indigo-400"
+              >
+                <Plus className="h-4 w-4" />
+                Add
+              </button>
+            </div>
+
+            {customList.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {customList.map((n) => (
+                  <span
+                    key={n}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                  >
+                    {n}
+                    <button
+                      type="button"
+                      onClick={() => removeCustom(n)}
+                      className="text-slate-500 hover:text-rose-600"
+                      aria-label={`Remove ${n}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </OnboardingShell>
   )
 }

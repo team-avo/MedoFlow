@@ -110,7 +110,7 @@ function AdminDashboardContent() {
         title="Command Center"
         description="High-level clinic health and financial overview"
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {!websiteLive && (
               <button
                 type="button"
@@ -150,7 +150,7 @@ function AdminDashboardContent() {
       {isLoading ? (
         <LoadingSkeleton variant="stat" count={4} />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
             label="Total Revenue"
             value={`$${(stats?.finance.totalRevenue ?? 0).toLocaleString()}`}
@@ -326,7 +326,7 @@ function AdminDashboardContent() {
           <AppCardTitle className="text-sm">Quick Actions</AppCardTitle>
         </AppCardHeader>
         <AppCardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             {[
               {
                 href: '/dashboard/staff',
@@ -374,7 +374,7 @@ function AdminDashboardContent() {
               <Link
                 key={href}
                 href={href}
-                className="flex flex-col items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-4 text-center text-[13px] font-semibold text-slate-700 transition-all hover:border-slate-200 hover:bg-white hover:shadow-sm"
+                className="flex flex-col items-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/50 p-4 text-center text-[13px] font-semibold text-slate-700 transition-colors hover:border-slate-200 hover:bg-white hover:shadow-sm"
               >
                 <span className={cn('flex h-10 w-10 items-center justify-center rounded-xl', bg)}>
                   <Icon className={cn('h-5 w-5', color)} />
@@ -413,20 +413,27 @@ function KpiCard({
   return (
     <AppCard data-tour-id={tourId} className="relative overflow-hidden">
       <AppCardContent className="p-5">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+        <div className="flex items-center justify-between gap-3">
+          <p
+            className="min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+            title={label}
+          >
             {label}
           </p>
-          <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg', iconBg)}>
+          <span
+            className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', iconBg)}
+          >
             {icon}
           </span>
         </div>
-        <div className="mt-3 flex items-baseline gap-2">
-          <h3 className="text-2xl font-bold text-slate-900">{value}</h3>
+        <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <h3 className="min-w-0 truncate text-2xl font-bold tabular-nums text-slate-900">
+            {value}
+          </h3>
           {badge && (
             <span
               className={cn(
-                'flex items-center text-xs font-semibold',
+                'flex items-center whitespace-nowrap text-xs font-semibold',
                 badgeUp === true
                   ? 'text-emerald-600'
                   : badgeUp === false
@@ -439,7 +446,7 @@ function KpiCard({
             </span>
           )}
         </div>
-        <p className="mt-1 text-[11px] text-slate-400">{sub}</p>
+        <p className="mt-1 truncate text-[11px] text-slate-400">{sub}</p>
       </AppCardContent>
     </AppCard>
   )

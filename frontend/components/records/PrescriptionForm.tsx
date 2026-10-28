@@ -35,7 +35,7 @@ export function PrescriptionForm({
   return (
     <form
       onSubmit={handleSubmit((values) => onSubmit(values.notes))}
-      className="p-6 bg-slate-50 rounded-3xl border-2 border-primary-100 animate-in zoom-in-95 space-y-4"
+      className="p-6 bg-slate-50 rounded-3xl border-2 border-primary-100 animate-in space-y-4"
       noValidate
     >
       <label htmlFor="prescription-notes" className="sr-only">

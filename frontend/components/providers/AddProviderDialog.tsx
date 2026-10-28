@@ -161,7 +161,7 @@ export function AddProviderDialog({ open, onOpenChange }: AddProviderDialogProps
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-4">
             <h4 className="text-sm font-medium text-slate-900">Provider Information</h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <AppFormField label="First Name" error={errors.firstName?.message}>
                 <AppInput
                   {...register('firstName')}

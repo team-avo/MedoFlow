@@ -36,6 +36,12 @@ export interface AppTableColumn<T> {
   mobilePrimary?: boolean
   /** Hide this column entirely in mobile card mode. */
   mobileHidden?: boolean
+  /**
+   * Let this column's text wrap (notes, descriptions). Off by default: cells
+   * stay on one line and the table scrolls sideways instead of squeezing
+   * names, dates and badges onto two lines.
+   */
+  wrap?: boolean
 }
 
 export interface AppTableProps<T> {
@@ -74,14 +80,14 @@ export function AppTable<T>({
         className
       )}
     >
-      <Table>
+      <Table className="min-w-max">
         <TableHeader>
           <TableRow className="border-b border-slate-100 hover:bg-transparent">
             {columns.map((col) => (
               <TableHead
                 key={col.key}
                 className={cn(
-                  'h-12 px-4 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground',
+                  'h-12 whitespace-nowrap px-4 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground',
                   col.className
                 )}
               >
@@ -115,7 +121,11 @@ export function AppTable<T>({
                 {columns.map((col) => (
                   <TableCell
                     key={col.key}
-                    className={cn('px-4 py-3 text-sm text-foreground', col.className)}
+                    className={cn(
+                      'px-4 py-3 text-sm text-foreground',
+                      col.wrap ? 'min-w-[12rem] max-w-md whitespace-normal' : 'whitespace-nowrap',
+                      col.className
+                    )}
                   >
                     {col.render(item)}
                   </TableCell>

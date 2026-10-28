@@ -72,17 +72,19 @@ export function PatientHubModal({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm',
+            'fixed inset-0 z-[60] bg-slate-900/60',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-[61] flex max-h-[92vh] w-[96vw] max-w-[820px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] bg-white shadow-2xl',
+            'fixed left-1/2 top-1/2 z-[61] flex max-h-[92vh] w-[96vw] max-w-[820px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] bg-white shadow-lg',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
-            'data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95'
+            // Fade only; the slide pair re-applies the -50% centring that the
+            // enter/exit keyframes would otherwise reset (no visible movement).
+            'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-1/2'
           )}
         >
           {/* Header */}
@@ -232,7 +234,7 @@ function OverviewPanel({
         />
       )}
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatCard label="Upcoming" value={String(upcoming.length)} />
         <StatCard label="Completed" value={String(past.length)} />
         <StatCard label="Total visits" value={String((appointments ?? []).length)} />
@@ -246,7 +248,7 @@ function OverviewPanel({
             onClose()
             router.push(`/clinic/${clinicRouteId}/store`)
           }}
-          className="group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-2xl border p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+          className="group relative flex w-full items-center justify-between gap-3 overflow-hidden rounded-2xl border p-5 text-left transition-colors hover:shadow-md"
           style={{ borderColor: `${themeColor}30`, backgroundColor: `${themeColor}08` }}
         >
           <div className="flex items-center gap-4">
@@ -261,10 +263,7 @@ function OverviewPanel({
               <p className="mt-0.5 text-[12px] text-slate-500">Curated products from your clinic</p>
             </div>
           </div>
-          <ArrowRight
-            className="h-4 w-4 transition-transform group-hover:translate-x-1"
-            style={{ color: themeColor }}
-          />
+          <ArrowRight className="h-4 w-4 transition-transform" style={{ color: themeColor }} />
         </button>
       )}
     </div>

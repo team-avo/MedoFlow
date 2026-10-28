@@ -104,7 +104,7 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
   const roleLabel = user?.role?.replace('_', ' ') ?? ''
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-md md:px-8">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:px-8">
       {/* Left: hamburger (mobile) + breadcrumbs */}
       <button
         type="button"
@@ -133,10 +133,13 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
         ))}
       </nav>
 
-      <div className="flex flex-1 md:hidden" />
+      {/* Mobile: the current page title in place of the breadcrumbs. */}
+      <p className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 md:hidden">
+        {crumbs[crumbs.length - 1]?.label ?? ''}
+      </p>
 
       {/* Right: actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1">
         {/* Alert indicator — SUPER_ADMIN / STAFF only */}
         {isAdminRole && (
           <div className="relative" ref={alertMenuRef}>
@@ -154,16 +157,11 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
                 hasAlerts ? `${alertCount} active alert${alertCount !== 1 ? 's' : ''}` : 'No alerts'
               }
             >
-              {/* Ripple rings — only when there are unseen alerts */}
+              {/* Unseen alerts: a static amber tint, no ripple or bounce. */}
               {hasAlerts && !alertsSeen && (
-                <>
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-lg bg-amber-400 opacity-30" />
-                  <span className="absolute inline-flex h-[80%] w-[80%] animate-ping rounded-lg bg-amber-400 opacity-20 [animation-delay:0.3s]" />
-                </>
+                <span className="absolute inset-0 rounded-lg bg-amber-400/20" />
               )}
-              <AlertCircle
-                className={cn('relative h-5 w-5', hasAlerts && !alertsSeen && 'animate-bounce')}
-              />
+              <AlertCircle className="relative h-5 w-5" />
               {hasAlerts && (
                 <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow">
                   {alertCount > 9 ? '9+' : alertCount}
@@ -200,7 +198,7 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
                         )}
                       >
                         <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                        <div>
+                        <div className="min-w-0 break-words">
                           <p className="font-semibold">{alert.title}</p>
                           <p className="text-[12px] mt-0.5 opacity-80">{alert.message}</p>
                         </div>
@@ -244,7 +242,8 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             className={cn(
-              'flex items-center gap-2.5 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-2 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 sm:pr-3',
+              // max-w lets the name's `truncate` engage instead of widening the bar.
+              'flex max-w-[13rem] items-center gap-2.5 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-2 text-left shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 sm:pr-3 lg:max-w-[16rem]',
               menuOpen && 'border-slate-300 bg-slate-50'
             )}
             aria-haspopup="menu"

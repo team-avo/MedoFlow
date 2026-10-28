@@ -8,6 +8,7 @@ import { PageContainer } from '@/components/layout'
 import { format } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const LIMIT = 50
 
@@ -48,7 +49,7 @@ export default function AuditLogsPage() {
       <AppCard>
         <AppCardContent className="p-0">
           {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Loading logs...</div>
+            <LoadingSkeleton variant="table" className="rounded-none border-0" />
           ) : (
             <AppTable<AuditLog>
               mobileCardMode
@@ -98,6 +99,7 @@ export default function AuditLogsPage() {
                 {
                   key: 'changes',
                   header: 'Changes',
+                  wrap: true,
                   mobileLabel: 'Change',
                   render: (log) => (
                     <div className="max-w-[300px] overflow-hidden text-ellipsis break-words text-xs">

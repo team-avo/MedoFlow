@@ -12,9 +12,8 @@
 import React from 'react'
 import Link from 'next/link'
 import { ArrowRight, ShieldCheck, Activity, Lock, Sparkles } from 'lucide-react'
-import { motion } from 'framer-motion'
 import { BrandLogo } from '@/components/common/BrandLogo'
-import { MeshGradient } from '@/components/landing/motion/MeshGradient'
+import { BrandGradient } from '@/components/landing/BrandGradient'
 
 type FooterColumn = {
   title: string
@@ -82,7 +81,7 @@ function GradientDivider() {
 export function PublicFooter() {
   return (
     <footer className="relative overflow-hidden bg-[#0B1E35]">
-      <MeshGradient variant="navy" />
+      <BrandGradient variant="navy" />
 
       {/* Fine grid texture — only at top, fading down */}
       <div
@@ -100,13 +99,8 @@ export function PublicFooter() {
       <div className="container relative z-10 mx-auto px-6 lg:px-8">
         {/* ─── Top: oversized brand statement ───────────────────────── */}
         <div className="grid gap-12 pt-24 lg:grid-cols-[1.3fr_1fr] lg:gap-20 lg:pt-32">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-15% 0px' }}
-            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 backdrop-blur-sm">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5">
               <Sparkles className="h-3.5 w-3.5 text-[#5EEAD4]" strokeWidth={2} />
               <span className="text-[11px] font-medium uppercase tracking-wider text-white/70">
                 MedoFlow
@@ -142,16 +136,10 @@ export function PublicFooter() {
                 )
               })}
             </div>
-          </motion.div>
+          </div>
 
           {/* Newsletter — refined */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: '-15% 0px' }}
-            transition={{ duration: 0.8, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-sm"
-          >
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
             <p className="mf-eyebrow text-[#5EEAD4]">Stay in the loop</p>
             <h4 className="mf-display mt-3 text-[22px] leading-snug text-white">
               Get product updates &amp; clinic-ops insights.
@@ -176,14 +164,14 @@ export function PublicFooter() {
                 />
                 <button
                   type="submit"
-                  className="group/btn inline-flex items-center gap-1.5 rounded-[8px] bg-white px-4 py-2 text-[13px] font-semibold text-[#0B1E35] shadow-[0_4px_20px_-4px_rgba(94,234,212,0.4)] transition-all hover:shadow-[0_8px_28px_-4px_rgba(94,234,212,0.7)]"
+                  className="group/btn inline-flex items-center gap-1.5 rounded-[8px] bg-white px-4 py-2 text-[13px] font-semibold text-[#0B1E35] shadow-[0_4px_20px_-4px_rgba(94,234,212,0.4)] transition-colors hover:shadow-[0_8px_28px_-4px_rgba(94,234,212,0.7)]"
                 >
                   Subscribe
                   <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
                 </button>
               </div>
             </form>
-          </motion.div>
+          </div>
         </div>
 
         <div className="mt-20">
@@ -203,13 +191,7 @@ export function PublicFooter() {
 
           <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
             {columns.map((c, ci) => (
-              <motion.div
-                key={c.title}
-                initial={{ opacity: 0, y: 12 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: ci * 0.05 }}
-              >
+              <div key={c.title}>
                 <h4 className="mf-eyebrow text-white/45">{c.title}</h4>
                 <ul className="mt-5 space-y-3">
                   {c.links.map((l) => (
@@ -228,14 +210,14 @@ export function PublicFooter() {
                           {l.label}
                         </span>
                         <ArrowRight
-                          className="h-3 w-3 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100"
+                          className="h-3 w-3 -translate-x-1 opacity-0 transition-colors group-hover:opacity-100"
                           strokeWidth={2}
                         />
                       </Link>
                     </li>
                   ))}
                 </ul>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -247,7 +229,7 @@ export function PublicFooter() {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-white/45">
             <span className="flex items-center gap-1.5">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
               </span>
               All systems operational

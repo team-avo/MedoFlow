@@ -105,7 +105,7 @@ export default function StaffPage() {
         title="Internal Team"
         description="Manage your clinic's administrators and operational support staff."
         actions={
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-center">
             <DateRangeFilter
               value={dateRangeOption}
               onChange={(opt, range) => {
@@ -114,7 +114,7 @@ export default function StaffPage() {
               }}
             />
             <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Link href="/dashboard/staff/roles">
                 <AppButton variant="outline" className="rounded-full px-5">
                   <Shield className="mr-2 h-4 w-4" />
@@ -167,13 +167,15 @@ export default function StaffPage() {
                 header: 'Member',
                 mobilePrimary: true,
                 render: (m) => (
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="w-10 h-10 shrink-0 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-500">
                       {m.name.charAt(0)}
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-900">{m.name}</p>
-                      <p className="text-xs text-slate-500 font-medium">{m.email}</p>
+                    <div className="min-w-0">
+                      <p className="max-w-[16rem] truncate font-bold text-slate-900">{m.name}</p>
+                      <p className="max-w-[16rem] truncate text-xs text-slate-500 font-medium">
+                        {m.email}
+                      </p>
                     </div>
                   </div>
                 ),

@@ -87,7 +87,7 @@ export default function ProductDetailPage() {
           {/* Product Image */}
           <div className="space-y-6">
             <div className="aspect-square bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 overflow-hidden group">
-              <ShoppingBag className="h-32 w-32 text-slate-200 group-hover:scale-110 transition-transform duration-500" />
+              <ShoppingBag className="h-32 w-32 text-slate-200 transition-transform" />
             </div>
             <div className="grid grid-cols-4 gap-4">
               {[1, 2, 3, 4].map((i) => (
@@ -160,7 +160,7 @@ export default function ProductDetailPage() {
               </div>
               <AppButton
                 size="lg"
-                className="w-full h-16 rounded-2xl text-lg font-bold shadow-2xl shadow-primary-100"
+                className="w-full h-16 rounded-2xl text-lg font-bold shadow-lg shadow-primary-100"
                 onClick={addToCart}
                 disabled={product.inventoryItem?.quantityInStock === 0}
               >

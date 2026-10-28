@@ -128,7 +128,7 @@ function SoapEditor({
             <Textarea
               className={cn(
                 'min-h-[180px] rounded-[12px] border-slate-200 bg-white text-slate-900 placeholder:text-muted',
-                'focus-visible:ring-accent/20 focus-visible:border-accent transition-all text-sm leading-relaxed p-6'
+                'focus-visible:ring-accent/20 focus-visible:border-accent transition-colors text-sm leading-relaxed p-6'
               )}
               value={draft[field] || ''}
               onChange={(e) => onChange({ ...draft, [field]: e.target.value })}
@@ -361,9 +361,10 @@ function ProviderAIScribePageContent() {
 
   return (
     <div className="bg-slate-50 min-h-screen">
-      <div className="px-8 py-6 bg-white border-b sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      {/* Sticks below the dashboard TopBar (h-14), not underneath it. */}
+      <div className="px-4 py-5 sm:px-8 sm:py-6 bg-white border-b sticky top-14 z-20">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <AppButton
               variant="ghost"
               size="icon"
@@ -411,7 +412,7 @@ function ProviderAIScribePageContent() {
             </AppButton>
           </AppCard>
         ) : (
-          <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="space-y-8 animate-in fade-in">
             {/* Action Bar */}
             <AppCard className="border-none shadow-sm overflow-hidden bg-white">
               <AppCardContent className="p-6">

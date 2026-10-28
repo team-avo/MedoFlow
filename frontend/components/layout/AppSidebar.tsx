@@ -253,26 +253,12 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
 
   return (
     <aside className={asideClass}>
-      {/* Ambient brand glows */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-24 -left-16 h-64 w-64 rounded-full bg-[#1C8B81]/25 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute top-[28%] -right-20 h-48 w-48 rounded-full bg-[#6366F1]/15 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-32 -right-10 h-64 w-64 rounded-full bg-[#4C7DCC]/20 blur-3xl"
-      />
-
       {/* Header: Logo + workspace chip */}
       <div className="relative shrink-0 px-5 pt-5 pb-4">
         <Link href="/dashboard" className="group/logo inline-flex items-center">
           <BrandLogo size="md" tone="light" />
         </Link>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70 backdrop-blur-sm">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/70">
           <span
             aria-hidden
             className="inline-block h-1.5 w-1.5 rounded-full"
@@ -313,7 +299,7 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
                     href={item.href}
                     data-tour-id={tourId}
                     className={cn(
-                      'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-all duration-200',
+                      'group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] transition-colors duration-200',
                       isActive
                         ? 'bg-gradient-to-r from-white/[0.14] via-white/[0.06] to-transparent font-semibold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.09),_0_1px_3px_rgba(0,0,0,0.12)]'
                         : 'text-white/65 hover:bg-white/5 hover:text-white'
@@ -329,10 +315,10 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
                     )}
                     <span
                       className={cn(
-                        'flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200',
+                        'flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-200',
                         isActive
                           ? 'bg-gradient-to-br from-[#14B8A6]/25 to-[#0D9488]/10 text-white ring-1 ring-[#14B8A6]/30 shadow-[0_0_16px_rgba(20,184,166,0.25)]'
-                          : 'bg-white/[0.04] text-white/55 ring-1 ring-white/5 group-hover:bg-white/10 group-hover:text-white group-hover:ring-white/15 group-hover:scale-105'
+                          : 'bg-white/[0.04] text-white/55 ring-1 ring-white/5 group-hover:bg-white/10 group-hover:text-white group-hover:ring-white/15'
                       )}
                     >
                       <Icon className="h-[17px] w-[17px]" />
@@ -357,12 +343,8 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
         <div className="relative shrink-0 px-3 pb-4">
           <Link
             href={footerCard.href}
-            className="group relative block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/[0.06]"
+            className="group relative block overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-white/20 hover:bg-white/[0.06]"
           >
-            <div
-              aria-hidden
-              className="pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full bg-[#14B8A6]/25 blur-2xl transition-opacity group-hover:opacity-70"
-            />
             <div className="relative flex items-center gap-2">
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#14B8A6] to-[#0D9488] text-white shadow-sm">
                 <footerCard.icon className="h-3.5 w-3.5" />
@@ -374,7 +356,7 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
             </p>
             <p className="relative mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#5EEAD4]">
               {footerCard.cta}
-              <span className="transition-transform group-hover:translate-x-0.5">→</span>
+              <span className="transition-transform">→</span>
             </p>
           </Link>
         </div>

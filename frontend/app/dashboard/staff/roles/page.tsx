@@ -1,7 +1,7 @@
-'use client';
+'use client'
 
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AppPageHeader,
   AppEmptyState,
@@ -10,19 +10,19 @@ import {
   AppCardTitle,
   AppCardContent,
   AppButton,
-} from '@/components/ui-system';
-import { PageContainer } from '@/components/layout';
-import { Badge } from '@/components/ui/badge';
+} from '@/components/ui-system'
+import { PageContainer } from '@/components/layout'
+import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { AppInput } from '@/components/ui-system';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAppToast } from '@/hooks/useAppToast';
+} from '@/components/ui/dialog'
+import { AppInput } from '@/components/ui-system'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAppToast } from '@/hooks/useAppToast'
 import {
   listRoles,
   createRole,
@@ -33,18 +33,8 @@ import {
   type CustomRole,
   type PermissionGroup,
   type RolePreset,
-} from '@/lib/roleApi';
-import {
-  Shield,
-  Plus,
-  Pencil,
-  Trash2,
-  Users,
-  ChevronRight,
-  Sparkles,
-  Check,
-  X,
-} from 'lucide-react';
+} from '@/lib/roleApi'
+import { Shield, Plus, Pencil, Trash2, Users, ChevronRight, Sparkles, Check, X } from 'lucide-react'
 
 // ─── Role Card ────────────────────────────────────────────────────────────────
 
@@ -53,12 +43,12 @@ function RoleCard({
   onEdit,
   onDelete,
 }: {
-  role: CustomRole;
-  onEdit: () => void;
-  onDelete: () => void;
+  role: CustomRole
+  onEdit: () => void
+  onDelete: () => void
 }) {
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 transition-all hover:border-slate-300 hover:shadow-lg hover:shadow-slate-100/50">
+    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 transition-colors hover:border-slate-300 hover:shadow-lg hover:shadow-slate-100/50">
       {/* Gradient accent */}
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 opacity-0 transition-opacity group-hover:opacity-100" />
 
@@ -76,7 +66,10 @@ function RoleCard({
         </div>
         <div className="flex items-center gap-1">
           {role.isPreset && (
-            <Badge variant="secondary" className="rounded-lg px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-teal-700 bg-teal-50 border-teal-100">
+            <Badge
+              variant="secondary"
+              className="rounded-lg px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-teal-700 bg-teal-50 border-teal-100"
+            >
               Preset
             </Badge>
           )}
@@ -134,7 +127,7 @@ function RoleCard({
         )}
       </div>
     </div>
-  );
+  )
 }
 
 // ─── Permission Toggle Grid ──────────────────────────────────────────────────
@@ -145,17 +138,17 @@ function PermissionGrid({
   onToggle,
   onToggleAll,
 }: {
-  groups: PermissionGroup[];
-  selectedPermissions: Set<string>;
-  onToggle: (key: string) => void;
-  onToggleAll: (keys: string[], checked: boolean) => void;
+  groups: PermissionGroup[]
+  selectedPermissions: Set<string>
+  onToggle: (key: string) => void
+  onToggleAll: (keys: string[], checked: boolean) => void
 }) {
   return (
     <div className="space-y-6">
       {groups.map((group) => {
-        const groupKeys = group.permissions.map((p) => p.key);
-        const allChecked = groupKeys.every((k) => selectedPermissions.has(k));
-        const someChecked = groupKeys.some((k) => selectedPermissions.has(k));
+        const groupKeys = group.permissions.map((p) => p.key)
+        const allChecked = groupKeys.every((k) => selectedPermissions.has(k))
+        const someChecked = groupKeys.some((k) => selectedPermissions.has(k))
 
         return (
           <div
@@ -171,7 +164,7 @@ function PermissionGrid({
                       type="checkbox"
                       checked={allChecked}
                       ref={(el) => {
-                        if (el) el.indeterminate = someChecked && !allChecked;
+                        if (el) el.indeterminate = someChecked && !allChecked
                       }}
                       onChange={() => onToggleAll(groupKeys, !allChecked)}
                       className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 accent-teal-600"
@@ -223,10 +216,10 @@ function PermissionGrid({
               ))}
             </div>
           </div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 // ─── Role Editor Modal ────────────────────────────────────────────────────────
@@ -238,85 +231,85 @@ function RoleEditorModal({
   groups,
   presets,
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  editingRole: CustomRole | null;
-  groups: PermissionGroup[];
-  presets: Record<string, RolePreset>;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  editingRole: CustomRole | null
+  groups: PermissionGroup[]
+  presets: Record<string, RolePreset>
 }) {
-  const toast = useAppToast();
-  const queryClient = useQueryClient();
+  const toast = useAppToast()
+  const queryClient = useQueryClient()
 
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set());
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [selectedPermissions, setSelectedPermissions] = useState<Set<string>>(new Set())
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null)
 
-  const isEditing = !!editingRole;
+  const isEditing = !!editingRole
 
   useEffect(() => {
     if (open) {
       if (editingRole) {
-        setName(editingRole.name);
-        setDescription(editingRole.description ?? '');
-        setSelectedPermissions(new Set(editingRole.permissions));
-        setSelectedPreset(null);
+        setName(editingRole.name)
+        setDescription(editingRole.description ?? '')
+        setSelectedPermissions(new Set(editingRole.permissions))
+        setSelectedPreset(null)
       } else {
-        setName('');
-        setDescription('');
-        setSelectedPermissions(new Set());
-        setSelectedPreset(null);
+        setName('')
+        setDescription('')
+        setSelectedPermissions(new Set())
+        setSelectedPreset(null)
       }
     }
-  }, [open, editingRole]);
+  }, [open, editingRole])
 
   const handlePresetSelect = (presetKey: string) => {
-    const preset = presets[presetKey];
-    if (!preset) return;
-    setSelectedPreset(presetKey);
-    if (!name) setName(presetKey);
-    if (!description) setDescription(preset.description);
-    setSelectedPermissions(new Set(preset.permissions));
-  };
+    const preset = presets[presetKey]
+    if (!preset) return
+    setSelectedPreset(presetKey)
+    if (!name) setName(presetKey)
+    if (!description) setDescription(preset.description)
+    setSelectedPermissions(new Set(preset.permissions))
+  }
 
   const togglePermission = (key: string) => {
     setSelectedPermissions((prev) => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
-    setSelectedPreset(null); // clear preset since user customised
-  };
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+    setSelectedPreset(null) // clear preset since user customised
+  }
 
   const toggleAllPermissions = (keys: string[], checked: boolean) => {
     setSelectedPermissions((prev) => {
-      const next = new Set(prev);
-      keys.forEach((k) => (checked ? next.add(k) : next.delete(k)));
-      return next;
-    });
-    setSelectedPreset(null);
-  };
+      const next = new Set(prev)
+      keys.forEach((k) => (checked ? next.add(k) : next.delete(k)))
+      return next
+    })
+    setSelectedPreset(null)
+  }
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const permissions = Array.from(selectedPermissions);
+      const permissions = Array.from(selectedPermissions)
       if (isEditing) {
-        return updateRole(editingRole!.id, { name, description, permissions });
+        return updateRole(editingRole!.id, { name, description, permissions })
       }
-      return createRole({ name, description, permissions, presetKey: selectedPreset ?? undefined });
+      return createRole({ name, description, permissions, presetKey: selectedPreset ?? undefined })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success(isEditing ? 'Role updated' : 'Role created');
-      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ['roles'] })
+      toast.success(isEditing ? 'Role updated' : 'Role created')
+      onOpenChange(false)
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message ?? error.message ?? 'Unable to save role');
+      toast.error(error.response?.data?.message ?? error.message ?? 'Unable to save role')
     },
-  });
+  })
 
-  const allPermissionKeys = groups.flatMap((g) => g.permissions.map((p) => p.key));
-  const allSelected = allPermissionKeys.every((k) => selectedPermissions.has(k));
+  const allPermissionKeys = groups.flatMap((g) => g.permissions.map((p) => p.key))
+  const allSelected = allPermissionKeys.every((k) => selectedPermissions.has(k))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -335,13 +328,13 @@ function RoleEditorModal({
           {!isEditing && Object.keys(presets).length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">Start from a Preset</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {Object.entries(presets).map(([key, preset]) => (
                   <button
                     key={key}
                     type="button"
                     onClick={() => handlePresetSelect(key)}
-                    className={`flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-all ${
+                    className={`flex flex-col items-start rounded-xl border px-4 py-3 text-left transition-colors ${
                       selectedPreset === key
                         ? 'border-teal-500 bg-teal-50/50 shadow-sm shadow-teal-100'
                         : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
@@ -371,7 +364,7 @@ function RoleEditorModal({
           )}
 
           {/* Name + Description */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700">Role Name</label>
               <AppInput
@@ -396,9 +389,7 @@ function RoleEditorModal({
               <input
                 type="checkbox"
                 checked={allSelected}
-                onChange={() =>
-                  toggleAllPermissions(allPermissionKeys, !allSelected)
-                }
+                onChange={() => toggleAllPermissions(allPermissionKeys, !allSelected)}
                 className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500 accent-teal-600"
               />
               <span className="text-sm font-bold text-slate-600">Select All Permissions</span>
@@ -419,11 +410,7 @@ function RoleEditorModal({
 
         {/* Footer */}
         <div className="flex justify-end gap-3 pt-4 border-t">
-          <AppButton
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <AppButton type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </AppButton>
           <AppButton
@@ -435,68 +422,68 @@ function RoleEditorModal({
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function RolesPage() {
-  const { user } = useAuth();
-  const toast = useAppToast();
-  const queryClient = useQueryClient();
+  const { user } = useAuth()
+  const toast = useAppToast()
+  const queryClient = useQueryClient()
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRole, setEditingRole] = useState<CustomRole | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingRole, setEditingRole] = useState<CustomRole | null>(null)
 
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: listRoles,
     enabled: !!user?.clinicId,
-  });
+  })
 
   const { data: registry } = useQuery({
     queryKey: ['permission-registry'],
     queryFn: getPermissionRegistry,
     enabled: !!user?.clinicId,
-  });
+  })
 
   const seedMutation = useMutation({
     mutationFn: seedPresetRoles,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success('Preset roles synced');
+      queryClient.invalidateQueries({ queryKey: ['roles'] })
+      toast.success('Preset roles synced')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message ?? 'Unable to sync presets');
+      toast.error(error.response?.data?.message ?? 'Unable to sync presets')
     },
-  });
+  })
 
   const deleteMutation = useMutation({
     mutationFn: deleteRole,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast.success('Role deleted');
+      queryClient.invalidateQueries({ queryKey: ['roles'] })
+      toast.success('Role deleted')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message ?? 'Unable to delete role');
+      toast.error(error.response?.data?.message ?? 'Unable to delete role')
     },
-  });
+  })
 
   const handleDelete = (role: CustomRole) => {
     if (window.confirm(`Delete the "${role.name}" role? This cannot be undone.`)) {
-      deleteMutation.mutate(role.id);
+      deleteMutation.mutate(role.id)
     }
-  };
+  }
 
   const handleEdit = (role: CustomRole) => {
-    setEditingRole(role);
-    setIsModalOpen(true);
-  };
+    setEditingRole(role)
+    setIsModalOpen(true)
+  }
 
   const handleCreate = () => {
-    setEditingRole(null);
-    setIsModalOpen(true);
-  };
+    setEditingRole(null)
+    setIsModalOpen(true)
+  }
 
   if (user?.role !== 'SUPER_ADMIN') {
     return (
@@ -506,7 +493,7 @@ export default function RolesPage() {
           description="Only administrators can manage roles and permissions."
         />
       </div>
-    );
+    )
   }
 
   if (rolesLoading) {
@@ -514,7 +501,7 @@ export default function RolesPage() {
       <div className="p-8 flex justify-center py-20">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-teal-500" />
       </div>
-    );
+    )
   }
 
   return (
@@ -523,7 +510,7 @@ export default function RolesPage() {
         title="Roles & Permissions"
         description="Define custom roles with granular permissions — just like Shopify."
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {roles.filter((r) => r.isPreset).length === 0 && (
               <AppButton
                 variant="outline"
@@ -535,10 +522,7 @@ export default function RolesPage() {
                 {seedMutation.isPending ? 'Syncing...' : 'Load Presets'}
               </AppButton>
             )}
-            <AppButton
-              onClick={handleCreate}
-              className="rounded-full px-6 shadow-md"
-            >
+            <AppButton onClick={handleCreate} className="rounded-full px-6 shadow-md">
               <Plus className="mr-2 h-4 w-4" />
               Create Role
             </AppButton>
@@ -549,16 +533,26 @@ export default function RolesPage() {
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200/80 bg-white px-6 py-5">
-          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Total Roles</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Total Roles
+          </p>
           <p className="mt-1 text-2xl font-black text-slate-900">{roles.length}</p>
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-white px-6 py-5">
-          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Preset Roles</p>
-          <p className="mt-1 text-2xl font-black text-teal-600">{roles.filter((r) => r.isPreset).length}</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Preset Roles
+          </p>
+          <p className="mt-1 text-2xl font-black text-teal-600">
+            {roles.filter((r) => r.isPreset).length}
+          </p>
         </div>
         <div className="rounded-2xl border border-slate-200/80 bg-white px-6 py-5">
-          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">Custom Roles</p>
-          <p className="mt-1 text-2xl font-black text-purple-600">{roles.filter((r) => !r.isPreset).length}</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-400">
+            Custom Roles
+          </p>
+          <p className="mt-1 text-2xl font-black text-purple-600">
+            {roles.filter((r) => !r.isPreset).length}
+          </p>
         </div>
       </div>
 
@@ -590,8 +584,8 @@ export default function RolesPage() {
         <RoleEditorModal
           open={isModalOpen}
           onOpenChange={(open) => {
-            setIsModalOpen(open);
-            if (!open) setEditingRole(null);
+            setIsModalOpen(open)
+            if (!open) setEditingRole(null)
           }}
           editingRole={editingRole}
           groups={registry.groups}
@@ -599,5 +593,5 @@ export default function RolesPage() {
         />
       )}
     </PageContainer>
-  );
+  )
 }

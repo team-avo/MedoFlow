@@ -78,7 +78,7 @@ export function PublicNav() {
 
   const shellCls = translucent
     ? 'bg-transparent border-transparent'
-    : 'bg-white/75 backdrop-blur-xl shadow-[0_1px_0_rgba(229,231,235,0.8),0_8px_24px_-12px_rgba(30,58,95,0.08)]'
+    : 'bg-white shadow-[0_1px_0_rgba(229,231,235,0.8),0_8px_24px_-12px_rgba(30,58,95,0.08)]'
 
   const linkBase = 'text-[13px] font-medium transition-colors'
   const linkCls = translucent

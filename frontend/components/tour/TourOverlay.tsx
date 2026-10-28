@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight, X } from 'lucide-react'
 import { useTour } from '@/contexts/TourContext'
 import type { TourStep } from './tours'
@@ -150,23 +149,15 @@ export function TourOverlay() {
     : {}
 
   return (
-    <AnimatePresence>
-      <motion.div
-        key="tour-backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] bg-slate-900/60"
+    <>
+      <div
+        className="fixed inset-0 z-[100] bg-slate-900/60 animate-in fade-in-0 duration-150"
         style={spotlightStyle}
         aria-hidden
       />
 
       {rect && (
-        <motion.div
-          key={`tour-ring-${stepIndex}`}
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
+        <div
           className="pointer-events-none fixed z-[101] rounded-2xl ring-2 ring-white ring-offset-2 ring-offset-indigo-500"
           style={{
             top: rect.top - PADDING,
@@ -178,17 +169,12 @@ export function TourOverlay() {
         />
       )}
 
-      <motion.div
-        key={`tour-card-${stepIndex}`}
+      <div
         role="dialog"
         aria-modal="false"
         aria-label={currentStep.title}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -4 }}
-        transition={{ duration: 0.2 }}
         className={cn(
-          'fixed z-[102] w-[calc(100vw-2rem)] rounded-2xl border border-slate-100 bg-white p-5 shadow-2xl',
+          'fixed z-[102] w-[calc(100vw-2rem)] rounded-2xl border border-slate-100 bg-white p-5 shadow-lg',
           isCentered ? 'max-w-lg' : ''
         )}
         style={{
@@ -244,7 +230,7 @@ export function TourOverlay() {
             </button>
           </div>
         </div>
-      </motion.div>
-    </AnimatePresence>
+      </div>
+    </>
   )
 }

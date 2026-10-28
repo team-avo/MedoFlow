@@ -9,7 +9,6 @@
  */
 
 import React, { useMemo, useRef, useState } from 'react'
-import { motion, useInView } from 'framer-motion'
 import { Calculator, Clock, DollarSign, Sparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { SectionHeader } from './primitives'
@@ -91,11 +90,7 @@ function ResultTile({
   delay: number
 }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6, delay }}
+    <div
       className={`relative overflow-hidden rounded-2xl p-6 ring-1 ${
         highlight ? 'bg-navy text-white ring-navy' : 'bg-white text-ink ring-hairline'
       }`}
@@ -135,7 +130,7 @@ function ResultTile({
           {sub}
         </p>
       </div>
-    </motion.div>
+    </div>
   )
 }
 
@@ -175,13 +170,7 @@ export function ROICalculatorSection() {
 
         <div className="mx-auto mt-16 grid max-w-6xl grid-cols-1 gap-8 lg:grid-cols-[1fr_1.2fr]">
           {/* Inputs */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7 }}
-            className="rounded-2xl border border-hairline bg-white p-7 shadow-card"
-          >
+          <div className="rounded-2xl border border-hairline bg-white p-7 shadow-card">
             <div className="mb-6 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-wash text-teal">
                 <Calculator className="h-4 w-4" strokeWidth={2} />
@@ -214,7 +203,7 @@ export function ROICalculatorSection() {
               Assumes ~12 visits per provider per day, ~22 working days per month. No-show recovery
               based on industry-standard 8% no-show rate and our smart-waitlist 65% backfill.
             </div>
-          </motion.div>
+          </div>
 
           {/* Results */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -246,13 +235,7 @@ export function ROICalculatorSection() {
         </div>
 
         {/* Quote */}
-        <motion.figure
-          initial={{ opacity: 0, y: 18 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="mx-auto mt-20 max-w-3xl text-center"
-        >
+        <figure className="mx-auto mt-20 max-w-3xl text-center">
           <blockquote className="mf-display text-[clamp(20px,2.6vw,28px)] leading-[1.4] text-ink">
             "We modeled it at 18 hrs/week saved. <span className="text-teal">It's been 22.</span>
             <br className="hidden md:block" />
@@ -262,7 +245,7 @@ export function ROICalculatorSection() {
             <span className="font-medium text-ink">Dr. Priya Nair</span> · Owner, Lotus Family Med ·
             Phoenix
           </figcaption>
-        </motion.figure>
+        </figure>
       </div>
 
       <style jsx global>{`

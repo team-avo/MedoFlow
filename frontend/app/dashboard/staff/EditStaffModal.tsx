@@ -1,82 +1,84 @@
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AppButton } from '@/components/ui-system';
+import React, { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AppButton } from '@/components/ui-system'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
-import { updateStaff, linkProviderToAdmin, type StaffMember, type StaffRole } from '@/lib/staffApi';
-import { listRoles, type CustomRole } from '@/lib/roleApi';
-import { useAppToast } from '@/hooks/useAppToast';
-import { ShieldCheck, Shield, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+} from '@/components/ui/dialog'
+import { updateStaff, linkProviderToAdmin, type StaffMember, type StaffRole } from '@/lib/staffApi'
+import { listRoles, type CustomRole } from '@/lib/roleApi'
+import { useAppToast } from '@/hooks/useAppToast'
+import { ShieldCheck, Shield, ChevronRight } from 'lucide-react'
+import Link from 'next/link'
 
 interface Props {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  member: StaffMember;
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  member: StaffMember
 }
 
 export function EditStaffModal({ open, onOpenChange, member }: Props) {
-  const toast = useAppToast();
-  const queryClient = useQueryClient();
+  const toast = useAppToast()
+  const queryClient = useQueryClient()
 
-  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('')
 
   // Load available roles
-  const { data: roles = [] } = useQuery({
+  const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ['roles'],
     queryFn: listRoles,
     enabled: open,
-  });
+  })
 
   // Initialise from member
   useEffect(() => {
     if (open) {
-      setSelectedRoleId(member.customRoleId ?? '');
+      setSelectedRoleId(member.customRoleId ?? '')
     }
-  }, [open, member]);
+  }, [open, member])
 
-  const selectedRole = roles.find((r) => r.id === selectedRoleId);
+  const selectedRole = roles.find((r) => r.id === selectedRoleId)
 
   const updateMutation = useMutation({
     mutationFn: () => {
-      return updateStaff(member.id, { customRoleId: selectedRoleId || undefined });
+      return updateStaff(member.id, { customRoleId: selectedRoleId || undefined })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
-      toast.success('Staff member updated');
-      onOpenChange(false);
+      queryClient.invalidateQueries({ queryKey: ['staff'] })
+      toast.success('Staff member updated')
+      onOpenChange(false)
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message ?? error.message ?? 'Unable to update staff');
+      toast.error(error.response?.data?.message ?? error.message ?? 'Unable to update staff')
     },
-  });
+  })
 
   const linkProviderMutation = useMutation({
     mutationFn: () => linkProviderToAdmin(member.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['staff'] });
-      toast.success('Provider profile linked to this admin');
+      queryClient.invalidateQueries({ queryKey: ['staff'] })
+      toast.success('Provider profile linked to this admin')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message ?? error.message ?? 'Unable to link provider');
+      toast.error(error.response?.data?.message ?? error.message ?? 'Unable to link provider')
     },
-  });
+  })
 
-  const isAdmin = member.role === 'SUPER_ADMIN';
+  const isAdmin = member.role === 'SUPER_ADMIN'
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Team Member</DialogTitle>
-          <DialogDescription>{member.name} · {member.email}</DialogDescription>
+          <DialogDescription>
+            {member.name} · {member.email}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
@@ -108,7 +110,11 @@ export function EditStaffModal({ open, onOpenChange, member }: Props) {
                   Manage Roles <ChevronRight className="h-3 w-3" />
                 </Link>
               </div>
-              {roles.length === 0 ? (
+              {rolesLoading ? (
+                <p className="py-2 text-center text-xs text-slate-400" role="status">
+                  Loading roles…
+                </p>
+              ) : roles.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-200 p-4 text-center">
                   <Shield className="h-6 w-6 text-slate-300 mx-auto mb-2" />
                   <p className="text-xs text-slate-400">No roles created yet.</p>
@@ -124,7 +130,7 @@ export function EditStaffModal({ open, onOpenChange, member }: Props) {
                   {roles.map((role) => (
                     <label
                       key={role.id}
-                      className={`flex items-center justify-between cursor-pointer rounded-lg px-3 py-2.5 transition-all ${
+                      className={`flex items-center justify-between cursor-pointer rounded-lg px-3 py-2.5 transition-colors ${
                         selectedRoleId === role.id
                           ? 'bg-teal-50 border border-teal-300 shadow-sm'
                           : 'bg-white border border-transparent hover:border-slate-200'
@@ -198,7 +204,9 @@ export function EditStaffModal({ open, onOpenChange, member }: Props) {
                 Allow this admin to also act as a clinical provider and appear in scheduling.
               </p>
               {member.provider ? (
-                <p className="text-xs font-semibold text-emerald-600">Provider profile already linked.</p>
+                <p className="text-xs font-semibold text-emerald-600">
+                  Provider profile already linked.
+                </p>
               ) : (
                 <AppButton
                   size="sm"
@@ -227,5 +235,5 @@ export function EditStaffModal({ open, onOpenChange, member }: Props) {
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

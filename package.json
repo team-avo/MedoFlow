@@ -52,14 +52,9 @@
       "form-data@>=4.0.0 <4.0.6": "^4.0.6",
       "browserslist@<=4.28.6": "^4.29.3",
       "next>sharp": "0.34.5",
-      "follow-redirects@<1.16.1": "^1.16.1"
-    },
-    "packageExtensions": {
-      "@hookform/resolvers@3": {
-        "peerDependencies": {
-          "zod": "^3.23.0"
-        }
-      }
+      "follow-redirects@<1.16.1": "^1.16.1",
+      "body-parser@<1.20.9": "^1.20.9",
+      "fast-uri@<3.1.7": "^3.1.9"
     }
   }
 }

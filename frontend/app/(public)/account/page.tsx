@@ -86,7 +86,7 @@ export default function AccountOverviewPage() {
             <Link
               key={t.href}
               href={t.href}
-              className="group block rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              className="group block rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-colors hover:shadow-md"
             >
               <div
                 className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl ${t.accent}`}

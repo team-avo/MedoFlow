@@ -1,18 +1,16 @@
 'use client'
 
 /**
- * DayInTheLifeSection — pinned-scroll cinematic.
- *
- * Sticky inner viewport. Four moments of a real Tuesday at Atlas Physio
- * advance as the user scrolls. Each moment shows a real product UI slice
- * and a quote from someone in the clinic at that exact moment.
+ * DayInTheLifeSection — four moments of a real Tuesday at Atlas Physio,
+ * stacked as a timeline. Each shows a product UI slice and the person in
+ * the clinic at that moment. Plain document flow: no pinning or scroll-
+ * driven animation.
  */
 
-import React, { useRef } from 'react'
-import { motion, useScroll, useTransform, MotionValue } from 'framer-motion'
-import { Calendar, Mic, CreditCard, BarChart3, Sun, Sunrise, Coffee, Moon } from 'lucide-react'
+import React from 'react'
+import { Mic, Sunrise, Coffee, Moon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { MeshGradient } from './motion/MeshGradient'
+import { BrandGradient } from './BrandGradient'
 
 type Moment = {
   time: string
@@ -181,51 +179,30 @@ function MomentVisual({ moment, idx }: { moment: Moment; idx: number }) {
   )
 }
 
-function MomentPanel({
-  moment,
-  idx,
-  progress,
-  total,
-}: {
-  moment: Moment
-  idx: number
-  progress: MotionValue<number>
-  total: number
-}) {
-  // Each moment is visible during a window of the scroll progress.
-  // Hard-edged windows — no overlap — so moments don't stack visually.
-  const window = 1 / total
-  const start = idx * window
-  const end = start + window
-  // Tiny fade-in/out (2% of window) at the edges only.
-  const fadeMs = window * 0.08
-  const inEnd = start + fadeMs
-  const outStart = end - fadeMs
-  const opacity = useTransform(
-    progress,
-    [Math.max(0, start - 0.001), start, inEnd, outStart, end, Math.min(1, end + 0.001)],
-    [0, 0, 1, 1, 0, 0]
-  )
-  const y = useTransform(progress, [start, inEnd, outStart, end], [30, 0, 0, -30])
-
+function MomentPanel({ moment, idx }: { moment: Moment; idx: number }) {
   const Icon = moment.icon
 
   return (
-    <motion.div
-      style={{ opacity, y }}
-      className="absolute inset-0 flex items-center justify-center px-6"
-    >
-      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 md:grid-cols-2">
+    <li className="relative pl-8 md:pl-12">
+      {/* Timeline dot */}
+      <span
+        className="absolute left-0 top-1.5 flex h-4 w-4 -translate-x-1/2 items-center justify-center rounded-full bg-[#0B1E35] ring-2 ring-teal-bright/60"
+        aria-hidden
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-teal-bright" />
+      </span>
+
+      <div className="grid grid-cols-1 items-center gap-8 md:grid-cols-2 md:gap-12">
         {/* Left: copy + quote */}
-        <div className="text-left">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 backdrop-blur-sm">
+        <div className="min-w-0 text-left">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5">
             <Icon className="h-3.5 w-3.5 text-teal-bright" strokeWidth={2} />
             <span className="text-[11px] font-medium text-white/70">
               {moment.time} {moment.ampm} · {moment.feature}
             </span>
           </div>
 
-          <h3 className="mf-display mt-5 text-[clamp(28px,4vw,44px)] leading-[1.1] text-white">
+          <h3 className="mf-display mt-5 text-[clamp(26px,3.6vw,40px)] leading-[1.15] text-white">
             {moment.title}
           </h3>
 
@@ -239,80 +216,32 @@ function MomentPanel({
           </div>
         </div>
 
-        {/* Right: live product surface */}
-        <div className="max-w-md">
+        {/* Right: product surface */}
+        <div className="w-full max-w-md">
           <MomentVisual moment={moment} idx={idx} />
         </div>
       </div>
-    </motion.div>
+    </li>
   )
 }
 
 export function DayInTheLifeSection() {
-  const ref = useRef<HTMLDivElement>(null)
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ['start start', 'end end'],
-  })
-
-  // Time-of-day indicator line — fills as you scroll through the day.
-  const timelineWidth = useTransform(scrollYProgress, [0, 1], ['0%', '100%'])
-
   return (
-    <section ref={ref} className="relative h-[400vh] bg-[#0B1E35]">
-      <MeshGradient variant="navy" />
+    <section className="relative overflow-hidden bg-[#0B1E35] py-24 md:py-32">
+      <BrandGradient variant="navy" />
 
-      <div className="sticky top-0 flex h-screen flex-col overflow-hidden">
-        {/* Top-left header (always visible) */}
-        <div className="absolute left-6 top-8 z-20 md:left-12 md:top-12">
+      <div className="container relative mx-auto px-6">
+        <div className="mx-auto max-w-6xl">
           <p className="mf-eyebrow text-teal-bright">A day in the life</p>
-          <h2 className="mf-display mt-2 text-[22px] text-white md:text-[28px]">
+          <h2 className="mf-display mt-2 text-[26px] text-white md:text-[34px]">
             Atlas Physiotherapy · Tuesday
           </h2>
-        </div>
 
-        {/* Time-of-day icons (top-right) */}
-        <div className="absolute right-6 top-8 z-20 hidden items-center gap-3 md:right-12 md:top-12 md:flex">
-          {[Sunrise, Sun, Coffee, Moon].map((I, i) => (
-            <span
-              key={i}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] text-white/40 ring-1 ring-white/10"
-            >
-              <I className="h-3 w-3" strokeWidth={1.5} />
-            </span>
-          ))}
-        </div>
-
-        {/* Slides */}
-        <div className="relative flex-1">
-          {moments.map((m, i) => (
-            <MomentPanel
-              key={m.time}
-              moment={m}
-              idx={i}
-              progress={scrollYProgress}
-              total={moments.length}
-            />
-          ))}
-        </div>
-
-        {/* Bottom timeline */}
-        <div className="relative z-20 mx-6 mb-8 md:mx-12 md:mb-12">
-          <div className="relative h-[2px] w-full overflow-hidden rounded-full bg-white/10">
-            <motion.div
-              className="absolute inset-y-0 left-0 origin-left rounded-full"
-              style={{
-                width: timelineWidth,
-                background: 'linear-gradient(90deg, #0D9488, #5EEAD4)',
-              }}
-            />
-          </div>
-          <div className="mt-2 flex justify-between text-[10px] font-mono text-white/40">
-            <span>8 AM</span>
-            <span>11 AM</span>
-            <span>2 PM</span>
-            <span>6 PM</span>
-          </div>
+          <ol className="relative mt-14 space-y-16 border-l border-white/10 md:space-y-20">
+            {moments.map((m, i) => (
+              <MomentPanel key={m.time} moment={m} idx={i} />
+            ))}
+          </ol>
         </div>
       </div>
     </section>

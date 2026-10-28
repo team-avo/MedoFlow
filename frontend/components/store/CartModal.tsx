@@ -107,17 +107,19 @@ function CartModal({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-md',
+            'fixed inset-0 z-[60] bg-slate-900/60',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0'
           )}
         />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-[61] flex max-h-[85vh] w-[96vw] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl',
+            'fixed left-1/2 top-1/2 z-[61] flex max-h-[85vh] w-[96vw] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-3xl bg-white shadow-lg',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
-            'data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95',
+            // Fade only; the slide pair re-applies the -50% centring that the
+            // enter/exit keyframes would otherwise reset (no visible movement).
+            'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-1/2',
             'duration-200'
           )}
         >

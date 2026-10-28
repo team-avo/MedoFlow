@@ -4,6 +4,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { Plus, Search, ShieldCheck, AlertCircle } from 'lucide-react'
 import api from '@/lib/api'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 type Status = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED'
 type Plan = 'FREE' | 'STARTER' | 'GROWTH' | 'ENTERPRISE'
@@ -66,8 +67,8 @@ export default function PlatformClinicsListPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-end justify-between gap-4">
-        <div>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Platform admin
           </p>
@@ -79,7 +80,7 @@ export default function PlatformClinicsListPage() {
         </div>
         <Link
           href="/platform/clinics/new"
-          className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
         >
           <Plus className="h-4 w-4" />
           New clinic
@@ -111,8 +112,8 @@ export default function PlatformClinicsListPage() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+        <table className="w-full min-w-max text-sm">
           <thead className="border-b border-slate-100 bg-slate-50/60 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-4 py-3">Clinic</th>
@@ -127,8 +128,8 @@ export default function PlatformClinicsListPage() {
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                  Loading…
+                <td colSpan={7} className="px-4 py-6">
+                  <LoadingSkeleton variant="text" count={4} />
                 </td>
               </tr>
             )}

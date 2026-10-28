@@ -20,7 +20,6 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { voiceAgentApi, type VoiceCall } from '@/lib/voiceAgentApi'
 
 const outcomeLabel: Record<string, string> = {
@@ -171,29 +170,23 @@ export function VoiceAgentCallLog() {
       </div>
 
       {/* Detail panel */}
-      <AnimatePresence mode="wait">
-        {selected ? (
-          <motion.div
-            key={selected.id}
-            initial={{ opacity: 0, x: 8 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 8 }}
-            transition={{ duration: 0.18 }}
-            className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card"
-          >
-            <CallDetail call={selected} onClose={() => setSelectedId(null)} />
-          </motion.div>
-        ) : (
-          <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-hairline bg-white p-12 text-center text-ink-muted">
-            <Sparkles className="h-5 w-5 text-teal" strokeWidth={1.5} />
-            <p className="mt-3 text-[13px] font-medium text-ink">Pick a call</p>
-            <p className="mt-1 max-w-[260px] text-[12px] text-ink-muted">
-              Click any call to see its transcript, AI-generated summary, and the tools the agent
-              invoked.
-            </p>
-          </div>
-        )}
-      </AnimatePresence>
+      {selected ? (
+        <div
+          key={selected.id}
+          className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card"
+        >
+          <CallDetail call={selected} onClose={() => setSelectedId(null)} />
+        </div>
+      ) : (
+        <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed border-hairline bg-white p-12 text-center text-ink-muted">
+          <Sparkles className="h-5 w-5 text-teal" strokeWidth={1.5} />
+          <p className="mt-3 text-[13px] font-medium text-ink">Pick a call</p>
+          <p className="mt-1 max-w-[260px] text-[12px] text-ink-muted">
+            Click any call to see its transcript, AI-generated summary, and the tools the agent
+            invoked.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

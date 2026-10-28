@@ -27,6 +27,7 @@ import {
   AppTable,
   AppInput,
   DateRangeFilter,
+  LoadingSkeleton,
 } from '@/components/ui-system'
 import type { DateRangeOption, DateRange } from '@/components/ui-system/DateRangeFilter'
 import { StatusBadge } from '@/components/common/StatusBadge'
@@ -142,13 +143,13 @@ export default function FrontDeskInvoicesPage() {
     enabled: !!clinicId,
   })
 
-  const { data: receivables } = useQuery({
+  const { data: receivables, isLoading: receivablesLoading } = useQuery({
     queryKey: ['receivables-summary'],
     queryFn: () => getReceivablesSummary(),
     enabled: !!clinicId,
   })
 
-  const { data: financeSummary } = useQuery({
+  const { data: financeSummary, isLoading: financeLoading } = useQuery({
     queryKey: ['finance-summary', providerFilter, dateRangeOption],
     queryFn: () =>
       getFinanceSummary({
@@ -253,7 +254,7 @@ export default function FrontDeskInvoicesPage() {
         title="Billing Operations"
         description="Monitor clinic revenue, collect outstanding balances, and manage refunds."
         actions={
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-center">
             <DateRangeFilter
               value={dateRangeOption}
               onChange={(opt, range) => {
@@ -271,34 +272,38 @@ export default function FrontDeskInvoicesPage() {
         }
       />
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <KPIStatCard
-          label="Outstanding AR"
-          value={formatCurrency(receivables?.totalOutstandingAmount)}
-          icon={CreditCard}
-          iconClassName="text-amber-600 bg-amber-50"
-          description={`${receivables?.outstandingInvoiceCount ?? 0} unpaid invoices`}
-        />
-        <KPIStatCard
-          label="Total Collected"
-          value={formatCurrency(financeSummary?.totalCollected)}
-          icon={DollarSign}
-          iconClassName="text-emerald-600 bg-emerald-50"
-          description="In selected period"
-        />
-        <KPIStatCard
-          label="Total Refunds"
-          value={formatCurrency(financeSummary?.totalRefunded)}
-          icon={History}
-          iconClassName="text-rose-600 bg-rose-50"
-        />
-        <KPIStatCard
-          label="Net Billed"
-          value={formatCurrency(financeSummary?.totalInvoiced)}
-          icon={Activity}
-          iconClassName="text-blue-600 bg-blue-50"
-        />
-      </div>
+      {receivablesLoading || financeLoading ? (
+        <LoadingSkeleton variant="stat" count={4} />
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <KPIStatCard
+            label="Outstanding AR"
+            value={formatCurrency(receivables?.totalOutstandingAmount)}
+            icon={CreditCard}
+            iconClassName="text-amber-600 bg-amber-50"
+            description={`${receivables?.outstandingInvoiceCount ?? 0} unpaid invoices`}
+          />
+          <KPIStatCard
+            label="Total Collected"
+            value={formatCurrency(financeSummary?.totalCollected)}
+            icon={DollarSign}
+            iconClassName="text-emerald-600 bg-emerald-50"
+            description="In selected period"
+          />
+          <KPIStatCard
+            label="Total Refunds"
+            value={formatCurrency(financeSummary?.totalRefunded)}
+            icon={History}
+            iconClassName="text-rose-600 bg-rose-50"
+          />
+          <KPIStatCard
+            label="Net Billed"
+            value={formatCurrency(financeSummary?.totalInvoiced)}
+            icon={Activity}
+            iconClassName="text-blue-600 bg-blue-50"
+          />
+        </div>
+      )}
 
       <AppCard className="border-none shadow-sm overflow-hidden bg-white">
         <AppCardHeader className="bg-slate-50/50 border-b-0 py-6 px-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -332,97 +337,101 @@ export default function FrontDeskInvoicesPage() {
           </div>
         </AppCardHeader>
         <AppCardContent className="p-0">
-          <AppTable
-            mobileCardMode
-            columns={[
-              {
-                key: 'patient',
-                header: 'Patient',
-                mobilePrimary: true,
-                render: (i) => (
-                  <div>
-                    <p className="font-bold text-slate-900">{i.patient?.name ?? '—'}</p>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter mt-0.5">
-                      Inv: {i.id.slice(-6).toUpperCase()}
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                key: 'finance',
-                header: 'Status',
-                mobileLabel: 'Status',
-                render: (i) => (
-                  <div className="flex flex-col items-start gap-1 md:items-start">
-                    <StatusBadge status={i.status} variant="invoice" />
-                    <StatusBadge
-                      status={i.financialStatus}
-                      variant="invoice"
-                      className="bg-transparent border-slate-100 text-[10px]"
-                    />
-                  </div>
-                ),
-              },
-              {
-                key: 'amounts',
-                header: 'Amounts',
-                mobileLabel: 'Total',
-                className: 'text-right',
-                render: (i) => (
-                  <div className="text-right">
-                    <p className="text-sm font-black text-slate-900">
-                      {formatCurrency(i.totalAmount)}
-                    </p>
-                    <p className="text-[10px] text-emerald-600 font-bold">
-                      Paid: {formatCurrency(i.totalPaid)}
-                    </p>
-                  </div>
-                ),
-              },
-              {
-                key: 'outstanding',
-                header: 'Balance',
-                mobileLabel: 'Balance',
-                className: 'text-right',
-                render: (i) => (
-                  <span
-                    className={cn(
-                      'font-black',
-                      Number(i.outstandingAmount) > 0 ? 'text-amber-600' : 'text-slate-400'
-                    )}
-                  >
-                    {formatCurrency(i.outstandingAmount)}
-                  </span>
-                ),
-              },
-              {
-                key: 'actions',
-                header: '',
-                mobileLabel: 'Actions',
-                className: 'text-right',
-                render: (i) => (
-                  <div className="flex flex-wrap justify-end gap-2 md:pr-4">
-                    {Number(i.outstandingAmount) > 0 &&
-                      i.status !== 'DRAFT' &&
-                      i.status !== 'CANCELLED' && (
-                        <AppButton
-                          size="sm"
-                          className="rounded-full shadow-md"
-                          onClick={() => setPaymentInvoice(i)}
-                        >
-                          Collect
-                        </AppButton>
+          {isLoading ? (
+            <LoadingSkeleton variant="table" className="rounded-none border-0" />
+          ) : (
+            <AppTable
+              mobileCardMode
+              columns={[
+                {
+                  key: 'patient',
+                  header: 'Patient',
+                  mobilePrimary: true,
+                  render: (i) => (
+                    <div>
+                      <p className="font-bold text-slate-900">{i.patient?.name ?? '—'}</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter mt-0.5">
+                        Inv: {i.id.slice(-6).toUpperCase()}
+                      </p>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'finance',
+                  header: 'Status',
+                  mobileLabel: 'Status',
+                  render: (i) => (
+                    <div className="flex flex-col items-start gap-1 md:items-start">
+                      <StatusBadge status={i.status} variant="invoice" />
+                      <StatusBadge
+                        status={i.financialStatus}
+                        variant="invoice"
+                        className="bg-transparent border-slate-100 text-[10px]"
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  key: 'amounts',
+                  header: 'Amounts',
+                  mobileLabel: 'Total',
+                  className: 'text-right',
+                  render: (i) => (
+                    <div className="text-right">
+                      <p className="text-sm font-black text-slate-900">
+                        {formatCurrency(i.totalAmount)}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold">
+                        Paid: {formatCurrency(i.totalPaid)}
+                      </p>
+                    </div>
+                  ),
+                },
+                {
+                  key: 'outstanding',
+                  header: 'Balance',
+                  mobileLabel: 'Balance',
+                  className: 'text-right',
+                  render: (i) => (
+                    <span
+                      className={cn(
+                        'font-black',
+                        Number(i.outstandingAmount) > 0 ? 'text-amber-600' : 'text-slate-400'
                       )}
-                    <AppButton variant="ghost" size="sm" className="rounded-full" asChild>
-                      <Link href={`/dashboard/front-desk/invoices/${i.id}`}>Review</Link>
-                    </AppButton>
-                  </div>
-                ),
-              },
-            ]}
-            data={invoices}
-            keyExtractor={(i) => i.id}
-          />
+                    >
+                      {formatCurrency(i.outstandingAmount)}
+                    </span>
+                  ),
+                },
+                {
+                  key: 'actions',
+                  header: '',
+                  mobileLabel: 'Actions',
+                  className: 'text-right',
+                  render: (i) => (
+                    <div className="flex flex-wrap justify-end gap-2 md:pr-4">
+                      {Number(i.outstandingAmount) > 0 &&
+                        i.status !== 'DRAFT' &&
+                        i.status !== 'CANCELLED' && (
+                          <AppButton
+                            size="sm"
+                            className="rounded-full shadow-md"
+                            onClick={() => setPaymentInvoice(i)}
+                          >
+                            Collect
+                          </AppButton>
+                        )}
+                      <AppButton variant="ghost" size="sm" className="rounded-full" asChild>
+                        <Link href={`/dashboard/front-desk/invoices/${i.id}`}>Review</Link>
+                      </AppButton>
+                    </div>
+                  ),
+                },
+              ]}
+              data={invoices}
+              keyExtractor={(i) => i.id}
+            />
+          )}
         </AppCardContent>
       </AppCard>
 

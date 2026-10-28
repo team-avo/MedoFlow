@@ -129,7 +129,7 @@ function ProductDetailDialog({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm',
+            'fixed inset-0 z-[60] bg-slate-900/60',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0'
           )}
@@ -140,7 +140,9 @@ function ProductDetailDialog({
             '-translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] bg-white',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
-            'data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95'
+            // Fade only; the slide pair re-applies the -50% centring that the
+            // enter/exit keyframes would otherwise reset (no visible movement).
+            'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-1/2'
           )}
           style={{ boxShadow: '0 40px 80px -20px rgba(15, 23, 42, 0.35)' }}
         >
@@ -171,7 +173,7 @@ function ProductDetailDialog({
                     {cat.label}
                   </span>
                 </div>
-                <div className="flex h-40 w-40 items-center justify-center rounded-full bg-white/70 shadow-inner backdrop-blur-sm ring-1 ring-white md:h-52 md:w-52">
+                <div className="flex h-40 w-40 items-center justify-center rounded-full bg-white shadow-inner ring-1 ring-white md:h-52 md:w-52">
                   <Icon
                     className="h-20 w-20 md:h-28 md:w-28"
                     style={{ color: cat.accentHex }}
@@ -179,7 +181,7 @@ function ProductDetailDialog({
                   />
                 </div>
                 <div className="absolute bottom-6 left-6 right-6 flex items-end justify-between">
-                  <div className="rounded-2xl bg-white/80 px-4 py-2.5 shadow-sm ring-1 ring-white backdrop-blur-sm">
+                  <div className="rounded-2xl bg-white px-4 py-2.5 shadow-sm ring-1 ring-white">
                     <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                       From
                     </p>
@@ -308,11 +310,11 @@ function RelatedCard({ product, onClick }: { product: StoreProduct; onClick: () 
     <button
       type="button"
       onClick={onClick}
-      className="group overflow-hidden rounded-2xl border border-slate-100 bg-white text-left transition-all hover:-translate-y-0.5 hover:border-slate-200 hover:shadow-md"
+      className="group overflow-hidden rounded-2xl border border-slate-100 bg-white text-left transition-colors hover:border-slate-200 hover:shadow-md"
     >
       <div className={cn('flex h-24 items-center justify-center bg-gradient-to-br', cat.gradient)}>
         <Icon
-          className="h-10 w-10 transition-transform group-hover:scale-105"
+          className="h-10 w-10 transition-transform"
           style={{ color: cat.accentHex }}
           strokeWidth={1.5}
         />

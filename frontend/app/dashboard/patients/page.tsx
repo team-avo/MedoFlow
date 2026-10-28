@@ -183,7 +183,7 @@ export default function PatientsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
-              className="w-full pl-10 pr-4 h-12 rounded-2xl border-none shadow-sm focus:ring-2 focus:ring-primary-500 outline-none transition-all text-sm font-medium"
+              className="w-full pl-10 pr-4 h-12 rounded-2xl border-none shadow-sm focus:ring-2 focus:ring-primary-500 outline-none transition-colors text-sm font-medium"
               placeholder="Search patients..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -208,7 +208,7 @@ export default function PatientsPage() {
                       key={p.id}
                       onClick={() => setSelectedPatientId(p.id)}
                       className={cn(
-                        'w-full flex items-center gap-4 px-6 py-5 text-left transition-all hover:bg-slate-50',
+                        'w-full flex items-center gap-4 px-6 py-5 text-left transition-colors hover:bg-slate-50',
                         selectedPatientId === p.id
                           ? 'bg-primary-50/50 border-l-4 border-l-primary-600'
                           : 'bg-white border-l-4 border-l-transparent'
@@ -255,27 +255,32 @@ export default function PatientsPage() {
               </div>
             </AppCard>
           ) : (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="space-y-6 animate-in fade-in duration-300">
               <AppCard className="border-none shadow-sm bg-white overflow-hidden">
-                <AppCardHeader className="bg-slate-900 text-white p-8 border-none flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-6">
-                    <div className="w-20 h-20 rounded-3xl bg-white/10 flex items-center justify-center text-3xl font-black text-white border border-white/10">
+                <AppCardHeader className="bg-slate-900 text-white p-5 sm:p-8 border-none flex flex-row flex-wrap items-center justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+                    <div className="h-14 w-14 shrink-0 rounded-3xl bg-white/10 flex items-center justify-center text-2xl font-black text-white border border-white/10 sm:h-20 sm:w-20 sm:text-3xl">
                       {selectedPatient.name.charAt(0)}
                     </div>
-                    <div>
-                      <h2 className="text-3xl font-black">{selectedPatient.name}</h2>
-                      <div className="flex items-center gap-4 mt-2 text-slate-400 font-medium text-sm">
-                        <span className="flex items-center gap-1.5">
-                          <Mail className="h-3.5 w-3.5" /> {selectedPatient.email}
+                    <div className="min-w-0">
+                      <h2 className="break-words text-2xl font-black sm:text-3xl">
+                        {selectedPatient.name}
+                      </h2>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-slate-400 font-medium text-sm">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{selectedPatient.email}</span>
                         </span>
-                        <span>·</span>
-                        <span>Patient ID: {selectedPatient.id.slice(-6).toUpperCase()}</span>
+                        <span aria-hidden>·</span>
+                        <span className="whitespace-nowrap">
+                          Patient ID: {selectedPatient.id.slice(-6).toUpperCase()}
+                        </span>
                       </div>
                     </div>
                   </div>
                   <AppButton
                     variant="ghost"
-                    className="rounded-full border border-white/20 text-white bg-white/5 hover:bg-white/10 transition-all opacity-100"
+                    className="shrink-0 rounded-full border border-white/20 text-white bg-white/5 hover:bg-white/10 transition-colors opacity-100"
                     asChild
                   >
                     <Link href={`/dashboard/provider/patients/${selectedPatient.id}/timeline`}>

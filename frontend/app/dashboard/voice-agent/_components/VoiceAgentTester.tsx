@@ -14,7 +14,6 @@
 
 import React, { useEffect, useRef, useState } from 'react'
 import { Mic, Phone, PhoneOff, Volume2, AlertCircle, Loader2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { voiceAgentApi, type TranscriptEntry } from '@/lib/voiceAgentApi'
 import { useAppToast } from '@/hooks/useAppToast'
 import { clientLog } from '@/lib/clientLog'
@@ -347,41 +346,19 @@ export function VoiceAgentTester() {
         {/* Talk button */}
         <div className="my-10 flex items-center justify-center">
           <div className="relative flex h-44 w-44 items-center justify-center">
-            <AnimatePresence>
-              {state === 'listening' && (
-                <>
-                  <motion.div
-                    key="l1"
-                    className="absolute inset-0 rounded-full bg-rose-400/30"
-                    animate={{ scale: [1, 1.6, 1], opacity: [0.5, 0, 0.5] }}
-                    transition={{ duration: 1.4, repeat: Infinity }}
-                  />
-                  <motion.div
-                    key="l2"
-                    className="absolute inset-2 rounded-full bg-rose-400/40"
-                    animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
-                    transition={{ duration: 1.4, repeat: Infinity, delay: 0.3 }}
-                  />
-                </>
-              )}
-              {state === 'speaking' && (
-                <motion.div
-                  key="s1"
-                  className="absolute inset-0 rounded-full bg-teal-bright/20"
-                  animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-                  transition={{ duration: 1.8, repeat: Infinity }}
-                />
-              )}
-              {state === 'thinking' && (
-                <motion.div
-                  key="t1"
-                  className="absolute inset-0 rounded-full border-2 border-amber-300/50"
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 1.6, repeat: Infinity, ease: 'linear' }}
-                  style={{ borderTopColor: 'transparent' }}
-                />
-              )}
-            </AnimatePresence>
+            {/* State rings: static tints; only "thinking" spins (CSS), as it is real work. */}
+            {state === 'listening' && (
+              <div className="absolute inset-2 rounded-full bg-rose-400/25 ring-4 ring-rose-400/30" />
+            )}
+            {state === 'speaking' && (
+              <div className="absolute inset-2 rounded-full bg-teal-bright/20 ring-4 ring-teal-bright/25" />
+            )}
+            {state === 'thinking' && (
+              <div
+                className="absolute inset-0 animate-spin rounded-full border-2 border-amber-300/50 [animation-duration:1.6s]"
+                style={{ borderTopColor: 'transparent' }}
+              />
+            )}
 
             <button
               type="button"
@@ -392,13 +369,13 @@ export function VoiceAgentTester() {
                 state === 'thinking' ||
                 state === 'ending'
               }
-              className={`relative flex h-32 w-32 items-center justify-center rounded-full transition-all ${
+              className={`relative flex h-32 w-32 items-center justify-center rounded-full transition-colors ${
                 state === 'listening'
-                  ? 'bg-rose-500 text-white shadow-[0_0_80px_-10px_rgba(244,63,94,0.8)] hover:scale-[1.02] active:scale-95'
+                  ? 'bg-rose-500 text-white shadow-[0_0_80px_-10px_rgba(244,63,94,0.8)]'
                   : state === 'live'
-                    ? 'bg-teal-bright text-navy shadow-[0_0_80px_-10px_rgba(94,234,212,0.8)] hover:scale-[1.02] active:scale-95'
+                    ? 'bg-teal-bright text-navy shadow-[0_0_80px_-10px_rgba(94,234,212,0.8)]'
                     : state === 'speaking'
-                      ? 'bg-teal-bright/70 text-navy ring-2 ring-white/20 hover:scale-[1.02] active:scale-95'
+                      ? 'bg-teal-bright/70 text-navy ring-2 ring-white/20'
                       : 'bg-white/[0.06] text-white/40 ring-1 ring-white/10'
               }`}
               aria-label={
@@ -498,11 +475,8 @@ export function VoiceAgentTester() {
           )}
 
           {transcript.map((m, i) => (
-            <motion.div
+            <div
               key={`${m.ts}-${i}`}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
               className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
@@ -514,7 +488,7 @@ export function VoiceAgentTester() {
               >
                 {m.content}
               </div>
-            </motion.div>
+            </div>
           ))}
 
           {toolEvents.length > 0 && (
@@ -558,7 +532,7 @@ function StatusBadge({ label, tone }: { label: string; tone: string }) {
     <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-medium text-white/70">
       <span className="relative flex h-1.5 w-1.5">
         {tone === 'live' && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
         )}
         <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${dotCls}`} />
       </span>

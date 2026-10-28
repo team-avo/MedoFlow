@@ -327,7 +327,7 @@ function ConfirmAgreementModal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-8">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-lg">
         <div className="border-b border-slate-100 px-6 py-4">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-indigo-600" />

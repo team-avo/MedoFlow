@@ -118,45 +118,10 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
-        'medoflow-float': {
-          '0%, 100%': {
-            transform: 'translateY(0)',
-          },
-          '50%': {
-            transform: 'translateY(-10px)',
-          },
-        },
-        buoyancy: {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-6px)' },
-        },
-        'logo-entrance': {
-          '0%': { opacity: '0', transform: 'scale(0.85) translateY(4px)' },
-          '60%': { opacity: '1', transform: 'scale(1.03) translateY(-1px)' },
-          '100%': { opacity: '1', transform: 'scale(1) translateY(0)' },
-        },
-        'logo-pulse': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.85' },
-        },
-        marquee: {
-          '0%': { transform: 'translateX(0)' },
-          '100%': { transform: 'translateX(-50%)' },
-        },
-        'pulse-glow': {
-          '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
-          '50%': { opacity: '0.8', transform: 'scale(1.05)' },
-        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
-        float: 'medoflow-float 6s infinite ease-in-out',
-        buoyancy: 'buoyancy 4s infinite ease-in-out',
-        'logo-entrance': 'logo-entrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        'logo-pulse': 'logo-pulse 3s ease-in-out infinite',
-        marquee: 'marquee 30s linear infinite',
-        'pulse-glow': 'pulse-glow 4s ease-in-out infinite',
       },
     },
   },

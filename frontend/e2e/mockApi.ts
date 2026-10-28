@@ -90,7 +90,13 @@ export function corsHeaders(route: Route, extra: Record<string, string> = {}) {
   }
 }
 
-export type MockRole = 'FRONT_DESK' | 'SUPER_ADMIN' | 'PATIENT' | 'PROVIDER'
+export type MockRole =
+  | 'FRONT_DESK'
+  | 'SUPER_ADMIN'
+  | 'PATIENT'
+  | 'PROVIDER'
+  | 'MARKETING'
+  | 'PLATFORM_ADMIN'
 
 /** The signed-in identity per role (synthetic). Patient values double as the PHI probe. */
 export const MOCK_USERS: Record<MockRole, { id: string; name: string; email: string }> = {
@@ -98,6 +104,12 @@ export const MOCK_USERS: Record<MockRole, { id: string; name: string; email: str
   SUPER_ADMIN: { id: 'user-e2e-admin', name: 'Synthetic Admin', email: 'admin.e2e@example.test' },
   PATIENT: { id: 'patient-e2e-1', name: 'Quinn Marlowe', email: 'quinn.marlowe@example.test' },
   PROVIDER: { id: 'user-e2e-provider', name: 'Avery Stone', email: 'provider.e2e@example.test' },
+  MARKETING: { id: 'user-e2e-marketing', name: 'Rowan Hale', email: 'marketing.e2e@example.test' },
+  PLATFORM_ADMIN: {
+    id: 'user-e2e-platform',
+    name: 'Sam Ortiz',
+    email: 'platform.e2e@example.test',
+  },
 }
 
 export async function installMockApi(
@@ -107,6 +119,8 @@ export async function installMockApi(
     role?: MockRole
     /** Start with a live session (the refresh cookie exchange succeeds on load). */
     signedIn?: boolean
+    /** Override the signed-in name/email/clinic name, e.g. long values for layout checks. */
+    identity?: { name?: string; email?: string; clinicName?: string }
   } = {}
 ) {
   const state: MockState = {
@@ -120,6 +134,8 @@ export async function installMockApi(
   const role: MockRole = opts.role ?? 'FRONT_DESK'
   const user = () => ({
     ...MOCK_USERS[role],
+    ...(opts.identity?.name ? { name: opts.identity.name } : {}),
+    ...(opts.identity?.email ? { email: opts.identity.email } : {}),
     role,
     clinicId: 'clinic-e2e',
     permissions: [],
@@ -130,7 +146,7 @@ export async function installMockApi(
     mfaEnabled: state.mfaEnabled,
     clinic: {
       id: 'clinic-e2e',
-      name: 'Synthetic Clinic',
+      name: opts.identity?.clinicName ?? 'Synthetic Clinic',
       tenant: {
         id: 'tenant-e2e',
         name: 'Synthetic Tenant',

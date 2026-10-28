@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
 import api from '@/lib/api'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 interface ScribeTemplate {
   id: string
@@ -113,7 +114,11 @@ export default function ProviderProfilePage() {
   }
 
   if (loading) {
-    return <div className="p-8 text-sm text-slate-500">Loading your profile…</div>
+    return (
+      <div className="p-4 sm:p-8">
+        <LoadingSkeleton variant="page" />
+      </div>
+    )
   }
   if (error && !profile) {
     return (

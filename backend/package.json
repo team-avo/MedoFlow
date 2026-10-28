@@ -46,13 +46,13 @@
     "jsonwebtoken": "^9.0.2",
     "luxon": "^3.7.2",
     "morgan": "^1.10.0",
-    "multer": "^2.4.0",
+    "multer": "^2.5.0",
     "nodejs-whisper": "^0.3.1",
     "nodemailer": "^10.1.0",
     "openai": "^6.27.0",
     "prisma": "^6.0.0",
     "stripe": "^20.4.1",
-    "zod": "^4.3.6"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

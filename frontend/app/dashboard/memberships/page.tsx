@@ -1,14 +1,14 @@
-'use client';
+'use client'
 
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
-import { Plus } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { AppButton } from '@/components/ui-system';
-import { PageContainer } from '@/components/layout';
-import { useAuth } from '@/contexts/AuthContext';
+import { useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { loadStripe } from '@stripe/stripe-js'
+import { Elements } from '@stripe/react-stripe-js'
+import { Plus } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
+import { AppButton } from '@/components/ui-system'
+import { PageContainer } from '@/components/layout'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   cancelMembershipAtPeriodEnd,
   getMemberships,
@@ -16,42 +16,43 @@ import {
   getMyMembershipSubscriptions,
   purchaseMembership,
   type MembershipCatalogItem,
-} from '@/lib/membershipApi';
-import { StripePaymentForm } from '@/components/StripePaymentForm';
-import { toast } from 'sonner';
+} from '@/lib/membershipApi'
+import { StripePaymentForm } from '@/components/StripePaymentForm'
+import { toast } from 'sonner'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_placeholder'
-);
+)
 
 function formatMoney(value?: string | number | null) {
-  return `$${Number(value ?? 0).toFixed(2)}`;
+  return `$${Number(value ?? 0).toFixed(2)}`
 }
 
 export default function MembershipsPage() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null);
-  const [selectedMembership, setSelectedMembership] = useState<MembershipCatalogItem | null>(null);
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState<string | null>(null)
+  const [selectedMembership, setSelectedMembership] = useState<MembershipCatalogItem | null>(null)
 
-  const isPatient = user?.role === 'PATIENT';
+  const isPatient = user?.role === 'PATIENT'
 
   const { data: memberships = [], isLoading } = useQuery({
     queryKey: ['memberships'],
     queryFn: getMemberships,
-  });
+  })
 
   const { data: subscriptions = [] } = useQuery({
     queryKey: ['membership-subscriptions'],
     queryFn: getMyMembershipSubscriptions,
     enabled: isPatient,
-  });
+  })
 
   const { data: operationalSummary } = useQuery({
     queryKey: ['membership-operational-summary'],
     queryFn: getMembershipOperationalSummary,
     enabled: !isPatient,
-  });
+  })
 
   const activeSubscription = useMemo(
     () =>
@@ -59,44 +60,47 @@ export default function MembershipsPage() {
         ['ACTIVE', 'TRIALING', 'PAST_DUE', 'INCOMPLETE'].includes(subscription.status)
       ) ?? null,
     [subscriptions]
-  );
+  )
 
   const purchaseMutation = useMutation({
     mutationFn: (membershipId: string) => purchaseMembership(membershipId),
     onSuccess: (result, membershipId) => {
-      const membership = memberships.find((item) => item.id === membershipId) ?? null;
-      setSelectedMembership(membership);
-      setCheckoutClientSecret(result.clientSecret);
-      queryClient.invalidateQueries({ queryKey: ['membership-subscriptions'] });
+      const membership = memberships.find((item) => item.id === membershipId) ?? null
+      setSelectedMembership(membership)
+      setCheckoutClientSecret(result.clientSecret)
+      queryClient.invalidateQueries({ queryKey: ['membership-subscriptions'] })
       if (!result.clientSecret) {
-        toast.success('Membership subscription is already active.');
+        toast.success('Membership subscription is already active.')
       }
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Failed to start membership checkout');
+      toast.error(error?.response?.data?.message || 'Failed to start membership checkout')
     },
-  });
+  })
 
   const cancelMutation = useMutation({
     mutationFn: (subscriptionId: string) => cancelMembershipAtPeriodEnd(subscriptionId),
     onSuccess: () => {
-      toast.success('Membership will cancel at period end');
-      queryClient.invalidateQueries({ queryKey: ['membership-subscriptions'] });
+      toast.success('Membership will cancel at period end')
+      queryClient.invalidateQueries({ queryKey: ['membership-subscriptions'] })
     },
     onError: (error: any) =>
       toast.error(error?.response?.data?.message || 'Failed to schedule cancellation'),
-  });
+  })
 
   const renderAdminCatalog = () => (
     <>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Memberships</h1>
-        <AppButton disabled title="Membership catalog setup is managed by your account administrator.">
+        <AppButton
+          disabled
+          title="Membership catalog setup is managed by your account administrator."
+        >
           <Plus className="mr-2 h-4 w-4" /> Add Membership
         </AppButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Active</CardTitle>
@@ -132,11 +136,12 @@ export default function MembershipsPage() {
       </div>
 
       <div className="text-sm text-slate-600">
-        This view shows live subscription activity. Membership catalog setup is managed by your account administrator.
+        This view shows live subscription activity. Membership catalog setup is managed by your
+        account administrator.
       </div>
 
       {isLoading ? (
-        <div>Loading...</div>
+        <LoadingSkeleton variant="card" count={4} />
       ) : (
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -150,7 +155,8 @@ export default function MembershipsPage() {
                     {membership.description || 'No description available.'}
                   </p>
                   <div className="font-semibold text-lg">
-                    {formatMoney(membership.monthlyPrice)} / {membership.billingPeriod.toLowerCase()}
+                    {formatMoney(membership.monthlyPrice)} /{' '}
+                    {membership.billingPeriod.toLowerCase()}
                   </div>
                   <div className="text-sm text-slate-600">
                     Service discount: {Number(membership.serviceDiscountPercent ?? 0).toFixed(0)}%
@@ -174,7 +180,10 @@ export default function MembershipsPage() {
                 <div className="text-sm text-muted-foreground">No subscription activity yet.</div>
               ) : (
                 operationalSummary!.recentSubscriptions.map((subscription) => (
-                  <div key={subscription.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div
+                    key={subscription.id}
+                    className="flex items-center justify-between rounded-lg border p-3"
+                  >
                     <div>
                       <div className="font-medium">{subscription.patient?.name ?? 'Patient'}</div>
                       <div className="text-sm text-slate-600">
@@ -192,14 +201,15 @@ export default function MembershipsPage() {
         </div>
       )}
     </>
-  );
+  )
 
   const renderPatientMemberships = () => (
     <>
       <div className="space-y-2">
         <h1 className="text-3xl font-bold tracking-tight">Memberships</h1>
         <p className="text-sm text-muted-foreground">
-          One active membership per clinic is supported. Membership discounts apply to service bookings when no package session is used.
+          One active membership per clinic is supported. Membership discounts apply to service
+          bookings when no package session is used.
         </p>
       </div>
 
@@ -210,14 +220,14 @@ export default function MembershipsPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="font-semibold">{activeSubscription.membership.name}</div>
+            <div className="text-sm text-slate-700">Status: {activeSubscription.status}</div>
             <div className="text-sm text-slate-700">
-              Status: {activeSubscription.status}
+              Discount:{' '}
+              {Number(activeSubscription.membership.serviceDiscountPercent ?? 0).toFixed(0)}%
             </div>
             <div className="text-sm text-slate-700">
-              Discount: {Number(activeSubscription.membership.serviceDiscountPercent ?? 0).toFixed(0)}%
-            </div>
-            <div className="text-sm text-slate-700">
-              Current period ends: {new Date(activeSubscription.currentPeriodEnd).toLocaleDateString()}
+              Current period ends:{' '}
+              {new Date(activeSubscription.currentPeriodEnd).toLocaleDateString()}
             </div>
             <div className="text-sm text-slate-700">
               Cancel at period end: {activeSubscription.cancelAtPeriodEnd ? 'Yes' : 'No'}
@@ -251,10 +261,10 @@ export default function MembershipsPage() {
                 clientSecret={checkoutClientSecret}
                 buttonLabel={`Start ${selectedMembership.name}`}
                 onSuccess={() => {
-                  toast.success('Membership activated');
-                  setCheckoutClientSecret(null);
-                  setSelectedMembership(null);
-                  queryClient.invalidateQueries({ queryKey: ['membership-subscriptions'] });
+                  toast.success('Membership activated')
+                  setCheckoutClientSecret(null)
+                  setSelectedMembership(null)
+                  queryClient.invalidateQueries({ queryKey: ['membership-subscriptions'] })
                 }}
               />
             </Elements>
@@ -265,8 +275,8 @@ export default function MembershipsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {memberships.map((membership) => {
           const blockedByOtherMembership =
-            !!activeSubscription && activeSubscription.membership.id !== membership.id;
-          const isCurrent = activeSubscription?.membership.id === membership.id;
+            !!activeSubscription && activeSubscription.membership.id !== membership.id
+          const isCurrent = activeSubscription?.membership.id === membership.id
 
           return (
             <Card key={membership.id}>
@@ -288,19 +298,23 @@ export default function MembershipsPage() {
                   disabled={purchaseMutation.isPending || blockedByOtherMembership || isCurrent}
                   onClick={() => purchaseMutation.mutate(membership.id)}
                 >
-                  {isCurrent ? 'Current membership' : blockedByOtherMembership ? 'Another membership is active' : 'Start membership'}
+                  {isCurrent
+                    ? 'Current membership'
+                    : blockedByOtherMembership
+                      ? 'Another membership is active'
+                      : 'Start membership'}
                 </AppButton>
               </CardContent>
             </Card>
-          );
+          )
         })}
       </div>
     </>
-  );
+  )
 
   return (
     <PageContainer className="space-y-8">
       {isPatient ? renderPatientMemberships() : renderAdminCatalog()}
     </PageContainer>
-  );
+  )
 }
