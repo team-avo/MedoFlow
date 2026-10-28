@@ -133,17 +133,9 @@ export default function AnalyticsPage() {
     <PageContainer className="space-y-8">
       {/* Hero */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#6366F1] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-24 -top-20 h-72 w-72 rounded-full bg-white/10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-16 -bottom-12 h-56 w-56 rounded-full bg-[#14B8A6]/25 blur-3xl"
-        />
         <div className="relative flex flex-col gap-6 p-8 lg:flex-row lg:items-end lg:justify-between lg:p-10">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
               <span className="h-1.5 w-1.5 rounded-full bg-[#14B8A6]" />
               {isProvider ? 'Performance' : 'Clinic Intelligence'}
             </div>
@@ -198,7 +190,7 @@ export default function AnalyticsPage() {
             )}
 
             <select
-              className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-primary-500 transition-all appearance-none cursor-pointer"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-primary-500 transition-colors appearance-none cursor-pointer"
               defaultValue=""
               onChange={(e) => {
                 const type = e.target.value as AnalyticsExportType
@@ -235,7 +227,7 @@ export default function AnalyticsPage() {
             <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
               <DollarSign className="h-4 w-4" /> Financial Health
             </h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               <KPIStatCard
                 label="Gross Revenue"
                 value={formatMoney(clinicData.commandCenter.finance.totalRevenue)}
@@ -272,7 +264,7 @@ export default function AnalyticsPage() {
             <h2 className="text-sm font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
               <Activity className="h-4 w-4" /> Operational Efficiency
             </h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
               <KPIStatCard
                 label="Total Appointments"
                 value={clinicData.commandCenter.operations.totalAppointments}
@@ -457,7 +449,7 @@ export default function AnalyticsPage() {
 
       {!isClinicMode && providerData && (
         <div className="space-y-10">
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <KPIStatCard
               label="Completed Visits"
               value={providerData.performance.completedAppointments}

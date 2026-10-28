@@ -8,6 +8,7 @@ import { ArrowRight, Trash2, Upload } from 'lucide-react'
 import { siteApi, siteErrorMessage } from '@/lib/site/siteApi'
 import { AppBadge, AppButton, AppModal } from '@/components/ui-system'
 import { inputCls, Label } from '@/components/site/builder/fields'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const KEY = ['site', 'redirects'] as const
 
@@ -85,7 +86,7 @@ export default function SiteRedirectsPage() {
 
       <section className="rounded-2xl border border-slate-200 bg-white">
         {isLoading ? (
-          <p className="p-6 text-sm text-slate-500">Loading…</p>
+          <LoadingSkeleton variant="row" count={3} className="p-6" />
         ) : items.length === 0 ? (
           <p className="p-6 text-sm text-slate-500">No redirects yet.</p>
         ) : (

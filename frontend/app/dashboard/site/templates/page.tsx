@@ -14,6 +14,7 @@ import { siteFontVariables } from '@/components/site/fonts'
 import { DeviceFrame, DeviceToggle, type Device } from '@/components/site/builder/DeviceFrame'
 import { useInvalidateSite, useSiteOverview } from '@/components/site/builder/BuilderData'
 import { cn } from '@/lib/utils'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 function Swatches({ t }: { t: TemplateSummary }) {
   const c = t.theme.colors
@@ -51,7 +52,7 @@ function PreviewDialog({
     <Dialog.Root open={!!template} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/50" />
-        <Dialog.Content className="fixed inset-3 z-50 flex flex-col overflow-hidden rounded-2xl bg-slate-100 shadow-2xl">
+        <Dialog.Content className="fixed inset-3 z-50 flex flex-col overflow-hidden rounded-2xl bg-slate-100 shadow-lg">
           <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <Dialog.Title className="font-semibold text-slate-900">{template?.name}</Dialog.Title>
             <Dialog.Description className="sr-only">
@@ -149,7 +150,7 @@ export default function TemplatesPage() {
         </p>
       </div>
       {isLoading ? (
-        <p className="text-sm text-slate-500">Loading templates…</p>
+        <LoadingSkeleton variant="card" count={4} />
       ) : (
         <ul className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {templates.map((t) => {

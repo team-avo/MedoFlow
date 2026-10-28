@@ -9,6 +9,7 @@ import {
   AppButton,
   AppInput,
   AppPageHeader,
+  LoadingSkeleton,
 } from '@/components/ui-system'
 import { PageContainer } from '@/components/layout'
 import {
@@ -78,6 +79,7 @@ export default function PointOfSalePage() {
   const [products, setProducts] = useState<CatalogItem[]>([])
   const [services, setServices] = useState<CatalogItem[]>([])
   const [packages, setPackages] = useState<CatalogItem[]>([])
+  const [catalogLoading, setCatalogLoading] = useState(true)
 
   const [cart, setCart] = useState<CartLine[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -103,6 +105,8 @@ export default function PointOfSalePage() {
         setPackages(packagesRes.data.data.packages ?? [])
       } catch (error) {
         toast.error('Failed to load front-desk checkout data')
+      } finally {
+        setCatalogLoading(false)
       }
     }
     fetchData()
@@ -222,7 +226,7 @@ export default function PointOfSalePage() {
     // On lg+ we lock to h-screen and use dual internal scroll (desktop app feel).
     // On smaller screens we stack and let the page scroll — two tiny scroll
     // panes on a phone is a usability disaster.
-    <div className="flex min-h-screen flex-col bg-slate-50 lg:h-screen lg:overflow-hidden">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-slate-50 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
       <div className="border-b bg-white px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <AppPageHeader
           title="Point of Sale"
@@ -243,6 +247,8 @@ export default function PointOfSalePage() {
             />
           </div>
 
+          {catalogLoading && <LoadingSkeleton variant="card" count={4} />}
+
           <div className="space-y-6">
             <div className="flex items-center gap-2 text-slate-900 border-b border-slate-100 pb-2">
               <Activity className="h-5 w-5 text-primary-600" />
@@ -255,7 +261,7 @@ export default function PointOfSalePage() {
                   <button
                     key={s.id}
                     onClick={() => addToCart(s, 'SERVICE')}
-                    className="group flex flex-col text-left p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary-600 hover:shadow-md transition-all relative overflow-hidden"
+                    className="group flex flex-col text-left p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary-600 hover:shadow-md transition-colors relative overflow-hidden"
                   >
                     <span className="font-bold text-slate-900 group-hover:text-primary-600 transition-colors truncate w-full">
                       {s.name}
@@ -283,7 +289,7 @@ export default function PointOfSalePage() {
                   <button
                     key={p.id}
                     onClick={() => addToCart(p, 'PRODUCT')}
-                    className="group flex flex-col text-left p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary-600 hover:shadow-md transition-all relative"
+                    className="group flex flex-col text-left p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary-600 hover:shadow-md transition-colors relative"
                   >
                     <span className="font-bold text-slate-900 group-hover:text-primary-600 transition-colors truncate w-full">
                       {p.name}
@@ -311,7 +317,7 @@ export default function PointOfSalePage() {
                   <button
                     key={p.id}
                     onClick={() => addToCart(p, 'PACKAGE')}
-                    className="group flex flex-col text-left p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary-600 hover:shadow-md transition-all"
+                    className="group flex flex-col text-left p-5 bg-white rounded-2xl border border-slate-100 hover:border-primary-600 hover:shadow-md transition-colors"
                   >
                     <span className="font-bold text-slate-900 group-hover:text-primary-600 transition-colors truncate w-full">
                       {p.name}
@@ -330,7 +336,7 @@ export default function PointOfSalePage() {
 
         {/* Right side: Operations Sidebar — stacks below catalog on mobile,
             fixed 450-wide column on lg+. */}
-        <div className="z-10 flex w-full flex-col border-t border-slate-200 bg-white lg:w-[450px] lg:border-l lg:border-t-0 lg:shadow-2xl">
+        <div className="z-10 flex w-full flex-col border-t border-slate-200 bg-white lg:w-[450px] lg:border-l lg:border-t-0 lg:shadow-lg">
           <div className="p-6 border-b bg-slate-50/50 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -359,7 +365,7 @@ export default function PointOfSalePage() {
             </Select>
 
             {entitlements && (
-              <div className="p-4 bg-primary-50/50 rounded-2xl border border-primary-100 space-y-2 animate-in fade-in slide-in-from-top-2">
+              <div className="p-4 bg-primary-50/50 rounded-2xl border border-primary-100 space-y-2 animate-in fade-in">
                 <div className="flex items-center justify-between text-xs font-bold text-primary-700 uppercase tracking-wider">
                   <span>Clinical Entitlements</span>
                   <ShieldCheck className="h-3 w-3" />
@@ -401,7 +407,7 @@ export default function PointOfSalePage() {
             {cart.map((item, index) => (
               <div
                 key={`${item.itemType}-${item.id}-${index}`}
-                className="flex gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 relative group transition-all hover:bg-white hover:shadow-sm"
+                className="flex gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100 relative group transition-colors hover:bg-white hover:shadow-sm"
               >
                 <button
                   onClick={() => removeLine(index)}
@@ -463,7 +469,7 @@ export default function PointOfSalePage() {
               </div>
 
               {collectPaymentNow && (
-                <div className="space-y-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm animate-in zoom-in-95">
+                <div className="space-y-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-sm animate-in">
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
                     <SelectTrigger className="h-10 border-slate-100 bg-slate-50/50">
                       <SelectValue placeholder="Method" />

@@ -45,7 +45,7 @@ function OnFileCard() {
     retry: false,
   })
   const [editing, setEditing] = React.useState(false)
-  if (isLoading) return null
+  if (isLoading) return <LoadingSkeleton variant="card" />
 
   return (
     <AppCard className="border border-slate-100 shadow-sm overflow-hidden bg-white">

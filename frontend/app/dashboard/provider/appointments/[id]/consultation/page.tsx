@@ -545,14 +545,6 @@ export default function ConsultationRoomPage() {
     <PageContainer className="space-y-8">
       {/* Hero header — gradient band with back + live status + start video */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-20 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-10 -bottom-12 h-48 w-48 rounded-full bg-[#14B8A6]/25 blur-3xl"
-        />
         <div className="relative flex flex-col gap-6 p-8 lg:p-10">
           <div className="flex items-center justify-between gap-4">
             <button
@@ -587,7 +579,7 @@ export default function ConsultationRoomPage() {
 
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
                 <span
                   className={cn(
                     'h-1.5 w-1.5 rounded-full',
@@ -608,7 +600,7 @@ export default function ConsultationRoomPage() {
             </div>
 
             {/* Status strip */}
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-3 backdrop-blur-sm">
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/15 bg-white/10 p-3">
               {[
                 { label: 'Consent', value: session.consentStatus },
                 { label: 'Recording', value: session.recordingStatus },
@@ -676,7 +668,7 @@ export default function ConsultationRoomPage() {
             <AppCard className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none">
               <AppCardContent className="flex flex-col items-center gap-4 py-12 text-center">
                 <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-amber-100">
-                  <div className="absolute inset-0 animate-ping rounded-full bg-amber-200 opacity-50" />
+                  <div className="absolute inset-0 rounded-full bg-amber-200 opacity-50" />
                   <Sparkles className="h-7 w-7 text-amber-600" />
                 </div>
                 <div>
@@ -856,7 +848,7 @@ export default function ConsultationRoomPage() {
               {recorder.isRecording && (
                 <div className="inline-flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1.5 text-red-700 ring-1 ring-red-500/20">
                   <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60" />
+                    <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-60" />
                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
                   </span>
                   <span className="font-mono text-sm font-bold tabular-nums">
@@ -1181,14 +1173,6 @@ export default function ConsultationRoomPage() {
           {/* Patient join link */}
           {session.joinToken && (
             <AppCard className="relative overflow-hidden border-none bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] text-white shadow-card">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10 blur-2xl"
-              />
-              <div
-                aria-hidden
-                className="pointer-events-none absolute -bottom-6 -left-4 h-32 w-32 rounded-full bg-[#14B8A6]/25 blur-2xl"
-              />
               <AppCardContent className="relative space-y-3 p-5">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
                   <Video className="h-3 w-3" />

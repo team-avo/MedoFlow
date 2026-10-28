@@ -327,7 +327,7 @@ export default function CheckoutPage() {
                     You are currently a guest. Please sign in to securely finalize your purchase.
                   </p>
                   <Button
-                    className="w-full h-14 text-lg rounded-2xl bg-white hover:bg-white/90 font-bold shadow-2xl shadow-black/20"
+                    className="w-full h-14 text-lg rounded-2xl bg-white hover:bg-white/90 font-bold shadow-lg shadow-black/20"
                     style={{ color: themeColor }}
                     onClick={() =>
                       router.push(
@@ -361,7 +361,7 @@ export default function CheckoutPage() {
                   ) : !clientSecret ? (
                     <div className="space-y-4">
                       <Button
-                        className="w-full h-14 text-lg rounded-2xl bg-white hover:bg-white/90 font-bold shadow-2xl shadow-black/20"
+                        className="w-full h-14 text-lg rounded-2xl bg-white hover:bg-white/90 font-bold shadow-lg shadow-black/20"
                         style={{ color: themeColor }}
                         onClick={handleInitiateCheckout}
                       >

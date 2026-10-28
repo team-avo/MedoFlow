@@ -8,9 +8,8 @@
  * a tactile feel.
  */
 
-import React, { useRef } from 'react'
+import React from 'react'
 import Image from 'next/image'
-import { motion, useMotionValue, useSpring } from 'framer-motion'
 import { Quote, Star } from 'lucide-react'
 import { SectionHeader } from './primitives'
 
@@ -66,36 +65,7 @@ const others: Testimonial[] = [
 ]
 
 function TiltCard({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const rx = useMotionValue(0)
-  const ry = useMotionValue(0)
-  const srx = useSpring(rx, { stiffness: 200, damping: 18, mass: 0.4 })
-  const sry = useSpring(ry, { stiffness: 200, damping: 18, mass: 0.4 })
-
-  function handleMove(e: React.MouseEvent<HTMLDivElement>) {
-    const rect = ref.current?.getBoundingClientRect()
-    if (!rect) return
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
-    ry.set(((e.clientX - cx) / rect.width) * 10)
-    rx.set(-((e.clientY - cy) / rect.height) * 10)
-  }
-  function handleLeave() {
-    rx.set(0)
-    ry.set(0)
-  }
-
-  return (
-    <motion.div
-      ref={ref}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
-      style={{ rotateX: srx, rotateY: sry, transformStyle: 'preserve-3d', perspective: 1000 }}
-      className="h-full"
-    >
-      {children}
-    </motion.div>
-  )
+  return <div className="h-full">{children}</div>
 }
 
 function FeaturedCard({ t }: { t: Testimonial }) {
@@ -130,7 +100,7 @@ function FeaturedCard({ t }: { t: Testimonial }) {
           </div>
 
           {t.metric && (
-            <div className="hidden flex-shrink-0 rounded-2xl border border-teal-bright/30 bg-white/[0.04] p-7 text-center backdrop-blur-sm md:block">
+            <div className="hidden flex-shrink-0 rounded-2xl border border-teal-bright/30 bg-white/[0.04] p-7 text-center md:block">
               <p className="mf-display text-[clamp(36px,5vw,52px)] leading-none text-teal-bright">
                 {t.metric.value}
               </p>
@@ -145,15 +115,9 @@ function FeaturedCard({ t }: { t: Testimonial }) {
   )
 }
 
-function MiniCard({ t, delay }: { t: Testimonial; delay: number }) {
+function MiniCard({ t }: { t: Testimonial }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10% 0px' }}
-      transition={{ duration: 0.6, delay }}
-      className="h-full"
-    >
+    <div className="h-full">
       <TiltCard>
         <div className="relative flex h-full flex-col rounded-2xl border border-hairline bg-white p-6 shadow-card transition-shadow hover:shadow-card-hover">
           <div className="flex items-center gap-1 text-teal">
@@ -175,7 +139,7 @@ function MiniCard({ t, delay }: { t: Testimonial; delay: number }) {
           </div>
         </div>
       </TiltCard>
-    </motion.div>
+    </div>
   )
 }
 
@@ -197,20 +161,14 @@ export function TestimonialsSection() {
           <FeaturedCard t={featured} />
 
           <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-3">
-            {others.map((t, i) => (
-              <MiniCard key={t.who} t={t} delay={i * 0.08} />
+            {others.map((t) => (
+              <MiniCard key={t.who} t={t} />
             ))}
           </div>
         </div>
 
         {/* Trust strip — clinic name marquee */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7, delay: 0.2 }}
-          className="mx-auto mt-20 max-w-5xl text-center"
-        >
+        <div className="mx-auto mt-20 max-w-5xl text-center">
           <p className="mf-eyebrow text-ink-muted">Also running on MedoFlow</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-[14px] font-medium text-ink-muted">
             {[
@@ -228,7 +186,7 @@ export function TestimonialsSection() {
               </span>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   )

@@ -131,15 +131,10 @@ export default function StorePage() {
       {/* 1. Hero */}
       <section className="relative overflow-hidden bg-navy text-white">
         <div className="absolute inset-0 mf-grid-pattern opacity-30" aria-hidden />
-        <div
-          className="pointer-events-none absolute -top-40 -right-24 h-96 w-96 rounded-full blur-[140px]"
-          style={{ backgroundColor: 'rgba(13, 148, 136, 0.35)' }}
-          aria-hidden
-        />
         <div className="relative mx-auto max-w-7xl px-6 pt-16 pb-24 lg:pt-20 lg:pb-28">
           <div className="max-w-2xl">
             {isAuthenticated && firstName && (
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-teal-bright backdrop-blur-sm">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-teal-bright">
                 <Sparkles className="h-3 w-3" />
                 Welcome back, {firstName}
               </div>
@@ -152,7 +147,7 @@ export default function StorePage() {
               your plan of care and shipped to your door.
             </p>
 
-            <div className="mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 backdrop-blur-sm">
+            <div className="mt-8 flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2.5">
               <Search className="h-4 w-4 text-white/60" />
               <input
                 value={query}
@@ -356,11 +351,6 @@ export default function StorePage() {
       <section className="mx-auto max-w-7xl px-6 pb-24">
         <div className="relative overflow-hidden rounded-[28px] bg-navy p-10 text-white md:p-14">
           <div className="absolute inset-0 mf-grid-pattern opacity-20" aria-hidden />
-          <div
-            className="pointer-events-none absolute -bottom-20 -right-12 h-72 w-72 rounded-full blur-[120px]"
-            style={{ backgroundColor: 'rgba(13, 148, 136, 0.3)' }}
-            aria-hidden
-          />
           <div className="relative grid items-center gap-10 md:grid-cols-2">
             <div>
               <div className="flex items-center gap-1 text-amber-300">
@@ -464,7 +454,7 @@ function FeaturedCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' ? onOpen() : null)}
-      className="group relative cursor-pointer overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      className="group relative cursor-pointer overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 transition-colors hover:shadow-lg"
     >
       <div
         className={cn(
@@ -473,7 +463,7 @@ function FeaturedCard({
         )}
       >
         <Icon
-          className="h-28 w-28 transition-transform duration-500 group-hover:scale-110"
+          className="h-28 w-28 transition-transform"
           style={{ color: cat.accentHex }}
           strokeWidth={1.15}
         />
@@ -526,7 +516,7 @@ function ProductCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => (e.key === 'Enter' ? onOpen() : null)}
-      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-md hover:ring-slate-200"
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-slate-100 transition-colors hover:shadow-md hover:ring-slate-200"
     >
       <div
         className={cn(
@@ -535,11 +525,11 @@ function ProductCard({
         )}
       >
         <Icon
-          className="h-16 w-16 transition-transform duration-500 group-hover:scale-110"
+          className="h-16 w-16 transition-transform"
           style={{ color: cat.accentHex }}
           strokeWidth={1.25}
         />
-        <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-700 ring-1 ring-white backdrop-blur-sm">
+        <span className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-700 ring-1 ring-white">
           {cat.label}
         </span>
       </div>
@@ -558,7 +548,7 @@ function ProductCard({
               e.stopPropagation()
               onQuickAdd()
             }}
-            className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11.5px] font-semibold text-slate-800 transition-all hover:border-slate-300 hover:bg-slate-900 hover:text-white"
+            className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[11.5px] font-semibold text-slate-800 transition-colors hover:border-slate-300 hover:bg-slate-900 hover:text-white"
           >
             Add
           </button>
@@ -590,7 +580,7 @@ function SectionHeader({
 
 function PackageCard({ pkg, onAdd }: { pkg: PackageT; onAdd: () => void }) {
   return (
-    <div className="flex h-full flex-col rounded-3xl bg-white p-7 ring-1 ring-slate-100 transition-all hover:-translate-y-0.5 hover:shadow-md">
+    <div className="flex h-full flex-col rounded-3xl bg-white p-7 ring-1 ring-slate-100 transition-colors hover:shadow-md">
       <div className="flex items-start justify-between">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-50 text-teal-700">
           <PackageIcon className="h-5 w-5" />
@@ -636,7 +626,7 @@ function MembershipCard({
   return (
     <div
       className={cn(
-        'relative flex flex-col overflow-hidden rounded-3xl p-8 transition-all hover:-translate-y-0.5 hover:shadow-md',
+        'relative flex flex-col overflow-hidden rounded-3xl p-8 transition-colors hover:shadow-md',
         highlighted
           ? 'bg-navy text-white ring-1 ring-navy'
           : 'bg-white text-slate-900 ring-1 ring-slate-100'
@@ -726,7 +716,7 @@ function AssuranceCell({
   body: string
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
       <Icon className="h-5 w-5 text-teal-bright" strokeWidth={1.75} />
       <p className="mt-4 text-[13px] font-semibold text-white">{title}</p>
       <p className="mt-1 text-[11.5px] leading-relaxed text-white/60">{body}</p>

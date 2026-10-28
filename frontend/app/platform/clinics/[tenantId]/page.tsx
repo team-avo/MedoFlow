@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, ShieldCheck, Mail, Loader2, Copy } from 'lucide-react'
 import api from '@/lib/api'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 interface ClinicDetail {
   id: string
@@ -93,7 +94,7 @@ export default function ClinicDetailPage() {
   }
 
   if (loading) {
-    return <div className="text-sm text-slate-500">Loading…</div>
+    return <LoadingSkeleton variant="page" />
   }
   if (error || !data) {
     return (
@@ -115,10 +116,12 @@ export default function ClinicDetailPage() {
         Back to clinics
       </Link>
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{data.name}</h1>
-          <p className="mt-1 font-mono text-xs text-slate-500">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="break-words text-2xl font-bold tracking-tight text-slate-900">
+            {data.name}
+          </h1>
+          <p className="mt-1 break-all font-mono text-xs text-slate-500">
             {data.brand?.subdomain ?? data.slug}.medoflow.com
           </p>
         </div>
@@ -126,7 +129,7 @@ export default function ClinicDetailPage() {
           type="button"
           onClick={onResendInvite}
           disabled={resending}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
         >
           {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
           {resending ? 'Sending…' : 'Resend setup invite'}
@@ -173,7 +176,7 @@ export default function ClinicDetailPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-900">Activation</h2>
           <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-center justify-between">
+            <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Agreement on file</span>
               {data.termsAcceptedAt ? (
                 <span className="inline-flex items-center gap-1 text-emerald-700">
@@ -185,7 +188,7 @@ export default function ClinicDetailPage() {
                 <span className="text-amber-600">Pending</span>
               )}
             </li>
-            <li className="flex items-center justify-between">
+            <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Onboarding wizard</span>
               <span className={data.onboardingCompletedAt ? 'text-emerald-700' : 'text-slate-500'}>
                 {data.onboardingCompletedAt
@@ -193,7 +196,7 @@ export default function ClinicDetailPage() {
                   : `Step ${data.onboardingStep}/6`}
               </span>
             </li>
-            <li className="flex items-center justify-between">
+            <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Created</span>
               <span className="text-slate-700">
                 {new Date(data.createdAt).toLocaleDateString()}
@@ -205,17 +208,19 @@ export default function ClinicDetailPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-900">Brand</h2>
           <ul className="mt-3 space-y-2 text-sm">
-            <li className="flex items-center justify-between">
+            <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Subdomain</span>
-              <span className="font-mono text-xs text-slate-700">
+              <span className="min-w-0 break-all text-right font-mono text-xs text-slate-700">
                 {data.brand?.subdomain ?? '—'}
               </span>
             </li>
-            <li className="flex items-center justify-between">
+            <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Custom domain</span>
-              <span className="text-slate-700">{data.brand?.customDomain ?? '—'}</span>
+              <span className="min-w-0 break-all text-right text-slate-700">
+                {data.brand?.customDomain ?? '—'}
+              </span>
             </li>
-            <li className="flex items-center justify-between">
+            <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Primary color</span>
               <span className="inline-flex items-center gap-2">
                 <span
@@ -232,7 +237,7 @@ export default function ClinicDetailPage() {
       {clinic && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h2 className="text-sm font-semibold text-slate-900">Primary clinic</h2>
-          <div className="mt-3 grid gap-3 text-sm md:grid-cols-4">
+          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
             <Stat small label="Clinic" value={clinic.name} />
             <Stat small label="Providers" value={String(clinic._count.providers)} />
             <Stat small label="Locations" value={String(clinic._count.locations)} />
@@ -248,7 +253,9 @@ function Stat({ label, value, small }: { label: string; value: string; small?: b
   return (
     <div className={`rounded-xl border border-slate-100 bg-slate-50/50 ${small ? 'p-3' : 'p-4'}`}>
       <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-      <p className={`mt-1 ${small ? 'text-sm' : 'text-base'} font-semibold text-slate-900`}>
+      <p
+        className={`mt-1 break-words ${small ? 'text-sm' : 'text-base'} font-semibold text-slate-900`}
+      >
         {value}
       </p>
     </div>

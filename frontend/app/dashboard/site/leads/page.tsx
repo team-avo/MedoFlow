@@ -11,6 +11,7 @@ import { Archive, Inbox, Mail, MailOpen, Phone } from 'lucide-react'
 import { siteApi, siteErrorMessage, type SiteLeadSummary } from '@/lib/site/siteApi'
 import { AppBadge, AppButton } from '@/components/ui-system'
 import { cn } from '@/lib/utils'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 type Filter = 'inbox' | 'ARCHIVED'
 
@@ -71,7 +72,7 @@ export default function SiteLeadsPage() {
           </div>
         </div>
         {isLoading ? (
-          <p className="p-4 text-sm text-slate-500">Loading…</p>
+          <LoadingSkeleton variant="row" count={4} className="p-4" />
         ) : error ? (
           <p className="p-4 text-sm text-red-600">{siteErrorMessage(error)}</p>
         ) : !data?.items.length ? (

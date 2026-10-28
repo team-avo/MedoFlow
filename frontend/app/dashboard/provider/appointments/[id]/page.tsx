@@ -170,14 +170,6 @@ export default function ProviderAppointmentDetailPage() {
       <PageContainer className="space-y-8 py-8">
         {/* Hero — gradient, patient + status, primary actions */}
         <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] text-white">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-20 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-10 -bottom-12 h-48 w-48 rounded-full bg-[#14B8A6]/25 blur-3xl"
-          />
           <div className="relative flex flex-col gap-6 p-8 lg:p-10">
             <div className="flex items-center justify-between gap-4">
               <button
@@ -213,7 +205,7 @@ export default function ProviderAppointmentDetailPage() {
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#14B8A6]" />
                   {appointment.service.name}
                 </div>
@@ -268,14 +260,6 @@ export default function ProviderAppointmentDetailPage() {
               <AppCardContent className="p-8">
                 {!visitRecord ? (
                   <div className="relative overflow-hidden rounded-3xl border border-[#E2E8F0] bg-gradient-to-br from-[#F8FAFC] via-white to-[#F0FDFA] p-10 text-center">
-                    <div
-                      aria-hidden
-                      className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-[#14B8A6]/10 blur-2xl"
-                    />
-                    <div
-                      aria-hidden
-                      className="pointer-events-none absolute -left-12 -bottom-12 h-40 w-40 rounded-full bg-[#6366F1]/10 blur-2xl"
-                    />
                     <div className="relative mx-auto mb-5 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#0D9488] to-[#14B8A6] text-white shadow-lg shadow-[#14B8A6]/30">
                       <Activity className="h-7 w-7" />
                     </div>
@@ -528,10 +512,6 @@ export default function ProviderAppointmentDetailPage() {
 
               {/* Clinical Integrity */}
               <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] p-6 text-white">
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-[#14B8A6]/25 blur-2xl"
-                />
                 <div className="relative flex items-center gap-3">
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] text-white shadow-[0_0_16px_rgba(20,184,166,0.3)]">
                     <History className="h-4 w-4" />

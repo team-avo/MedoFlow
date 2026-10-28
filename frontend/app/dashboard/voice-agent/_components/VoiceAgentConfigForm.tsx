@@ -163,7 +163,7 @@ export function VoiceAgentConfigForm() {
                   key={p.id}
                   type="button"
                   onClick={() => patch('persona', p.id)}
-                  className={`rounded-xl border p-4 text-left transition-all ${
+                  className={`rounded-xl border p-4 text-left transition-colors ${
                     active
                       ? 'border-teal bg-teal-wash ring-2 ring-teal/30'
                       : 'border-hairline bg-white hover:border-ink-faint'
@@ -264,7 +264,7 @@ export function VoiceAgentConfigForm() {
       </Card>
 
       {/* ─── Save bar ─────────────────────────────────────────────── */}
-      <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-xl border border-hairline bg-white/95 p-3 shadow-card backdrop-blur">
+      <div className="sticky bottom-4 flex items-center justify-end gap-3 rounded-xl border border-hairline bg-white p-3 shadow-card">
         <button
           type="button"
           onClick={handleSave}

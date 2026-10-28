@@ -160,7 +160,7 @@ function Tile({
     <button
       type="button"
       onClick={onClick}
-      className="group flex h-full flex-col items-start gap-2 rounded-2xl border border-slate-100 bg-white/80 p-5 text-left shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group flex h-full flex-col items-start gap-2 rounded-2xl border border-slate-100 bg-white p-5 text-left shadow-sm transition hover:shadow-md"
     >
       <div className="flex items-center gap-2">
         <span
@@ -176,7 +176,7 @@ function Tile({
       <p className="text-xl font-bold leading-tight text-slate-900">{value}</p>
       <p className="text-xs leading-relaxed text-slate-500">{sub}</p>
       <span
-        className="mt-auto inline-flex items-center gap-1 pt-2 text-xs font-bold transition-transform group-hover:translate-x-0.5"
+        className="mt-auto inline-flex items-center gap-1 pt-2 text-xs font-bold transition-transform"
         style={{ color: themeColor }}
       >
         {cta}

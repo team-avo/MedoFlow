@@ -2,11 +2,11 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
 import { Check, PartyPopper, ArrowRight } from 'lucide-react'
 import api from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 interface StatusData {
   checklist: {
@@ -23,6 +23,7 @@ export default function DoneStepPage() {
   const { refetchUser, user } = useAuth()
   const [status, setStatus] = React.useState<StatusData | null>(null)
   const [isFinishing, setIsFinishing] = React.useState(false)
+  const [loading, setLoading] = React.useState(true)
 
   React.useEffect(() => {
     let cancelled = false
@@ -32,6 +33,8 @@ export default function DoneStepPage() {
         if (!cancelled) setStatus(data?.data)
       } catch {
         /* noop */
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     })()
     return () => {
@@ -72,19 +75,15 @@ export default function DoneStepPage() {
       }}
     >
       <div className="relative flex flex-col items-center text-center">
-        <motion.div
-          initial={{ scale: 0, rotate: -30 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 220, damping: 15 }}
-          className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg"
-        >
+        <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg">
           <PartyPopper className="h-9 w-9" />
-        </motion.div>
+        </div>
 
         <div className="w-full max-w-md rounded-2xl border border-slate-100 bg-slate-50/50 p-5 text-left">
           <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
             Setup summary
           </p>
+          {loading && <LoadingSkeleton variant="text" count={5} className="mt-3" />}
           <ul className="mt-3 space-y-2">
             {items.map((it) => (
               <li key={it.key} className="flex items-center gap-2 text-sm">

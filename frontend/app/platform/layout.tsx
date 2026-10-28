@@ -33,7 +33,7 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
           <Link href="/platform/clinics" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
               <ShieldAlert className="h-4 w-4" />
@@ -61,13 +61,15 @@ export default function PlatformLayout({ children }: { children: React.ReactNode
               )
             })}
           </nav>
-          <div className="text-xs text-slate-500">
-            <Building2 className="mr-1 inline h-3.5 w-3.5" />
-            {user.email}
+          <div className="flex min-w-0 max-w-[16rem] items-center text-xs text-slate-500">
+            <Building2 className="mr-1 h-3.5 w-3.5 shrink-0" />
+            <span className="truncate" title={user.email}>
+              {user.email}
+            </span>
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
     </div>
   )
 }

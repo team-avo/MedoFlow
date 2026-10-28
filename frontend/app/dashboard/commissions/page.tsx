@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PageContainer } from '@/components/layout'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const ITEM_TYPE_OPTIONS = [
   { value: 'ALL', label: 'All invoice items' },
@@ -429,9 +430,7 @@ export default function CommissionsPage() {
             </AppCardHeader>
             <AppCardContent>
               {rulesLoading ? (
-                <div className="py-12 text-center text-sm text-slate-500">
-                  Loading commission rules…
-                </div>
+                <LoadingSkeleton variant="row" count={4} />
               ) : rules.length === 0 ? (
                 <AppEmptyState
                   title="No commission rules"
@@ -626,9 +625,7 @@ export default function CommissionsPage() {
               </div>
 
               {recordsLoading ? (
-                <div className="py-12 text-center text-sm text-slate-500">
-                  Loading commission ledger…
-                </div>
+                <LoadingSkeleton variant="row" count={4} />
               ) : records.length === 0 ? (
                 <AppEmptyState
                   title="No commission records"

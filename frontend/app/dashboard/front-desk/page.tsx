@@ -80,7 +80,7 @@ function FrontDeskDashboardContent() {
         title="Operations Desk"
         description="Daily clinical management and rapid checkout console."
         actions={
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-center">
             <DateRangeFilter
               value={dateRangeOption}
               onChange={(opt, range) => {

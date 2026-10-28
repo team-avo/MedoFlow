@@ -1,36 +1,43 @@
-'use client';
+'use client'
 
-import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
-import { AppCard, AppCardContent, AppCardHeader, AppCardTitle, AppButton } from '@/components/ui-system';
-import { PageContainer } from '@/components/layout';
-import { getPackageOperationalSummary, getPackages } from '@/lib/packageApi';
+import { useQuery } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
+import {
+  AppCard,
+  AppCardContent,
+  AppCardHeader,
+  AppCardTitle,
+  AppButton,
+} from '@/components/ui-system'
+import { PageContainer } from '@/components/layout'
+import { getPackageOperationalSummary, getPackages } from '@/lib/packageApi'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 function formatMoney(value?: string | number | null) {
-  return `$${Number(value ?? 0).toFixed(2)}`;
+  return `$${Number(value ?? 0).toFixed(2)}`
 }
 
 export default function PackagesPage() {
   const { data: packages = [], isLoading } = useQuery({
     queryKey: ['packages'],
     queryFn: () => getPackages(true),
-  });
+  })
 
   const { data: summary } = useQuery({
     queryKey: ['package-operational-summary'],
     queryFn: getPackageOperationalSummary,
-  });
+  })
 
   return (
     <PageContainer className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Packages</h1>
         <AppButton disabled title="Package catalog setup is managed by your account administrator.">
           <Plus className="mr-2 h-4 w-4" /> Add Package
         </AppButton>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AppCard>
           <AppCardHeader>
             <AppCardTitle>Active Catalog</AppCardTitle>
@@ -66,11 +73,12 @@ export default function PackagesPage() {
       </div>
 
       <div className="text-sm text-slate-600">
-        This view shows live package catalog and patient package activity. Catalog setup is managed by your account administrator.
+        This view shows live package catalog and patient package activity. Catalog setup is managed
+        by your account administrator.
       </div>
 
       {isLoading ? (
-        <div>Loading...</div>
+        <LoadingSkeleton variant="card" count={4} />
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {packages.map((pkg) => (
@@ -80,7 +88,9 @@ export default function PackagesPage() {
                   <AppCardTitle>{pkg.name}</AppCardTitle>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-medium ${
-                      pkg.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      pkg.isActive
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-slate-100 text-slate-600'
                     }`}
                   >
                     {pkg.isActive ? 'Active' : 'Inactive'}
@@ -97,7 +107,9 @@ export default function PackagesPage() {
                     <span className="text-sm">Sessions: {pkg.totalSessions || 'Unlimited'}</span>
                   </div>
                   {pkg.expiresInDays ? (
-                    <div className="text-xs text-muted-foreground">Expires in {pkg.expiresInDays} days</div>
+                    <div className="text-xs text-muted-foreground">
+                      Expires in {pkg.expiresInDays} days
+                    </div>
                   ) : (
                     <div className="text-xs text-muted-foreground">No catalog expiry</div>
                   )}
@@ -113,5 +125,5 @@ export default function PackagesPage() {
         </div>
       )}
     </PageContainer>
-  );
+  )
 }

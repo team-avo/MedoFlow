@@ -5,7 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { TourProvider } from '@/contexts/TourContext'
 import { SystemModalProvider } from '@/components/system/SystemModalProvider'
 import { QueryProvider } from '@/components/QueryProvider'
-import { GlobalApiLoader } from '@/components/common/GlobalApiLoader'
+import { TopProgressBar } from '@/components/common/TopProgressBar'
 import { TourOverlay } from '@/components/tour/TourOverlay'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -60,7 +60,7 @@ export default function RootLayout({
               <SystemModalProvider>
                 {children}
                 <TourOverlay />
-                <GlobalApiLoader />
+                <TopProgressBar />
               </SystemModalProvider>
             </TourProvider>
           </AuthProvider>

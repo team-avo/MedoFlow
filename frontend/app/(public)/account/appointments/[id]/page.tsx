@@ -18,7 +18,6 @@ import {
   StickySummaryPanel,
 } from '@/components/ui-system'
 import { formatDate, formatDateTime, formatTime } from '@/lib/timezone'
-import { PageContainer } from '@/components/layout'
 import { Skeleton } from '@/components/ui/skeleton'
 import { IntakeFormsSection } from '@/components/intake/IntakeFormsSection'
 import { PatientAppointmentActions } from '@/components/appointments/PatientAppointmentActions'
@@ -94,11 +93,12 @@ export default function PatientAppointmentDetailPage() {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen">
-      {/* Header */}
-      <div className="px-8 py-6 bg-white border-b sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+    <div>
+      {/* Header — inside the account layout, so a card in the flow, not a
+          full-bleed sticky bar (that slid under the fixed public nav). */}
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-5 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <AppButton
               variant="ghost"
               size="icon"
@@ -107,9 +107,11 @@ export default function PatientAppointmentDetailPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </AppButton>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black text-slate-900">{appointment.service.name}</h1>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="break-words text-2xl font-black text-slate-900">
+                  {appointment.service.name}
+                </h1>
                 <StatusBadge status={appointment.status} variant="appointment" />
               </div>
               <p className="text-sm text-slate-500 font-medium">
@@ -118,7 +120,7 @@ export default function PatientAppointmentDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             {consultationSession?.joinToken && (
               <AppButton size="lg" className="rounded-full shadow-lg shadow-primary-100" asChild>
                 <Link href={`/consultation/${consultationSession.joinToken}`}>
@@ -130,7 +132,7 @@ export default function PatientAppointmentDetailPage() {
         </div>
       </div>
 
-      <PageContainer className="py-8">
+      <div className="pt-8">
         <div className="grid gap-8 lg:grid-cols-3 items-start">
           <div className="lg:col-span-2 space-y-8">
             {/* Visit Summary - Featured care info */}
@@ -322,7 +324,7 @@ export default function PatientAppointmentDetailPage() {
             </div>
           </div>
         </div>
-      </PageContainer>
+      </div>
     </div>
   )
 }

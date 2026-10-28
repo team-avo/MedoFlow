@@ -23,6 +23,7 @@ import { siteApi, siteErrorMessage, type SiteDomain } from '@/lib/site/siteApi'
 import { AppBadge, AppButton } from '@/components/ui-system'
 import { inputCls, Label } from '@/components/site/builder/fields'
 import { useInvalidateSite, useSiteOverview } from '@/components/site/builder/BuilderData'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const DOMAINS_KEY = ['site', 'domains'] as const
 
@@ -96,7 +97,7 @@ export default function SiteDomainsPage() {
     }
   }
 
-  if (isLoading) return <p className="text-sm text-slate-500">Loading domains…</p>
+  if (isLoading) return <LoadingSkeleton variant="card" />
   if (error || !data)
     return (
       <p className="text-sm text-red-600">{siteErrorMessage(error, 'Could not load domains')}</p>
@@ -136,7 +137,7 @@ export default function SiteDomainsPage() {
               </p>
             )}
             <form
-              className="mt-4 flex max-w-lg gap-2"
+              className="mt-4 flex max-w-lg flex-wrap gap-2"
               onSubmit={(e) => {
                 e.preventDefault()
                 void act('sub', () => siteApi.changeSubdomain(label), 'Address updated').then(
@@ -144,7 +145,7 @@ export default function SiteDomainsPage() {
                 )
               }}
             >
-              <div className="flex flex-1 items-center rounded-lg border border-slate-200 pr-3 focus-within:border-indigo-400">
+              <div className="flex min-w-[12rem] flex-1 items-center rounded-lg border border-slate-200 pr-3 focus-within:border-indigo-400">
                 <input
                   aria-label="New subdomain"
                   className="min-w-0 flex-1 rounded-lg border-0 px-3 py-2 text-sm focus:outline-none"
@@ -155,7 +156,7 @@ export default function SiteDomainsPage() {
                     setLabel(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))
                   }
                 />
-                <span className="text-sm text-slate-400">{rootSuffix}</span>
+                <span className="shrink-0 text-sm text-slate-400">{rootSuffix}</span>
               </div>
               <AppButton
                 type="submit"
@@ -199,7 +200,7 @@ export default function SiteDomainsPage() {
           </div>
         ) : (
           <form
-            className="mt-4 flex max-w-lg gap-2"
+            className="mt-4 flex max-w-lg flex-wrap gap-2"
             onSubmit={(e) => {
               e.preventDefault()
               void act(
@@ -209,7 +210,7 @@ export default function SiteDomainsPage() {
               ).then((ok) => ok && setHostname(''))
             }}
           >
-            <div className="flex-1">
+            <div className="min-w-[12rem] flex-1">
               <Label htmlFor="dom-host">Domain</Label>
               <input
                 id="dom-host"

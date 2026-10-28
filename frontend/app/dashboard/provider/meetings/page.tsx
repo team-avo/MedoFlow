@@ -19,6 +19,7 @@ import {
   syncGoogleMeetings,
 } from '@/lib/googleCalendarApi'
 import { formatDateTime, formatTime } from '@/lib/timezone'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 function ProviderMeetingsPageContent() {
   const { user } = useAuth()
@@ -126,17 +127,9 @@ function ProviderMeetingsPageContent() {
     <PageContainer className="space-y-8">
       {/* Hero */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#4C7DCC] text-white">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -left-12 -bottom-10 h-56 w-56 rounded-full bg-[#14B8A6]/25 blur-3xl"
-        />
         <div className="relative flex flex-col gap-6 p-8 lg:flex-row lg:items-end lg:justify-between lg:p-10">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-[#14B8A6]' : 'bg-amber-400'}`}
               />
@@ -198,7 +191,7 @@ function ProviderMeetingsPageContent() {
         </AppCardHeader>
         <AppCardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading meetings...</p>
+            <LoadingSkeleton variant="row" count={3} />
           ) : !events || events.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No Google Meet events found. Connect and sync to pull meetings.

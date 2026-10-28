@@ -8,37 +8,16 @@
  * flowing from "visits" to "revenue." Customer quote anchors it.
  */
 
-import React, { useEffect, useRef, useState } from 'react'
-import { motion, useInView } from 'framer-motion'
+import React from 'react'
 import { Package, Repeat, TrendingUp, ArrowRight, Sparkles } from 'lucide-react'
 import { SectionHeader } from './primitives'
 
 function RevenueTicker() {
-  const ref = useRef<HTMLDivElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-15% 0px' })
-  const [value, setValue] = useState(0)
-  const target = 47280
-
-  useEffect(() => {
-    if (!inView) return
-    let raf = 0
-    const start = performance.now()
-    const dur = 2200
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / dur)
-      const eased = 1 - Math.pow(1 - t, 3)
-      setValue(Math.round(target * eased))
-      if (t < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [inView])
-
   return (
-    <div ref={ref} className="text-center">
+    <div className="text-center">
       <p className="mf-eyebrow text-teal-bright">Average new revenue · year one</p>
       <p className="mf-display mt-3 text-[clamp(56px,9vw,108px)] leading-none text-white">
-        +${value.toLocaleString()}
+        +$47,280
       </p>
       <p className="mt-3 text-[14px] text-white/60">
         Per clinic — from packages, memberships, and recovered no-shows
@@ -76,7 +55,7 @@ export function CommerceSection() {
     <section className="relative overflow-hidden bg-[#0B1E35] py-32 md:py-40">
       {/* Atmospheric glow */}
       <div
-        className="pointer-events-none absolute -top-32 left-1/2 h-[640px] w-[640px] -translate-x-1/2 rounded-full blur-[180px]"
+        className="pointer-events-none absolute -top-32 left-1/2 h-[640px] w-[640px] -translate-x-1/2 rounded-full"
         style={{ background: 'radial-gradient(circle, rgba(13,148,136,0.4), transparent 70%)' }}
         aria-hidden
       />
@@ -104,20 +83,16 @@ export function CommerceSection() {
           {products.map((p, i) => {
             const Icon = p.icon
             return (
-              <motion.div
+              <div
                 key={p.title}
-                initial={{ opacity: 0, y: 28 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: '-10% 0px' }}
-                transition={{ duration: 0.7, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm transition-colors hover:bg-white/[0.05]"
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 transition-colors hover:bg-white/[0.05]"
               >
                 <div className="flex items-center justify-between">
                   <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-bright/15 text-teal-bright">
                     <Icon className="h-4 w-4" strokeWidth={2} />
                   </span>
                   <ArrowRight
-                    className="h-4 w-4 text-white/30 transition-transform group-hover:translate-x-1 group-hover:text-teal-bright"
+                    className="h-4 w-4 text-white/30 transition-transform group-hover:text-teal-bright"
                     strokeWidth={2}
                   />
                 </div>
@@ -132,19 +107,13 @@ export function CommerceSection() {
                   <p className="mt-1 text-[12px] text-white/80">{p.example}</p>
                   <p className="mt-1 text-[12px] font-semibold text-teal-bright">{p.accent}</p>
                 </div>
-              </motion.div>
+              </div>
             )
           })}
         </div>
 
         {/* Customer anchor */}
-        <motion.figure
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-          className="mx-auto mt-24 max-w-3xl text-center"
-        >
+        <figure className="mx-auto mt-24 max-w-3xl text-center">
           <Sparkles className="mx-auto h-5 w-5 text-teal-bright" strokeWidth={1.5} />
           <blockquote className="mf-display mt-5 text-[clamp(20px,2.6vw,28px)] leading-[1.4] text-white">
             "We launched a $99/mo membership in 20 minutes.
@@ -156,7 +125,7 @@ export function CommerceSection() {
             <span className="font-medium text-white/80">Marcus Yeung</span> · Owner, Pine Wellness ·
             Seattle
           </figcaption>
-        </motion.figure>
+        </figure>
       </div>
     </section>
   )

@@ -67,7 +67,7 @@ export default function ProductsPage() {
           {products.map((product: Product) => (
             <AppCard
               key={product.id}
-              className="border-none shadow-sm hover:shadow-md transition-all overflow-hidden"
+              className="border-none shadow-sm hover:shadow-md transition-colors overflow-hidden"
             >
               <AppCardHeader className="bg-slate-50/50 border-b-0 py-6 px-6">
                 <div className="flex items-start justify-between gap-4">

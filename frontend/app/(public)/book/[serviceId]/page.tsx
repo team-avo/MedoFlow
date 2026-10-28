@@ -30,6 +30,7 @@ import {
   AppCalendar,
 } from '@/components/ui-system'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAppToast } from '@/hooks/useAppToast'
 import {
@@ -121,7 +122,7 @@ function BookingPageContent() {
 
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd')
 
-  const { data: clinic } = useQuery({
+  const { data: clinic, isLoading: clinicLoading } = useQuery({
     queryKey: ['clinic', clinicId],
     queryFn: () => getClinic(clinicId),
     enabled: !!clinicId,
@@ -139,7 +140,7 @@ function BookingPageContent() {
     [themeColor]
   )
 
-  const { data: services } = useQuery({
+  const { data: services, isLoading: servicesLoading } = useQuery({
     queryKey: ['clinic-services', clinicId],
     queryFn: () => getClinicServices(clinicId),
     enabled: !!clinicId,
@@ -324,6 +325,20 @@ function BookingPageContent() {
     )
   }
 
+  // Until the clinic and its services arrive the title, price and steps
+  // would render with fallbacks ("Book Consultation", no price).
+  if (clinicLoading || servicesLoading) {
+    return (
+      <div
+        className="container mx-auto px-4 py-12 lg:px-8"
+        role="status"
+        aria-label="Loading booking"
+      >
+        <LoadingSkeleton variant="page" />
+      </div>
+    )
+  }
+
   // Build a "Back to clinic" target that lands on /clinic/[slug or id]
   // rather than the Medoflow root.
   const backHref = clinic?.slug ? `/clinic/${clinic.slug}` : clinicId ? `/clinic/${clinicId}` : '/'
@@ -388,7 +403,7 @@ function BookingPageContent() {
             <AppCard className="border-none shadow-xl rounded-3xl overflow-hidden bg-white min-h-[500px]">
               <AppCardContent className="p-8 lg:p-12">
                 {step === 0 && (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="space-y-8 animate-in fade-in">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <h2 className="text-xl font-bold text-slate-900">Select a Provider</h2>
                       <div className="relative">
@@ -410,7 +425,7 @@ function BookingPageContent() {
                             nextStep()
                           }}
                           className={cn(
-                            'flex items-center justify-between p-6 rounded-2xl border-2 transition-all text-left',
+                            'flex items-center justify-between p-6 rounded-2xl border-2 transition-colors text-left',
                             !providerId ? '' : 'border-slate-100 hover:border-slate-200'
                           )}
                           style={
@@ -448,7 +463,7 @@ function BookingPageContent() {
                               nextStep()
                             }}
                             className={cn(
-                              'flex items-center justify-between p-6 rounded-2xl border-2 transition-all text-left',
+                              'flex items-center justify-between p-6 rounded-2xl border-2 transition-colors text-left',
                               providerId === p.id ? '' : 'border-slate-100 hover:border-slate-200'
                             )}
                             style={
@@ -481,7 +496,7 @@ function BookingPageContent() {
                 )}
 
                 {step === 1 && (
-                  <div className="animate-in fade-in slide-in-from-bottom-4">
+                  <div className="animate-in fade-in">
                     <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 min-h-[450px]">
                       {/* Calendar Column */}
                       <div className="flex-1 space-y-4">
@@ -536,7 +551,7 @@ function BookingPageContent() {
                                       <button
                                         onClick={() => handleSlotSelect(slot)}
                                         className={cn(
-                                          'flex-1 h-14 rounded-2xl border-2 font-bold transition-all duration-200',
+                                          'flex-1 h-14 rounded-2xl border-2 font-bold transition-colors duration-200',
                                           isPending &&
                                             'border-slate-400 bg-slate-600 text-white w-1/2'
                                         )}
@@ -564,7 +579,7 @@ function BookingPageContent() {
                                       {isPending && (
                                         <button
                                           onClick={() => handleSlotSelect(slot)}
-                                          className="h-14 px-6 text-white rounded-2xl font-bold animate-in slide-in-from-left-2 fade-in duration-200"
+                                          className="h-14 px-6 text-white rounded-2xl font-bold animate-in fade-in duration-200"
                                           style={{ backgroundColor: themeColor }}
                                         >
                                           Confirm
@@ -615,7 +630,7 @@ function BookingPageContent() {
                 )}
 
                 {step === 2 && (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="space-y-8 animate-in fade-in">
                     <h2 className="text-xl font-bold text-slate-900">Patient Information</h2>
                     <form
                       onSubmit={handleSubmit(handlePatientFormSubmit)}
@@ -708,7 +723,7 @@ function BookingPageContent() {
                 )}
 
                 {step === 3 && (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 text-center">
+                  <div className="space-y-8 animate-in fade-in text-center">
                     <div
                       className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
                       style={{
@@ -743,7 +758,7 @@ function BookingPageContent() {
                           <PackageIcon className="h-5 w-5" /> Use Wellness Package?
                         </h3>
                         <div className="space-y-3">
-                          <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:border-primary-300 border-2 border-transparent transition-all">
+                          <label className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:border-primary-300 border-2 border-transparent transition-colors">
                             <input
                               type="radio"
                               name="pkg"
@@ -758,7 +773,7 @@ function BookingPageContent() {
                           {patientPackages.map((pkg) => (
                             <label
                               key={pkg.id}
-                              className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:border-primary-300 border-2 border-transparent transition-all"
+                              className="flex items-center gap-3 p-3 bg-white rounded-xl cursor-pointer hover:border-primary-300 border-2 border-transparent transition-colors"
                             >
                               <input
                                 type="radio"
@@ -817,7 +832,7 @@ function BookingPageContent() {
                         Back
                       </AppButton>
                       <AppButton
-                        className="w-full sm:w-auto px-12 rounded-full h-14 text-lg font-bold shadow-2xl text-white border-0"
+                        className="w-full sm:w-auto px-12 rounded-full h-14 text-lg font-bold shadow-lg text-white border-0"
                         style={{ backgroundColor: themeColor }}
                         onClick={handleBooking}
                       >
@@ -977,7 +992,7 @@ function BookingConfirmation({
   const startLabel = startTime ? formatLongDateTime(startTime) : null
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 text-center">
+    <div className="space-y-8 animate-in fade-in text-center">
       <div
         className="mx-auto flex h-20 w-20 items-center justify-center rounded-full"
         style={{ backgroundColor: `${themeColor}15`, color: themeColor }}

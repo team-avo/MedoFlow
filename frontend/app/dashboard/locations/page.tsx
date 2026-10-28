@@ -1,14 +1,14 @@
-'use client';
+'use client'
 
-import React from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/contexts/AuthContext';
-import { useAppToast } from '@/hooks/useAppToast';
-import { 
-  AppPageHeader, 
+import React from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAppToast } from '@/hooks/useAppToast'
+import {
+  AppPageHeader,
   AppEmptyState,
   AppCard,
   AppCardHeader,
@@ -16,29 +16,29 @@ import {
   AppCardContent,
   AppButton,
   AppInput,
-  KPIStatCard
-} from '@/components/ui-system';
-import { PageContainer } from '@/components/layout';
-import { getCurrentClinic, upsertLaunchLocation } from '@/lib/clinicAdminApi';
-import { US_TIMEZONES, US_TIMEZONE_VALUES, DEFAULT_US_TIMEZONE } from '@/lib/constants/timezones';
-import { MapPin, Globe, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
+  KPIStatCard,
+} from '@/components/ui-system'
+import { PageContainer } from '@/components/layout'
+import { getCurrentClinic, upsertLaunchLocation } from '@/lib/clinicAdminApi'
+import { US_TIMEZONES, US_TIMEZONE_VALUES, DEFAULT_US_TIMEZONE } from '@/lib/constants/timezones'
+import { MapPin, Globe, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react'
 
 const launchLocationSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   address: z.string().optional(),
   timezone: z.string().min(1, 'Timezone is required'),
-});
+})
 
-type LaunchLocationFormData = z.infer<typeof launchLocationSchema>;
+type LaunchLocationFormData = z.infer<typeof launchLocationSchema>
 
 function LaunchLocationForm({
   defaultValues,
   onSubmit,
   isSubmitting,
 }: {
-  defaultValues?: LaunchLocationFormData;
-  onSubmit: (data: LaunchLocationFormData) => void;
-  isSubmitting: boolean;
+  defaultValues?: LaunchLocationFormData
+  onSubmit: (data: LaunchLocationFormData) => void
+  isSubmitting: boolean
 }) {
   const {
     register,
@@ -46,14 +46,12 @@ function LaunchLocationForm({
     formState: { errors },
   } = useForm<LaunchLocationFormData>({
     resolver: zodResolver(launchLocationSchema),
-    defaultValues:
-      defaultValues || {
-        name: '',
-        address: '',
-        timezone:
-          Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_US_TIMEZONE,
-      },
-  });
+    defaultValues: defaultValues || {
+      name: '',
+      address: '',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_US_TIMEZONE,
+    },
+  })
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -70,8 +68,12 @@ function LaunchLocationForm({
               className="rounded-xl"
               {...register('name')}
             />
-            <p className="mt-2 text-xs text-slate-400 font-medium">This name will be displayed to patients during the booking flow.</p>
-            {errors.name && <p className="mt-1 text-xs text-rose-600 font-bold">{errors.name.message}</p>}
+            <p className="mt-2 text-xs text-slate-400 font-medium">
+              This name will be displayed to patients during the booking flow.
+            </p>
+            {errors.name && (
+              <p className="mt-1 text-xs text-rose-600 font-bold">{errors.name.message}</p>
+            )}
           </div>
 
           <div>
@@ -85,7 +87,9 @@ function LaunchLocationForm({
               className="rounded-xl"
               {...register('address')}
             />
-            <p className="mt-2 text-xs text-slate-400 font-medium">Leave blank if this is an online-only/virtual location.</p>
+            <p className="mt-2 text-xs text-slate-400 font-medium">
+              Leave blank if this is an online-only/virtual location.
+            </p>
           </div>
         </div>
 
@@ -96,7 +100,7 @@ function LaunchLocationForm({
             </label>
             <select
               id="timezone"
-              className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+              className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium outline-none focus:ring-2 focus:ring-primary-500 transition-colors"
               {...register('timezone')}
             >
               {US_TIMEZONES.map((tz) => (
@@ -105,18 +109,25 @@ function LaunchLocationForm({
                 </option>
               ))}
             </select>
-            <p className="mt-2 text-xs text-slate-400 font-medium">Ensures appointment reminders and schedules are accurately synchronized.</p>
-            {errors.timezone && <p className="mt-1 text-xs text-rose-600 font-bold">{errors.timezone.message}</p>}
+            <p className="mt-2 text-xs text-slate-400 font-medium">
+              Ensures appointment reminders and schedules are accurately synchronized.
+            </p>
+            {errors.timezone && (
+              <p className="mt-1 text-xs text-rose-600 font-bold">{errors.timezone.message}</p>
+            )}
           </div>
 
           <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
-            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Location Features</h4>
+            <h4 className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">
+              Location Features
+            </h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-3 text-xs font-bold text-slate-600">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Multi-location backend support
               </li>
               <li className="flex items-center gap-3 text-xs font-bold text-slate-600">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Integrated Virtual Meeting URLs
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Integrated Virtual Meeting
+                URLs
               </li>
             </ul>
           </div>
@@ -124,24 +135,28 @@ function LaunchLocationForm({
       </div>
 
       <div className="flex justify-end pt-8 border-t border-slate-100">
-        <AppButton type="submit" disabled={isSubmitting} className="rounded-full px-10 h-12 font-bold shadow-lg">
+        <AppButton
+          type="submit"
+          disabled={isSubmitting}
+          className="rounded-full px-10 h-12 font-bold shadow-lg"
+        >
           {isSubmitting ? 'Updating...' : 'Save Facility Settings'}
         </AppButton>
       </div>
     </form>
-  );
+  )
 }
 
 export default function LocationsPage() {
-  const queryClient = useQueryClient();
-  const { user } = useAuth();
-  const toast = useAppToast();
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const toast = useAppToast()
 
   const { data: clinic, isLoading } = useQuery({
     queryKey: ['admin-clinic', 'current'],
     queryFn: () => getCurrentClinic(),
     enabled: user?.role === 'SUPER_ADMIN' && !!user?.clinicId,
-  });
+  })
 
   const saveMutation = useMutation({
     mutationFn: (data: LaunchLocationFormData) =>
@@ -152,15 +167,15 @@ export default function LocationsPage() {
         timezone: data.timezone,
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-clinic', 'current'] });
-      toast.success('Facility settings updated');
+      queryClient.invalidateQueries({ queryKey: ['admin-clinic', 'current'] })
+      toast.success('Facility settings updated')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Unable to save location');
+      toast.error(error.response?.data?.message || 'Unable to save location')
     },
-  });
+  })
 
-  const clinicId = user?.clinicId ?? undefined;
+  const clinicId = user?.clinicId ?? undefined
 
   if (user?.role !== 'SUPER_ADMIN') {
     return (
@@ -170,7 +185,7 @@ export default function LocationsPage() {
           description="Facility management is limited to Super Administrators."
         />
       </div>
-    );
+    )
   }
 
   if (!clinicId) {
@@ -181,7 +196,7 @@ export default function LocationsPage() {
           description="Create your clinic first to configure its primary facility."
         />
       </div>
-    );
+    )
   }
 
   return (
@@ -192,19 +207,19 @@ export default function LocationsPage() {
       />
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <KPIStatCard 
+        <KPIStatCard
           label="Active Facilities"
           value={clinic?.launchLocation ? 1 : 0}
           icon={MapPin}
           iconClassName="text-blue-600 bg-blue-50"
         />
-        <KPIStatCard 
+        <KPIStatCard
           label="Primary Timezone"
           value={clinic?.launchLocation?.timezone.split('/').pop()?.replace('_', ' ') || 'Not Set'}
           icon={Clock}
           iconClassName="text-purple-600 bg-purple-50"
         />
-        <KPIStatCard 
+        <KPIStatCard
           label="Backend Status"
           value="Online"
           icon={Globe}
@@ -227,8 +242,10 @@ export default function LocationsPage() {
                 name: clinic?.launchLocation?.name ?? '',
                 address: clinic?.launchLocation?.address ?? '',
                 timezone: (() => {
-                  const tz = clinic?.launchLocation?.timezone ?? '';
-                  return (US_TIMEZONE_VALUES as readonly string[]).includes(tz) ? tz : DEFAULT_US_TIMEZONE;
+                  const tz = clinic?.launchLocation?.timezone ?? ''
+                  return (US_TIMEZONE_VALUES as readonly string[]).includes(tz)
+                    ? tz
+                    : DEFAULT_US_TIMEZONE
                 })(),
               }}
               onSubmit={(values) => saveMutation.mutate(values)}
@@ -238,5 +255,5 @@ export default function LocationsPage() {
         </AppCardContent>
       </AppCard>
     </PageContainer>
-  );
+  )
 }

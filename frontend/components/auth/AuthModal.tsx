@@ -156,7 +156,7 @@ function AuthModal() {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-[60] bg-navy/60 backdrop-blur-sm',
+            'fixed inset-0 z-[60] bg-navy/60',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0'
           )}
@@ -169,7 +169,9 @@ function AuthModal() {
             'bg-white md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
-            'data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95'
+            // Fade only; the slide pair re-applies the -50% centring that the
+            // enter/exit keyframes would otherwise reset (no visible movement).
+            'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-1/2'
           )}
           style={{ boxShadow: '0 40px 80px -20px rgba(15, 23, 42, 0.35)' }}
         >
@@ -305,11 +307,6 @@ function BrandPanel({ mode, clinicCtx }: { mode: AuthMode; clinicCtx: ClinicCtx 
     <aside className="relative hidden overflow-hidden bg-navy p-10 text-white md:flex md:flex-col md:justify-between">
       {/* atmospheric bg */}
       <div className="absolute inset-0 mf-grid-pattern opacity-40" aria-hidden />
-      <div
-        className="pointer-events-none absolute -top-24 -left-16 h-72 w-72 rounded-full blur-[120px]"
-        style={{ backgroundColor: 'rgba(13, 148, 136, 0.35)' }}
-        aria-hidden
-      />
 
       <div className="relative">
         <BrandLogo size="lg" tone="light" />

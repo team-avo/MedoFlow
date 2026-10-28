@@ -51,7 +51,7 @@ export function LoadingSkeleton({ variant = 'card', count = 1, className }: Load
             ? 'grid-cols-1'
             : count === 2
               ? 'grid-cols-1 sm:grid-cols-2'
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4',
+              : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4',
           className
         )}
       >
@@ -131,8 +131,8 @@ export function LoadingSkeleton({ variant = 'card', count = 1, className }: Load
     return (
       <div className={cn('space-y-6', className)}>
         <div className="space-y-2">
-          <div className="h-7 w-64 rounded bg-slate-200/80 animate-pulse" />
-          <div className="h-4 w-96 rounded bg-slate-200/60 animate-pulse" />
+          <div className="h-7 w-2/3 max-w-64 rounded bg-slate-200/80 animate-pulse" />
+          <div className="h-4 w-full max-w-96 rounded bg-slate-200/60 animate-pulse" />
         </div>
         <LoadingSkeleton variant="stat" count={4} />
         <LoadingSkeleton variant="table" />

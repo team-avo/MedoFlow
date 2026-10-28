@@ -61,7 +61,7 @@ export default function VoiceAgentPage() {
               key={id}
               type="button"
               onClick={() => setTab(id)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-all ${
+              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-medium transition-colors ${
                 active
                   ? 'bg-navy text-white shadow-sm'
                   : 'text-ink-muted hover:bg-canvas hover:text-ink'

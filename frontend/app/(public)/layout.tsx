@@ -21,6 +21,7 @@ import { CartProvider } from '@/hooks/useCart'
 import { ProductDetailProvider } from '@/components/store/ProductDetailModal'
 import { BookingModalProvider } from '@/components/booking/BookingModal'
 import { MedoflowFullScreen } from '@/components/common/MedoflowLoader'
+import { cn } from '@/lib/utils'
 
 // Routes within (public) that require authentication.
 // `/book` is intentionally NOT here — the clinic page handles its own
@@ -85,7 +86,11 @@ function PublicLayoutInner({ children }: { children: React.ReactNode }) {
                   sees the marketing brand. The clinic page renders its
                   own themed header + footer. */}
                 {!onClinicSite && <PublicNav />}
-                <main className={isLanding || onClinicSite ? '' : 'pt-16 md:pt-18'}>
+                {/* min-h-screen keeps the footer below the fold while a page's data
+                    loads, so it doesn't jump down the screen as content arrives. */}
+                <main
+                  className={cn('min-h-screen', !(isLanding || onClinicSite) && 'pt-16 md:pt-18')}
+                >
                   {needsAuthRedirect ? (
                     <div className="mx-auto max-w-md px-4 py-20">
                       <LoadingSkeleton variant="card" />

@@ -9,24 +9,6 @@
  */
 
 import React from 'react'
-import { motion, type MotionProps } from 'framer-motion'
-
-// ─────────────────────────── Motion presets ───────────────────────────
-
-/** Fade + small rise. Use directly on `motion.*` elements via spread. */
-export const fadeUp = (delay = 0): MotionProps => ({
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.5, ease: 'easeOut', delay },
-})
-
-/** Same as fadeUp but triggered when it scrolls into view. */
-export const fadeUpInView = (delay = 0): MotionProps => ({
-  initial: { opacity: 0, y: 16 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true, amount: 0.15 },
-  transition: { duration: 0.5, ease: 'easeOut', delay },
-})
 
 // ─────────────────────────── Typography ───────────────────────────────
 
@@ -71,25 +53,21 @@ export function SectionHeader({
   return (
     <div className={`max-w-3xl ${alignCls} ${className}`.trim()}>
       {eyebrow && (
-        <motion.div {...fadeUpInView(0)}>
+        <div>
           <Eyebrow>{eyebrow}</Eyebrow>
-        </motion.div>
+        </div>
       )}
-      <motion.h2
-        {...fadeUpInView(0.05)}
-        className={`mf-display mt-4 text-[32px] sm:text-[38px] md:text-[48px] ${titleColor}`}
-      >
+      <h2 className={`mf-display mt-4 text-[32px] sm:text-[38px] md:text-[48px] ${titleColor}`}>
         {title}
-      </motion.h2>
+      </h2>
       {description && (
-        <motion.p
-          {...fadeUpInView(0.1)}
+        <p
           className={`mt-5 text-[16px] leading-relaxed md:text-[17px] ${descColor} ${
             align === 'center' ? 'mx-auto max-w-2xl' : 'max-w-xl'
           }`}
         >
           {description}
-        </motion.p>
+        </p>
       )}
     </div>
   )

@@ -51,7 +51,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">My Account</p>
-        <h1 className="mt-1 text-3xl font-bold text-slate-900">
+        <h1 className="mt-1 break-words text-3xl font-bold text-slate-900">
           Welcome back, {user.name.split(' ')[0]}
         </h1>
       </div>
@@ -84,7 +84,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
           </nav>
         </aside>
 
-        <main>{children}</main>
+        <main className="min-w-0">{children}</main>
       </div>
     </div>
   )

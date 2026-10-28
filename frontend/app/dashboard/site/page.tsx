@@ -21,6 +21,7 @@ import { newSection } from '@/lib/site/sections'
 import { AppBadge, AppButton, AppModal } from '@/components/ui-system'
 import { useInvalidateSite, useSiteOverview } from '@/components/site/builder/BuilderData'
 import { inputCls, Label } from '@/components/site/builder/fields'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 const slugify = (s: string) =>
   s
@@ -69,7 +70,7 @@ export default function SiteOverviewPage() {
     }
   }
 
-  if (isLoading) return <p className="text-sm text-slate-500">Loading your website…</p>
+  if (isLoading) return <LoadingSkeleton variant="page" />
   if (error || !site)
     return (
       <p className="text-sm text-red-600">

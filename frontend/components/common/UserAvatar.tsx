@@ -32,7 +32,7 @@ interface UserAvatarProps {
 
 export function UserAvatar({ seed, alt, className, sizes = '48px' }: UserAvatarProps) {
   return (
-    <div className={cn('relative overflow-hidden rounded-full bg-white', className)}>
+    <div className={cn('relative shrink-0 overflow-hidden rounded-full bg-white', className)}>
       <Image src={getAvatar(seed)} alt={alt} fill sizes={sizes} className="object-cover" />
     </div>
   )

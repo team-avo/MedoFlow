@@ -8,8 +8,7 @@
  * has its own micro-animation showing the feature working.
  */
 
-import React, { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import React from 'react'
 import {
   Mic,
   Calendar as CalendarIcon,
@@ -49,36 +48,15 @@ export function BentoGridSection() {
 // ─────────────────────────── 1 · AI Scribe (large) ──────────────────────
 
 function AIScribeCard() {
-  const [typed, setTyped] = useState('')
-  const fullText =
+  // The finished note, shown whole — no typing loop re-rendering every 26ms.
+  const typed =
     'Patient reports 30% reduction in lower-back pain since last visit. Mobility improved, sleeping through the night. Continue current PT protocol; add foam-roll routine. Re-eval in 2 weeks.'
 
-  useEffect(() => {
-    let i = 0
-    const interval = setInterval(() => {
-      setTyped(fullText.slice(0, i))
-      i++
-      if (i > fullText.length) {
-        setTimeout(() => {
-          i = 0
-          setTyped('')
-        }, 4000)
-      }
-    }, 26)
-    return () => clearInterval(interval)
-  }, [])
-
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10% 0px' }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative overflow-hidden rounded-2xl border border-hairline bg-white p-7 shadow-card transition-shadow hover:shadow-card-hover md:col-span-2"
-    >
+    <article className="group relative overflow-hidden rounded-2xl border border-hairline bg-white p-7 shadow-card transition-shadow hover:shadow-card-hover md:col-span-2">
       {/* Soft teal aura on hover */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-700 group-hover:opacity-100"
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
         style={{
           background:
             'radial-gradient(ellipse 80% 60% at top right, rgba(13, 148, 136, 0.08), transparent 70%)',
@@ -107,7 +85,7 @@ function AIScribeCard() {
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                <span className="absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
               </span>
               <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
@@ -118,13 +96,10 @@ function AIScribeCard() {
               SOAP · Assessment
             </span>
           </div>
-          <p className="font-mono text-[13px] leading-relaxed text-ink">
-            {typed}
-            <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-teal" />
-          </p>
+          <p className="font-mono text-[13px] leading-relaxed text-ink">{typed}</p>
         </div>
       </div>
-    </motion.article>
+    </article>
   )
 }
 
@@ -139,13 +114,7 @@ function SchedulingCard() {
   ] as const
 
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10% 0px' }}
-      transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative overflow-hidden rounded-2xl border border-hairline bg-navy p-7 text-white shadow-card transition-shadow hover:shadow-card-hover"
-    >
+    <article className="group relative overflow-hidden rounded-2xl border border-hairline bg-navy p-7 text-white shadow-card transition-shadow hover:shadow-card-hover">
       <div
         className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full opacity-40"
         style={{ background: 'radial-gradient(circle, rgba(94,234,212,0.4), transparent 70%)' }}
@@ -165,12 +134,8 @@ function SchedulingCard() {
 
         <div className="mt-5 flex-1 space-y-1.5">
           {slots.map((slot, i) => (
-            <motion.div
+            <div
               key={slot.time}
-              initial={{ opacity: 0, x: -6 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.3 + i * 0.08 }}
               className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-[12px] ${
                 slot.tone === 'auto'
                   ? 'border border-dashed border-teal-bright/40 bg-teal-bright/[0.06]'
@@ -191,7 +156,7 @@ function SchedulingCard() {
               ) : (
                 <Check className="h-3 w-3 text-teal-bright" strokeWidth={2.5} />
               )}
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -199,7 +164,7 @@ function SchedulingCard() {
           ML predicts no-shows, waitlist auto-fills the slot.
         </p>
       </div>
-    </motion.article>
+    </article>
   )
 }
 
@@ -207,13 +172,7 @@ function SchedulingCard() {
 
 function PaymentsCard() {
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10% 0px' }}
-      transition={{ duration: 0.7, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative overflow-hidden rounded-2xl border border-hairline bg-white p-7 shadow-card transition-shadow hover:shadow-card-hover"
-    >
+    <article className="group relative overflow-hidden rounded-2xl border border-hairline bg-white p-7 shadow-card transition-shadow hover:shadow-card-hover">
       <div className="relative flex h-full flex-col">
         <div className="flex items-start justify-between">
           <div>
@@ -253,20 +212,14 @@ function PaymentsCard() {
               <span>Total</span>
               <span>$705.00</span>
             </div>
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: 0.6 }}
-              className="mt-2 flex items-center gap-1.5 rounded-md bg-teal-wash px-2 py-1.5 text-[10px] font-medium text-teal"
-            >
+            <div className="mt-2 flex items-center gap-1.5 rounded-md bg-teal-wash px-2 py-1.5 text-[10px] font-medium text-teal">
               <Sparkles className="h-3 w-3" strokeWidth={2} />
               Commission auto-posted to Dr. Chen
-            </motion.div>
+            </div>
           </div>
         </div>
       </div>
-    </motion.article>
+    </article>
   )
 }
 
@@ -274,13 +227,7 @@ function PaymentsCard() {
 
 function PatientAppCard() {
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 24 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-10% 0px' }}
-      transition={{ duration: 0.7, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="group relative overflow-hidden rounded-2xl border border-hairline bg-gradient-to-br from-teal-wash to-white p-7 shadow-card transition-shadow hover:shadow-card-hover md:col-span-2"
-    >
+    <article className="group relative overflow-hidden rounded-2xl border border-hairline bg-gradient-to-br from-teal-wash to-white p-7 shadow-card transition-shadow hover:shadow-card-hover md:col-span-2">
       <div className="relative flex h-full items-center justify-between gap-6">
         <div className="flex-1">
           <p className="mf-eyebrow text-teal">Pillar 04 · Patient Experience</p>
@@ -297,29 +244,19 @@ function PatientAppCard() {
           <div className="mt-5 flex flex-wrap gap-2">
             {['atlasphysio.com', 'Online booking', 'Telehealth', 'Patient portal'].map(
               (chip, i) => (
-                <motion.span
+                <span
                   key={chip}
-                  initial={{ opacity: 0, y: 4 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: 0.4 + i * 0.06 }}
                   className="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-ink ring-1 ring-hairline"
                 >
                   {chip}
-                </motion.span>
+                </span>
               )
             )}
           </div>
         </div>
 
         {/* Phone mockup — booking flow */}
-        <motion.div
-          initial={{ opacity: 0, x: 20, rotate: 3 }}
-          whileInView={{ opacity: 1, x: 0, rotate: -2 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="hidden md:block"
-        >
+        <div className="hidden md:block">
           <div
             className="relative h-[240px] w-[140px] rounded-[28px] bg-navy p-2 shadow-card-hover"
             style={{ boxShadow: '0 20px 50px -15px rgba(30, 58, 95, 0.4)' }}
@@ -356,8 +293,8 @@ function PatientAppCard() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
-    </motion.article>
+    </article>
   )
 }

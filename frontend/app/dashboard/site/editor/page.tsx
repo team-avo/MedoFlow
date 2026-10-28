@@ -52,6 +52,7 @@ import {
   ThemeEditor,
 } from '@/components/site/builder/SettingsEditors'
 import { DeviceFrame, DeviceToggle, type Device } from '@/components/site/builder/DeviceFrame'
+import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 type Panel = 'sections' | 'theme' | 'brand' | 'header'
 type SaveState = 'saved' | 'saving' | 'unsaved' | 'invalid' | 'error'
@@ -114,7 +115,7 @@ function RevisionsDialog({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-slate-900/30" />
-        <Dialog.Content className="fixed right-0 top-0 z-50 h-full w-[min(26rem,100vw)] overflow-y-auto bg-white p-6 shadow-2xl">
+        <Dialog.Content className="fixed right-0 top-0 z-50 h-full w-[min(26rem,100vw)] overflow-y-auto bg-white p-6 shadow-lg">
           <div className="mb-4 flex items-center justify-between">
             <Dialog.Title className="text-lg font-semibold text-slate-900">
               Published versions
@@ -130,7 +131,7 @@ function RevisionsDialog({
             Restoring copies a version into your draft. Publish to make it live again.
           </Dialog.Description>
           {isLoading ? (
-            <p className="text-sm text-slate-500">Loading…</p>
+            <LoadingSkeleton variant="row" count={3} />
           ) : revs.length === 0 ? (
             <p className="text-sm text-slate-500">Nothing published yet.</p>
           ) : (

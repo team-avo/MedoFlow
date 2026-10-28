@@ -148,21 +148,13 @@ export function ManualNoteModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-3xl overflow-hidden rounded-3xl border border-slate-100 p-0 shadow-2xl"
+        className="max-w-3xl overflow-hidden rounded-3xl border border-slate-100 p-0 shadow-lg"
         aria-describedby="manual-note-description"
       >
         {/* Header — brand gradient so the modal feels part of the product */}
         <div className="relative overflow-hidden bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] px-6 py-5 text-white">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-8 -bottom-6 h-28 w-28 rounded-full bg-[#14B8A6]/25 blur-2xl"
-          />
           <DialogHeader className="relative space-y-2 text-left">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80">
               <Sparkles className="h-3 w-3" />
               Manual SOAP note
             </div>

@@ -1,79 +1,83 @@
-'use client';
+'use client'
 
-import React from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  ArrowLeft, 
-  Download, 
-  CreditCard, 
-  Calendar, 
-  User, 
+import React from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowLeft,
+  Download,
+  CreditCard,
+  Calendar,
+  User,
   Receipt,
   Plus,
   Trash2,
-  FileText
-} from 'lucide-react';
-import { 
-  getInvoiceById, 
-  finalizeInvoice, 
+  FileText,
+} from 'lucide-react'
+import {
+  getInvoiceById,
+  finalizeInvoice,
   recordManualInvoicePayment,
   type Invoice,
-  type InvoiceItem
-} from '@/lib/invoiceApi';
-import { 
-  AppCard, 
-  AppCardContent, 
-  AppCardHeader, 
-  AppCardTitle, 
-  AppButton, 
+  type InvoiceItem,
+} from '@/lib/invoiceApi'
+import {
+  AppCard,
+  AppCardContent,
+  AppCardHeader,
+  AppCardTitle,
+  AppButton,
   AppPageHeader,
   AppBadge,
   AppTable,
   AppEmptyState,
-  StickySummaryPanel
-} from '@/components/ui-system';
-import { PageContainer } from '@/components/layout';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAppToast } from '@/hooks/useAppToast';
+  StickySummaryPanel,
+} from '@/components/ui-system'
+import { PageContainer } from '@/components/layout'
+import { StatusBadge } from '@/components/common/StatusBadge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAppToast } from '@/hooks/useAppToast'
 
 function formatCurrency(amount?: string | number | null) {
-  return `$${Number(amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${Number(amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 function formatDate(iso?: string | null) {
-  if (!iso) return '—';
+  if (!iso) return '—'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
-  });
+    minute: '2-digit',
+  })
 }
 
 export default function InvoiceDetailPage() {
-  const params = useParams();
-  const id = params.id as string;
-  const router = useRouter();
-  const toast = useAppToast();
-  const queryClient = useQueryClient();
+  const params = useParams()
+  const id = params.id as string
+  const router = useRouter()
+  const toast = useAppToast()
+  const queryClient = useQueryClient()
 
-  const { data: invoice, isLoading, error } = useQuery({
+  const {
+    data: invoice,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['invoice', id],
     queryFn: () => getInvoiceById(id),
     enabled: !!id,
-  });
+  })
 
   const finalizeMutation = useMutation({
     mutationFn: () => finalizeInvoice(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invoice', id] });
-      toast.success('Invoice finalized');
+      queryClient.invalidateQueries({ queryKey: ['invoice', id] })
+      toast.success('Invoice finalized')
     },
     onError: (error: any) => toast.error(error?.response?.data?.message || 'Failed to finalize'),
-  });
+  })
 
   if (isLoading) {
     return (
@@ -87,7 +91,7 @@ export default function InvoiceDetailPage() {
           <Skeleton className="h-96 w-full rounded-2xl" />
         </div>
       </PageContainer>
-    );
+    )
   }
 
   if (error || !invoice) {
@@ -100,16 +104,21 @@ export default function InvoiceDetailPage() {
           onAction={() => router.back()}
         />
       </PageContainer>
-    );
+    )
   }
 
   return (
     <PageContainer className="space-y-8">
       <div className="flex items-center gap-4">
-        <AppButton variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
+        <AppButton
+          variant="ghost"
+          size="icon"
+          onClick={() => router.back()}
+          className="rounded-full"
+        >
           <ArrowLeft className="h-5 w-5" />
         </AppButton>
-        <AppPageHeader 
+        <AppPageHeader
           title={`Invoice ${invoice.id.slice(-6).toUpperCase()}`}
           description={`Issued on ${formatDate(invoice.createdAt)}`}
         />
@@ -139,9 +148,13 @@ export default function InvoiceDetailPage() {
               </AppCardHeader>
               <AppCardContent className="p-6">
                 <p className="font-bold text-slate-900 text-lg">
-                  {invoice.provider ? `Dr. ${invoice.provider.firstName} ${invoice.provider.lastName}` : 'Clinic Direct'}
+                  {invoice.provider
+                    ? `Dr. ${invoice.provider.firstName} ${invoice.provider.lastName}`
+                    : 'Clinic Direct'}
                 </p>
-                <p className="text-sm text-slate-500 mt-1">Provider ID: {invoice.providerId?.slice(-6).toUpperCase() || 'N/A'}</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  Provider ID: {invoice.providerId?.slice(-6).toUpperCase() || 'N/A'}
+                </p>
               </AppCardContent>
             </AppCard>
           </div>
@@ -157,9 +170,10 @@ export default function InvoiceDetailPage() {
             <AppCardContent className="p-0">
               <AppTable
                 columns={[
-                  { 
-                    key: 'description', 
-                    header: 'Description', 
+                  {
+                    key: 'description',
+                    header: 'Description',
+                    wrap: true,
                     render: (item: InvoiceItem) => (
                       <div className="py-1">
                         <p className="font-bold text-slate-900">{item.description}</p>
@@ -167,26 +181,36 @@ export default function InvoiceDetailPage() {
                           {item.serviceId ? 'Service' : item.productId ? 'Product' : 'Package'}
                         </p>
                       </div>
-                    ) 
+                    ),
                   },
-                  { 
-                    key: 'quantity', 
-                    header: 'Qty', 
+                  {
+                    key: 'quantity',
+                    header: 'Qty',
                     className: 'text-center',
-                    render: (item: InvoiceItem) => <span className="font-medium text-slate-600">{item.quantity}</span> 
+                    render: (item: InvoiceItem) => (
+                      <span className="font-medium text-slate-600">{item.quantity}</span>
+                    ),
                   },
-                  { 
-                    key: 'unitPrice', 
-                    header: 'Unit Price', 
+                  {
+                    key: 'unitPrice',
+                    header: 'Unit Price',
                     className: 'text-right',
-                    render: (item: InvoiceItem) => <span className="font-medium text-slate-600">{formatCurrency(item.unitPrice)}</span> 
+                    render: (item: InvoiceItem) => (
+                      <span className="font-medium text-slate-600">
+                        {formatCurrency(item.unitPrice)}
+                      </span>
+                    ),
                   },
-                  { 
-                    key: 'total', 
-                    header: 'Amount', 
+                  {
+                    key: 'total',
+                    header: 'Amount',
                     className: 'text-right',
-                    render: (item: InvoiceItem) => <span className="font-black text-slate-900">{formatCurrency(item.totalPrice)}</span> 
-                  }
+                    render: (item: InvoiceItem) => (
+                      <span className="font-black text-slate-900">
+                        {formatCurrency(item.totalPrice)}
+                      </span>
+                    ),
+                  },
                 ]}
                 data={invoice.items}
                 keyExtractor={(item) => item.id}
@@ -203,33 +227,42 @@ export default function InvoiceDetailPage() {
               <AppCardContent className="p-0">
                 <AppTable
                   columns={[
-                    { 
-                      key: 'date', 
-                      header: 'Date', 
-                      render: (p) => <span className="text-sm font-medium text-slate-600">{formatDate(p.recordedAt)}</span> 
-                    },
-                    { 
-                      key: 'method', 
-                      header: 'Method', 
+                    {
+                      key: 'date',
+                      header: 'Date',
                       render: (p) => (
-                        <AppBadge variant="secondary" className="font-bold uppercase tracking-tighter text-[10px]">
+                        <span className="text-sm font-medium text-slate-600">
+                          {formatDate(p.recordedAt)}
+                        </span>
+                      ),
+                    },
+                    {
+                      key: 'method',
+                      header: 'Method',
+                      render: (p) => (
+                        <AppBadge
+                          variant="secondary"
+                          className="font-bold uppercase tracking-tighter text-[10px]"
+                        >
                           {p.paymentMethod?.replace('_', ' ')}
                         </AppBadge>
-                      ) 
+                      ),
                     },
-                    { 
-                      key: 'amount', 
-                      header: 'Amount', 
+                    {
+                      key: 'amount',
+                      header: 'Amount',
                       className: 'text-right',
                       render: (p) => (
-                        <span className={cn(
-                          "font-black",
-                          Number(p.amount) < 0 ? "text-rose-600" : "text-emerald-600"
-                        )}>
+                        <span
+                          className={cn(
+                            'font-black',
+                            Number(p.amount) < 0 ? 'text-rose-600' : 'text-emerald-600'
+                          )}
+                        >
                           {formatCurrency(p.amount)}
                         </span>
-                      ) 
-                    }
+                      ),
+                    },
                   ]}
                   data={invoice.payments}
                   keyExtractor={(p) => p.id}
@@ -241,29 +274,50 @@ export default function InvoiceDetailPage() {
 
         {/* Sidebar Actions */}
         <div className="lg:col-span-1 space-y-8 sticky top-8">
-          <StickySummaryPanel 
+          <StickySummaryPanel
             title="Financial Summary"
             items={[
-              { label: 'Invoice Status', value: <StatusBadge status={invoice.status} variant="invoice" /> },
-              { label: 'Payment Status', value: <StatusBadge status={invoice.financialStatus} variant="invoice" className="bg-transparent border-slate-100" /> },
+              {
+                label: 'Invoice Status',
+                value: <StatusBadge status={invoice.status} variant="invoice" />,
+              },
+              {
+                label: 'Payment Status',
+                value: (
+                  <StatusBadge
+                    status={invoice.financialStatus}
+                    variant="invoice"
+                    className="bg-transparent border-slate-100"
+                  />
+                ),
+              },
               { label: 'Subtotal', value: formatCurrency(invoice.subtotal) },
               { label: 'Tax', value: formatCurrency(invoice.taxAmount) },
               { label: 'Total Billed', value: formatCurrency(invoice.totalAmount), isTotal: true },
               { label: 'Total Paid', value: formatCurrency(invoice.totalPaid) },
-              { label: 'Outstanding', value: formatCurrency(invoice.outstandingAmount), isTotal: true, className: Number(invoice.outstandingAmount) > 0 ? 'text-amber-600' : 'text-slate-400' },
+              {
+                label: 'Outstanding',
+                value: formatCurrency(invoice.outstandingAmount),
+                isTotal: true,
+                className:
+                  Number(invoice.outstandingAmount) > 0 ? 'text-amber-600' : 'text-slate-400',
+              },
             ]}
             actions={
               <div className="space-y-3">
                 {invoice.status === 'DRAFT' && (
-                  <AppButton 
-                    className="w-full rounded-full h-12 font-bold shadow-lg" 
+                  <AppButton
+                    className="w-full rounded-full h-12 font-bold shadow-lg"
                     onClick={() => finalizeMutation.mutate()}
                     disabled={finalizeMutation.isPending}
                   >
                     Finalize Invoice
                   </AppButton>
                 )}
-                <AppButton variant="outline" className="w-full rounded-full h-12 bg-white font-bold">
+                <AppButton
+                  variant="outline"
+                  className="w-full rounded-full h-12 bg-white font-bold"
+                >
                   <Download className="mr-2 h-4 w-4" /> Download PDF
                 </AppButton>
               </div>
@@ -279,16 +333,17 @@ export default function InvoiceDetailPage() {
                 <h4 className="font-bold text-lg">Secure Billing</h4>
               </div>
               <p className="text-xs text-slate-400 leading-relaxed">
-                This invoice is legally binding. All clinical services and products listed are subject to the clinic's refund and cancellation policy.
+                This invoice is legally binding. All clinical services and products listed are
+                subject to the clinic's refund and cancellation policy.
               </p>
             </AppCardContent>
           </AppCard>
         </div>
       </div>
     </PageContainer>
-  );
+  )
 }
 
 function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
+  return classes.filter(Boolean).join(' ')
 }

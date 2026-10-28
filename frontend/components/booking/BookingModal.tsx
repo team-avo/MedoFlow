@@ -246,7 +246,7 @@ function BookingModal({
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           className={cn(
-            'fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-sm',
+            'fixed inset-0 z-[60] bg-slate-900/60',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0'
           )}
@@ -257,7 +257,9 @@ function BookingModal({
             '-translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[24px] bg-white',
             'data-[state=open]:animate-in data-[state=closed]:animate-out',
             'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
-            'data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95'
+            // Fade only; the slide pair re-applies the -50% centring that the
+            // enter/exit keyframes would otherwise reset (no visible movement).
+            'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-1/2 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-1/2'
           )}
           style={{ boxShadow: '0 40px 80px -20px rgba(15, 23, 42, 0.35)' }}
         >
@@ -443,7 +445,7 @@ function ServiceStep({
           <button
             type="button"
             onClick={() => onPick(s)}
-            className="group flex w-full flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+            className="group flex w-full flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left transition-colors hover:border-slate-300 hover:shadow-md"
           >
             <div className="flex w-full items-start justify-between gap-3">
               <div className="min-w-0">
@@ -512,7 +514,7 @@ function ProviderStep({
       <button
         type="button"
         onClick={() => onPick(null)}
-        className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50 via-white to-sky-50 p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md"
+        className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-teal-50 via-white to-sky-50 p-5 text-left transition-colors hover:shadow-md"
       >
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-teal-700 ring-1 ring-teal-100">
           <Sparkles className="h-5 w-5" />
@@ -537,7 +539,7 @@ function ProviderStep({
             <button
               type="button"
               onClick={() => onPick(p)}
-              className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+              className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 text-left transition-colors hover:border-slate-300 hover:shadow-md"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600">
                 <UserRound className="h-5 w-5" />

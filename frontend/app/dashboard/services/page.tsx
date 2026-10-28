@@ -144,7 +144,7 @@ function ServiceForm({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">Duration (min)</label>
             <AppInput type="number" min={1} {...register('duration')} className="rounded-xl" />
@@ -332,7 +332,7 @@ export default function ServicesPage() {
         title="Clinical Services"
         description="Configure your medical offerings, pricing, and durations."
         actions={
-          <div className="flex gap-4 items-center">
+          <div className="flex flex-wrap gap-4 items-center">
             <DateRangeFilter
               value={dateRangeOption}
               onChange={(opt, range) => {
@@ -446,7 +446,7 @@ export default function ServicesPage() {
       </AppCard>
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden border-none shadow-lg">
           <DialogHeader className="bg-slate-900 text-white p-8 border-none">
             <DialogTitle className="text-2xl font-black">Create Service</DialogTitle>
           </DialogHeader>
@@ -463,7 +463,7 @@ export default function ServicesPage() {
       </Dialog>
 
       <Dialog open={editOpen} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
+        <DialogContent className="max-w-md rounded-[2rem] p-0 overflow-hidden border-none shadow-lg">
           <DialogHeader className="bg-slate-900 text-white p-8 border-none">
             <DialogTitle className="text-2xl font-black">Edit Service</DialogTitle>
           </DialogHeader>
