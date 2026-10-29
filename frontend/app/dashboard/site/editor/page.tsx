@@ -428,9 +428,19 @@ function SiteEditor() {
           className="max-w-[14rem] rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium"
           value={pageId ?? ''}
           onChange={async (e) => {
-            await savePage()
-            setLoadedId(null)
-            router.push(`/dashboard/site/editor?page=${e.target.value}`)
+            // Read the choice before awaiting: React resets a controlled
+            // select to `value` as soon as this handler yields.
+            const next = e.target.value
+            if (!next || next === pageId) return
+            const saved = await savePage()
+            if (
+              !saved &&
+              !window.confirm(
+                'This page has changes that could not be saved. Switch pages and lose them?'
+              )
+            )
+              return
+            router.push(`/dashboard/site/editor?page=${next}`)
           }}
         >
           {site?.pages.map((p) => (

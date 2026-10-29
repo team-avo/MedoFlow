@@ -124,6 +124,33 @@ test('install → edit → autosave: the draft stays private until publish, then
   await expect(page.getByText('Second draft — private')).toHaveCount(0)
 })
 
+test('the page dropdown switches the page being edited, saving edits first', async ({ page }) => {
+  await asAdmin(page)
+  await installClarity(page)
+  const canvas = page.getByRole('main', { name: 'Page preview' })
+  const picker = page.getByRole('combobox', { name: 'Page', exact: true })
+  const about = state.pages.find((p) => p.slug === 'about')!
+  const home = state.pages.find((p) => p.kind === 'HOME')!
+
+  await picker.selectOption({ label: 'About us (/about)' })
+  await expect(page).toHaveURL(new RegExp(`\\?page=${about.id}$`))
+  await expect(canvas.getByRole('heading', { name: 'Care built around you' })).toBeVisible()
+  await expect(picker).toHaveValue(about.id)
+
+  // An edit on this page is saved before the switch, not lost.
+  await page.getByTestId('section-row-image-with-text').getByRole('button').nth(1).click()
+  await page
+    .getByTestId('section-inspector')
+    .getByRole('textbox', { name: /^Heading/ })
+    .fill('Synthetic about heading')
+  await picker.selectOption({ label: 'Home (/)' })
+  await expect(page).toHaveURL(new RegExp(`\\?page=${home.id}$`))
+  await expect(
+    canvas.getByRole('heading', { name: 'Healthcare that starts with listening' })
+  ).toBeVisible()
+  expect(about.draft[0]!.settings.heading).toBe('Synthetic about heading')
+})
+
 test('keyboard reorder, undo, and the draft preview link', async ({ page, context }) => {
   await asAdmin(page)
   await installClarity(page)
