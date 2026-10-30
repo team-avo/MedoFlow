@@ -4,10 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import * as consultationApi from '@/lib/consultationApi'
 import * as aiScribeApi from '@/lib/aiScribeApi'
+import { createVisitRecord, getVisitByAppointment } from '@/lib/patientApi'
+import { apiErrorOf } from '@/lib/apiError'
 import { startConsultationRecordingFlow } from '@/lib/consultationRecordingFlow'
 import { useAudioRecorder } from '@/hooks/useAudioRecorder'
 import { useAppToast } from '@/hooks/useAppToast'
+import { useScribeCapabilities, useScribeSession } from '@/hooks/useScribeSession'
 import { JitsiVideoCall } from '@/components/consultation/JitsiVideoCall'
+import { ScribeWorkspace } from '@/components/aiScribe/ScribeWorkspace'
 
 // UI System Components
 import { PageContainer } from '@/components/layout/PageContainer'
@@ -17,10 +21,7 @@ import {
   AppCardTitle,
   AppCardContent,
 } from '@/components/ui-system/AppCard'
-import { AppModal } from '@/components/ui-system/AppModal'
-import { AppFormField } from '@/components/ui-system/AppFormField'
 import { AppButton } from '@/components/ui-system/AppButton'
-import { Textarea } from '@/components/ui/textarea'
 import { ManualNoteModal } from '@/components/visit/ManualNoteModal'
 import {
   ArrowLeft,
@@ -30,20 +31,13 @@ import {
   Sparkles,
   Upload,
   Copy,
-  FileText,
-  RefreshCw,
   Lock,
   Activity,
-  CheckCircle2,
   AlertTriangle,
   PencilLine,
+  ShieldX,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  DetectedProductsPanel,
-  rxApproval,
-  type RxSelection,
-} from '@/components/rxCart/DetectedProductsPanel'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -111,17 +105,10 @@ export default function ConsultationRoomPage() {
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
-  const [transcript, setTranscript] = useState<consultationApi.TranscriptResult | null>(null)
-  const [aiScribeSession, setAiScribeSession] = useState<aiScribeApi.AIScribeSession | null>(null)
-  const [showDraftModal, setShowDraftModal] = useState(false)
-  const [draftForm, setDraftForm] = useState({
-    subjective: '',
-    objective: '',
-    assessment: '',
-    plan: '',
-  })
-  const [pollInterval, setPollInterval] = useState<ReturnType<typeof setInterval> | null>(null)
   const [manualNoteOpen, setManualNoteOpen] = useState(false)
+  // A demo session (synthetic conversation) when no recording fed the scribe.
+  const [demoSessionId, setDemoSessionId] = useState<string | null>(null)
+  const [simulating, setSimulating] = useState(false)
   // When the provider leaves the Jitsi call while recording, we stop the
   // MediaRecorder and flag that we're waiting for the final blob to arrive.
   // A watching effect then auto-uploads + transcribes it. Without this
@@ -134,33 +121,18 @@ export default function ConsultationRoomPage() {
   const [videoRoom, setVideoRoom] = useState<consultationApi.VideoRoomResult | null>(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoActive, setVideoActive] = useState(false)
-  const [recordingBlob, setRecordingBlob] = useState<Blob | null>(null)
 
   const recorder = useAudioRecorder()
   const toast = useAppToast()
+  const { data: caps } = useScribeCapabilities()
 
-  const handleSimulateClinicalConversation = async () => {
-    if (!aiScribeSession || !session) return
-    try {
-      setTranscribing(true)
-      const updated = await aiScribeApi.simulateSession(aiScribeSession.id)
-      setAiScribeSession(updated)
-      setTranscript({
-        sessionId: session.id,
-        transcript: updated.transcript || '',
-        transcriptStatus: 'COMPLETED',
-        aiScribeStatus: 'DRAFT_GENERATED',
-        aiDraft: updated.aiDraft,
-        timeline: updated.timeline,
-        errorMessage: null,
-      })
-      toast.success('Clinical conversation simulated!')
-    } catch (err) {
-      toast.error('Failed to simulate conversation')
-    } finally {
-      setTranscribing(false)
-    }
-  }
+  // The AI scribe session behind this consultation: everything after the
+  // recording is the shared review core (F2.1).
+  const scribeSessionId = session?.aiScribeSessionId ?? demoSessionId
+  const scribe = useScribeSession({ by: 'id', sessionId: scribeSessionId })
+  const scribeStatus = scribe.session?.status
+
+  const showError = useCallback((err: unknown) => setError(apiErrorOf(err).message), [])
 
   // ----- Load or create session -----
   const initSession = useCallback(async () => {
@@ -173,12 +145,11 @@ export default function ConsultationRoomPage() {
       setSession(s)
     } catch (err: unknown) {
       initialized.current = false
-      const msg = err instanceof Error ? err.message : 'Failed to start consultation'
-      setError(msg)
+      showError(err)
     } finally {
       setLoading(false)
     }
-  }, [appointmentId])
+  }, [appointmentId, showError])
 
   useEffect(() => {
     initSession()
@@ -197,9 +168,9 @@ export default function ConsultationRoomPage() {
     }
   }, [sessionId])
 
-  // ----- Poll for session status (like consent) -----
+  // ----- Poll for the patient's consent decision -----
   useEffect(() => {
-    if (!sessionId || consentStatus === 'GRANTED') return
+    if (!sessionId || consentStatus === 'GRANTED' || consentStatus === 'DECLINED') return
 
     const poll = setInterval(() => {
       refreshSession()
@@ -207,6 +178,40 @@ export default function ConsultationRoomPage() {
 
     return () => clearInterval(poll)
   }, [sessionId, consentStatus, refreshSession])
+
+  // ----- The consultation follows the scribe (TRANSCRIPT_READY / FAILED) -----
+  useEffect(() => {
+    if (scribeStatus && scribeStatus !== 'TRANSCRIBING' && scribeStatus !== 'RECORDING') {
+      setTranscribing(false)
+      void refreshSession()
+    }
+  }, [scribeStatus, refreshSession])
+
+  // ----- Upload + transcribe a finished recording -----
+  const uploadAndTranscribe = useCallback(
+    async (blob: Blob) => {
+      if (!session) return
+      try {
+        setError(null)
+        setUploading(true)
+        const uploaded = await consultationApi.uploadRecording(session.id, blob)
+        setSession(uploaded)
+        setUploading(false)
+
+        setTranscribing(true)
+        const result = await consultationApi.startTranscription(session.id)
+        setSession(result.session)
+        scribe.restartPolling()
+      } catch (err: unknown) {
+        showError(err)
+        setTranscribing(false)
+        await refreshSession()
+      } finally {
+        setUploading(false)
+      }
+    },
+    [session, scribe, showError, refreshSession]
+  )
 
   // ----- Auto-upload the captured blob when the call ends -----
   // `autoUploadPending` is flipped on by `handleCallEnded`; we wait here
@@ -219,69 +224,12 @@ export default function ConsultationRoomPage() {
     setAutoUploadPending(false)
 
     void (async () => {
-      try {
-        setError(null)
-        // Let the backend know recording is done (best-effort).
-        await consultationApi.stopRecording(session.id).catch(() => null)
-
-        setUploading(true)
-        const uploaded = await consultationApi.uploadRecording(session.id, blob)
-        setSession(uploaded)
-        setUploading(false)
-
-        setTranscribing(true)
-        toast.success('Transcribing the call — hold tight')
-        const result = await consultationApi.startTranscription(session.id)
-        setSession(result.session)
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Failed to transcribe call'
-        setError(msg)
-      } finally {
-        setUploading(false)
-        setTranscribing(false)
-      }
+      // Let the backend know recording is done (best-effort).
+      await consultationApi.stopRecording(session.id).catch(() => null)
+      toast.success('Transcribing the call — hold tight')
+      await uploadAndTranscribe(blob)
     })()
-  }, [autoUploadPending, recorder.audioBlob, session, toast])
-
-  // ----- Poll AI scribe status while processing -----
-  useEffect(() => {
-    if (!session?.aiScribeSessionId) return
-    const aiSessionId = session.aiScribeSessionId
-
-    const poll = setInterval(async () => {
-      try {
-        const status = await aiScribeApi.getSessionStatus(aiSessionId)
-        if (status.status === 'DRAFT_GENERATED' || status.status === 'FAILED') {
-          clearInterval(poll)
-          const transcriptData = await consultationApi.getTranscript(session.id)
-          setTranscript(transcriptData)
-          // Pre-populate draft form so inline editor is ready immediately
-          const aiSession = await aiScribeApi.getSession(aiSessionId)
-          setAiScribeSession(aiSession)
-          const draft = aiSession.aiDraft as Record<string, string> | null
-          if (draft) {
-            setDraftForm({
-              subjective: draft.subjective || '',
-              objective: draft.objective || '',
-              assessment: draft.assessment || '',
-              plan: draft.plan || '',
-            })
-          }
-          await refreshSession()
-          setTranscribing(false)
-          if (status.status === 'DRAFT_GENERATED') {
-            toast.success('AI draft ready — review and approve below')
-          }
-        }
-      } catch {
-        // ignore
-      }
-    }, 3000)
-
-    setPollInterval(poll)
-    return () => clearInterval(poll)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.aiScribeSessionId])
+  }, [autoUploadPending, recorder.audioBlob, session, toast, uploadAndTranscribe])
 
   // ----- Video Call Controls -----
   const handleStartVideoCall = async () => {
@@ -293,8 +241,7 @@ export default function ConsultationRoomPage() {
       setVideoRoom(room)
       setVideoActive(true)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create video room'
-      setError(msg)
+      showError(err)
     } finally {
       setVideoLoading(false)
     }
@@ -311,6 +258,7 @@ export default function ConsultationRoomPage() {
       // provider to share the join link.
       return
     }
+    if (caps && !caps.available) return
     if (recorder.isRecording || session.recordingStatus === 'RECORDING') return
     try {
       const updated = await startConsultationRecordingFlow({
@@ -323,8 +271,8 @@ export default function ConsultationRoomPage() {
       setSession(updated)
       toast.success('AI Scribe started recording')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to start recording'
-      setError(msg)
+      // A microphone problem is shown by recorder.error; anything else here.
+      if (!recorder.error) showError(err)
     }
   }
 
@@ -347,33 +295,6 @@ export default function ConsultationRoomPage() {
     }
   }
 
-  const handleRecordingData = (blob: Blob) => {
-    setRecordingBlob(blob)
-    toast.success('Audio captured from video call')
-  }
-
-  // ----- Upload recording from Daily.co -----
-  const handleUploadDailyRecording = async () => {
-    if (!session || !recordingBlob) return
-    try {
-      setError(null)
-      setUploading(true)
-      const updated = await consultationApi.uploadRecording(session.id, recordingBlob)
-      setSession(updated)
-      setUploading(false)
-
-      setTranscribing(true)
-      const result = await consultationApi.startTranscription(session.id)
-      setSession(result.session)
-      setRecordingBlob(null)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to upload/transcribe'
-      setError(msg)
-      setUploading(false)
-      setTranscribing(false)
-    }
-  }
-
   // ----- Recording controls (fallback manual recording) -----
   const handleStartRecording = async () => {
     if (!session) return
@@ -388,8 +309,8 @@ export default function ConsultationRoomPage() {
       })
       setSession(updated)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to start recording'
-      setError(msg)
+      // A microphone problem is shown by recorder.error; anything else here.
+      if (!recorder.error) showError(err)
     }
   }
 
@@ -401,101 +322,34 @@ export default function ConsultationRoomPage() {
       await consultationApi.stopRecording(session.id)
       setSession((prev) => (prev ? { ...prev, status: 'ENDED', recordingStatus: 'STOPPED' } : prev))
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to stop recording'
-      setError(msg)
+      showError(err)
     }
   }
 
   // ----- Upload + Transcribe (manual recording) -----
   const handleUploadAndTranscribe = async () => {
-    if (!session || !recorder.audioBlob) return
-    try {
-      setError(null)
-      setUploading(true)
-      const updated = await consultationApi.uploadRecording(session.id, recorder.audioBlob)
-      setSession(updated)
-      setUploading(false)
-
-      setTranscribing(true)
-      const result = await consultationApi.startTranscription(session.id)
-      setSession(result.session)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to upload/transcribe'
-      setError(msg)
-      setUploading(false)
-      setTranscribing(false)
-    }
+    if (recorder.audioBlob) await uploadAndTranscribe(recorder.audioBlob)
   }
 
-  // ----- Convert to template -----
-  const handleConvertToTemplate = async () => {
+  // ----- Demo: a synthetic conversation, when the server allows it -----
+  const handleSimulate = async () => {
     if (!session) return
     try {
+      setSimulating(true)
       setError(null)
-      const result = await consultationApi.convertToTemplate(session.id)
-      if (result.aiScribeSessionId) {
-        const aiSession = await aiScribeApi.getSession(result.aiScribeSessionId)
-        setAiScribeSession(aiSession)
-
-        const draft = aiSession.aiDraft as Record<string, string> | null
-        setDraftForm({
-          subjective: draft?.subjective || '',
-          objective: draft?.objective || '',
-          assessment: draft?.assessment || '',
-          plan: draft?.plan || '',
-        })
-
-        setShowDraftModal(true)
-      }
+      const existing = await getVisitByAppointment(appointmentId)
+      const visit =
+        existing?.visitRecord ??
+        (await createVisitRecord(appointmentId, { patientId: session.patientId }))
+      const started = await aiScribeApi.startSession(visit.id)
+      const simulated = await aiScribeApi.simulateSession(started.id)
+      setDemoSessionId(started.id)
+      scribe.setSession({ ...started, ...simulated })
+      toast.success('Demo conversation loaded (synthetic)')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to convert to template'
-      setError(msg)
-    }
-  }
-
-  // ----- Load transcript -----
-  const handleLoadTranscript = async () => {
-    if (!session) return
-    try {
-      const data = await consultationApi.getTranscript(session.id)
-      setTranscript(data)
-    } catch {
-      // ignore
-    }
-  }
-
-  // ----- Draft editing -----
-  const [approvingDraft, setApprovingDraft] = useState(false)
-  const [rxSelection, setRxSelection] = useState<RxSelection | null>(null)
-  const rx = rxApproval(rxSelection)
-  const handleApproveDraft = async () => {
-    if (!aiScribeSession) return
-    if (!rx.ok) {
-      toast.error(rx.reason)
-      return
-    }
-    try {
-      setApprovingDraft(true)
-      setError(null)
-      await aiScribeApi.updateDraft(aiScribeSession.id, draftForm)
-      // "Approve & send": the products the provider confirmed go with it (F5.1).
-      const approved = await aiScribeApi.approveSession(aiScribeSession.id, rx.rxConfirmation)
-      // Auto-publish patient summary so patient sees it immediately
-      await aiScribeApi.publishPatientSummary(aiScribeSession.id).catch(() => null)
-      setAiScribeSession(approved)
-      setShowDraftModal(false)
-      await refreshSession()
-      const sent = approved.rxCart?.cartItemIds.length ?? 0
-      toast.success(
-        sent > 0
-          ? `Note approved and shared · ${sent} product${sent > 1 ? 's' : ''} sent to the patient's cart`
-          : 'Note approved and shared with patient'
-      )
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to approve draft'
-      setError(msg)
+      showError(err)
     } finally {
-      setApprovingDraft(false)
+      setSimulating(false)
     }
   }
 
@@ -535,11 +389,15 @@ export default function ConsultationRoomPage() {
       ? 'Recording'
       : session.consentStatus === 'PENDING'
         ? 'Awaiting consent'
-        : session.recordingStatus === 'STORED'
-          ? 'Awaiting transcription'
-          : transcript?.aiScribeStatus === 'DRAFT_GENERATED'
-            ? 'Draft ready'
-            : 'Ready to start'
+        : session.consentStatus === 'DECLINED'
+          ? 'Consent declined'
+          : scribeStatus === 'APPROVED'
+            ? 'Approved'
+            : scribeStatus === 'DRAFT_GENERATED' || scribeStatus === 'EDITED'
+              ? 'Draft ready'
+              : scribeStatus === 'TRANSCRIBING' || session.recordingStatus === 'STORED'
+                ? 'AI drafting'
+                : 'Ready to start'
 
   return (
     <PageContainer className="space-y-8">
@@ -604,9 +462,7 @@ export default function ConsultationRoomPage() {
               {[
                 { label: 'Consent', value: session.consentStatus },
                 { label: 'Recording', value: session.recordingStatus },
-                ...(transcript?.aiScribeStatus
-                  ? [{ label: 'Scribe', value: transcript.aiScribeStatus }]
-                  : []),
+                ...(scribeStatus ? [{ label: 'Scribe', value: scribeStatus }] : []),
               ].map((s) => (
                 <div
                   key={s.label}
@@ -689,94 +545,6 @@ export default function ConsultationRoomPage() {
             </AppCard>
           )}
 
-          {/* Inline SOAP draft — appears when draft is ready, replaces modal */}
-          {!videoActive &&
-            aiScribeSession &&
-            (aiScribeSession.status === 'DRAFT_GENERATED' ||
-              aiScribeSession.status === 'EDITED') && (
-              <AppCard className="overflow-hidden border border-indigo-200 shadow-none">
-                <AppCardHeader className="flex flex-row items-center justify-between border-b border-indigo-100 bg-gradient-to-r from-indigo-50 to-white py-5">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-sm">
-                      <FileText className="h-4 w-4" />
-                    </span>
-                    <div>
-                      <AppCardTitle className="text-base font-bold">SOAP Note Draft</AppCardTitle>
-                      <p className="text-xs font-medium text-indigo-500">
-                        AI-generated · Review and approve to share with patient
-                      </p>
-                    </div>
-                  </div>
-                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-700">
-                    Awaiting Approval
-                  </span>
-                </AppCardHeader>
-                <AppCardContent className="space-y-4 p-6">
-                  {(['subjective', 'objective', 'assessment', 'plan'] as const).map((field) => (
-                    <div key={field} className="space-y-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                        {field.charAt(0).toUpperCase() + field.slice(1)}
-                      </label>
-                      <Textarea
-                        value={draftForm[field] || ''}
-                        onChange={(e) =>
-                          setDraftForm((prev) => ({ ...prev, [field]: e.target.value }))
-                        }
-                        className="min-h-[90px] resize-y rounded-xl border-slate-200 font-serif text-sm leading-relaxed focus:border-indigo-300 focus:ring-indigo-100"
-                        placeholder={`Enter ${field} notes…`}
-                      />
-                    </div>
-                  ))}
-
-                  {!showDraftModal && (
-                    <DetectedProductsPanel
-                      sessionId={aiScribeSession.id}
-                      disabled={approvingDraft}
-                      onSelectionChange={setRxSelection}
-                    />
-                  )}
-
-                  <div className="flex items-center gap-3 pt-2">
-                    <AppButton
-                      onClick={handleApproveDraft}
-                      disabled={approvingDraft || !rx.ok}
-                      title={rx.ok ? undefined : rx.reason}
-                      size="lg"
-                      className="flex-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/20 hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-60"
-                    >
-                      {approvingDraft ? (
-                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      ) : (
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                      )}
-                      {approvingDraft ? 'Approving…' : 'Approve & send'}
-                    </AppButton>
-                  </div>
-                  <p className="text-center text-xs text-slate-400">
-                    Approving will immediately make a patient-friendly summary visible on the
-                    patient&apos;s portal.
-                  </p>
-                </AppCardContent>
-              </AppCard>
-            )}
-
-          {/* Approved confirmation */}
-          {aiScribeSession?.status === 'APPROVED' && (
-            <AppCard className="overflow-hidden border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-none">
-              <AppCardContent className="flex items-center gap-4 p-6">
-                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
-                  <CheckCircle2 className="h-6 w-6" />
-                </span>
-                <div>
-                  <h3 className="font-bold text-emerald-900">Note approved and shared</h3>
-                  <p className="mt-0.5 text-sm text-emerald-700/80">
-                    The patient can now view their consultation summary on their portal.
-                  </p>
-                </div>
-              </AppCardContent>
-            </AppCard>
-          )}
-
           {/* Consent Notice — only shown when patient hasn't opted in at booking */}
           {session.consentStatus === 'PENDING' && (
             <AppCard className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none">
@@ -821,6 +589,38 @@ export default function ConsultationRoomPage() {
             </AppCard>
           )}
 
+          {/* Consent declined — no recording for this visit */}
+          {session.consentStatus === 'DECLINED' && (
+            <AppCard className="overflow-hidden border border-rose-200 bg-gradient-to-br from-rose-50 to-white shadow-none">
+              <AppCardContent className="p-6 sm:p-8">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-700">
+                    <ShieldX className="h-5 w-5" />
+                  </span>
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <h3 className="text-base font-bold text-rose-900">
+                        The patient declined AI recording
+                      </h3>
+                      <p className="mt-1 text-sm leading-relaxed text-rose-800/80">
+                        This consultation will not be recorded or sent to the AI. Document the visit
+                        manually.
+                      </p>
+                    </div>
+                    <AppButton
+                      onClick={() => setManualNoteOpen(true)}
+                      variant="outline"
+                      className="rounded-full"
+                    >
+                      <PencilLine className="mr-2 h-4 w-4" />
+                      Write note manually
+                    </AppButton>
+                  </div>
+                </div>
+              </AppCardContent>
+            </AppCard>
+          )}
+
           {/* AI Scribe — mission control */}
           <AppCard className="overflow-hidden border border-[#E5E7EB] shadow-none">
             <AppCardHeader className="flex flex-row items-center justify-between border-b border-[#E5E7EB] bg-gradient-to-r from-white via-[#F8FAFC] to-[#F0FDFA] py-5">
@@ -837,11 +637,15 @@ export default function ConsultationRoomPage() {
                         ? 'Uploading audio…'
                         : transcribing
                           ? 'Transcribing…'
-                          : recordingBlob || recorder.audioBlob
+                          : recorder.audioBlob
                             ? 'Ready to transcribe'
-                            : session.consentStatus === 'GRANTED'
-                              ? 'Ready to record'
-                              : 'Consent required'}
+                            : caps && !caps.available
+                              ? 'Not set up on this server'
+                              : session.consentStatus === 'GRANTED'
+                                ? 'Ready to record'
+                                : session.consentStatus === 'DECLINED'
+                                  ? 'Consent declined'
+                                  : 'Consent required'}
                   </p>
                 </div>
               </div>
@@ -867,15 +671,6 @@ export default function ConsultationRoomPage() {
                 >
                   <Square className="mr-2 h-4 w-4 fill-current" />
                   Stop recording
-                </AppButton>
-              ) : recordingBlob && !uploading && !transcribing ? (
-                <AppButton
-                  onClick={handleUploadDailyRecording}
-                  size="lg"
-                  className="w-full rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#14B8A6] text-white shadow-md shadow-[#14B8A6]/30 hover:from-[#0F766E] hover:to-[#0D9488]"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload &amp; transcribe call audio
                 </AppButton>
               ) : recorder.audioBlob &&
                 !uploading &&
@@ -904,11 +699,11 @@ export default function ConsultationRoomPage() {
                 session.recordingStatus !== 'STORED' ? (
                 <AppButton
                   onClick={handleStartRecording}
-                  disabled={session.consentStatus !== 'GRANTED'}
+                  disabled={session.consentStatus !== 'GRANTED' || Boolean(caps && !caps.available)}
                   size="lg"
                   className={cn(
                     'w-full rounded-2xl shadow-md',
-                    session.consentStatus === 'GRANTED'
+                    session.consentStatus === 'GRANTED' && caps?.available !== false
                       ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/30 hover:from-red-600 hover:to-red-700'
                       : 'bg-slate-200 text-slate-500'
                   )}
@@ -919,22 +714,17 @@ export default function ConsultationRoomPage() {
               ) : null}
 
               {/* Hints — only when idle / pre-recording */}
-              {hasVideoRoom &&
-                !recordingBlob &&
-                !recorder.isRecording &&
-                !uploading &&
-                !transcribing && (
-                  <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-relaxed text-emerald-900">
-                    <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                    <span>
-                      AI Scribe starts recording the moment you enter the call and automatically
-                      transcribes it when you leave. No button to press.
-                    </span>
-                  </div>
-                )}
+              {hasVideoRoom && !recorder.isRecording && !uploading && !transcribing && (
+                <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-relaxed text-emerald-900">
+                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                  <span>
+                    AI Scribe starts recording the moment you enter the call and automatically
+                    transcribes it when you leave. No button to press.
+                  </span>
+                </div>
+              )}
               {!hasVideoRoom &&
                 !recorder.isRecording &&
-                !recordingBlob &&
                 session.recordingStatus !== 'STOPPED' &&
                 session.recordingStatus !== 'STORED' &&
                 !uploading &&
@@ -945,20 +735,30 @@ export default function ConsultationRoomPage() {
                   </p>
                 )}
 
+              {caps && !caps.available && (
+                <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  The AI scribe is not set up on this server, so the call cannot be transcribed.
+                  Document the visit manually.
+                </p>
+              )}
+
               {/* Secondary row — demo simulator + recording metadata */}
               <div className="flex flex-wrap items-center gap-3">
-                {!recorder.isRecording &&
+                {caps?.demoEnabled &&
+                  !scribeSessionId &&
+                  !recorder.isRecording &&
                   !uploading &&
-                  !transcribing &&
-                  aiScribeSession?.status === 'RECORDING' && (
+                  !transcribing && (
                     <AppButton
-                      onClick={handleSimulateClinicalConversation}
+                      onClick={handleSimulate}
+                      disabled={simulating}
                       variant="outline"
                       size="sm"
                       className="rounded-full border-emerald-200 text-emerald-700 hover:bg-emerald-50"
                     >
                       <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                      Demo: simulate conversation
+                      {simulating ? 'Loading demo…' : 'Demo: simulate conversation'}
                     </AppButton>
                   )}
                 {recorder.audioBlob && !recorder.isRecording && (
@@ -970,94 +770,12 @@ export default function ConsultationRoomPage() {
                     · {(recorder.audioBlob.size / (1024 * 1024)).toFixed(1)} MB
                   </p>
                 )}
-                {recordingBlob && (
-                  <p className="text-xs font-medium text-emerald-700">
-                    Call audio captured · {(recordingBlob.size / (1024 * 1024)).toFixed(1)} MB
-                  </p>
-                )}
               </div>
             </AppCardContent>
           </AppCard>
 
-          {/* Transcript */}
-          {(transcript || session.aiScribeSessionId) && (
-            <AppCard className="overflow-hidden border border-[#E5E7EB] shadow-none">
-              <AppCardHeader className="flex flex-row items-center justify-between border-b border-[#E5E7EB] bg-gradient-to-r from-white via-[#F8FAFC] to-[#EEF2FF] py-5">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#6366F1] to-[#4C7DCC] text-white shadow-sm">
-                    <FileText className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <AppCardTitle className="text-base font-bold">
-                      Consultation transcript
-                    </AppCardTitle>
-                    <p className="text-xs font-medium text-slate-500">
-                      {transcript?.transcriptStatus === 'PROCESSING'
-                        ? 'Transcribing…'
-                        : transcript?.transcript
-                          ? 'Complete'
-                          : 'Waiting for audio'}
-                    </p>
-                  </div>
-                </div>
-                <AppButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleLoadTranscript}
-                  className="rounded-full text-slate-600 hover:bg-slate-100"
-                >
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                  Refresh
-                </AppButton>
-              </AppCardHeader>
-              <AppCardContent className="space-y-4 p-6">
-                {transcript?.transcript ? (
-                  <div className="max-h-96 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                    <p className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-slate-800">
-                      {transcript.transcript}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-sm text-slate-500">
-                    {transcript?.transcriptStatus === 'PROCESSING' ? (
-                      <>
-                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#6366F1]/30 border-t-[#6366F1]" />
-                        <span>Transcription in progress — this usually takes under a minute.</span>
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-4 w-4 text-slate-400" />
-                        <span>
-                          No transcript yet. Record the consultation to populate this view.
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {/* Generate SOAP draft */}
-                {transcript?.aiScribeStatus === 'DRAFT_GENERATED' && (
-                  <AppButton
-                    onClick={handleConvertToTemplate}
-                    className="w-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-md shadow-emerald-500/30 hover:from-emerald-600 hover:to-emerald-700 sm:w-auto"
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate SOAP note draft
-                  </AppButton>
-                )}
-
-                {transcript?.errorMessage && (
-                  <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2.5 text-xs text-red-800">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{transcript.errorMessage}</span>
-                  </div>
-                )}
-              </AppCardContent>
-            </AppCard>
-          )}
-
           {/* Manual documentation fallback — opens the new modal rather than routing to a dead list page */}
-          {session.status === 'FAILED' && (
+          {session.status === 'FAILED' && !scribe.session && (
             <AppCard className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none">
               <AppCardContent className="p-6 sm:p-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -1150,8 +868,8 @@ export default function ConsultationRoomPage() {
                   ...(session.transcriptStatus && session.transcriptStatus !== 'NOT_STARTED'
                     ? [{ key: 'transcript', label: 'Transcript', value: session.transcriptStatus }]
                     : []),
-                  ...(transcript?.aiScribeStatus
-                    ? [{ key: 'scribe', label: 'AI Scribe', value: transcript.aiScribeStatus }]
+                  ...(scribeStatus
+                    ? [{ key: 'scribe', label: 'AI Scribe', value: scribeStatus }]
                     : []),
                 ].map((row) => (
                   <div key={row.key} className="flex items-center justify-between">
@@ -1204,27 +922,13 @@ export default function ConsultationRoomPage() {
               </AppCardContent>
             </AppCard>
           )}
-
-          {/* Recent vitals */}
-          <AppCard className="overflow-hidden border border-[#E5E7EB] shadow-none">
-            <AppCardHeader className="border-b border-[#E5E7EB] bg-gradient-to-r from-white to-[#FFFBEB] py-4">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#FFFBEB] text-[#F59E0B]">
-                  <Activity className="h-4 w-4" />
-                </span>
-                <AppCardTitle className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-600">
-                  Recent Vitals
-                </AppCardTitle>
-              </div>
-            </AppCardHeader>
-            <AppCardContent className="p-5">
-              <p className="text-xs italic text-slate-400">
-                No recent vitals recorded for this patient.
-              </p>
-            </AppCardContent>
-          </AppCard>
         </div>
       </div>
+
+      {/* Everything after the recording: the shared review core (F2.1) */}
+      {scribeSessionId && (
+        <ScribeWorkspace scribe={scribe} onManual={() => setManualNoteOpen(true)} />
+      )}
 
       {/* Manual documentation modal — same as the appointment-detail page's */}
       <ManualNoteModal
@@ -1232,38 +936,6 @@ export default function ConsultationRoomPage() {
         onOpenChange={setManualNoteOpen}
         appointmentId={appointmentId}
         patientId={session.patient?.id ?? ''}
-      />
-
-      {/* Draft Modal */}
-      <AppModal
-        open={showDraftModal && aiScribeSession !== null}
-        onOpenChange={setShowDraftModal}
-        title="SOAP Note Draft"
-        description="This draft was generated by the AI Scribe. Please review and make any necessary edits before finalizing."
-        primaryAction={{ label: 'Approve & send', onClick: handleApproveDraft }}
-        secondaryAction={{ label: 'Cancel', onClick: () => setShowDraftModal(false) }}
-        className="max-w-2xl"
-        content={
-          <div className="space-y-5 mt-2">
-            {['subjective', 'objective', 'assessment', 'plan'].map((field) => (
-              <AppFormField key={field} label={field.charAt(0).toUpperCase() + field.slice(1)}>
-                <Textarea
-                  value={draftForm[field as keyof typeof draftForm] || ''}
-                  onChange={(e) => setDraftForm((prev) => ({ ...prev, [field]: e.target.value }))}
-                  className="min-h-[100px] resize-y font-serif text-sm"
-                  placeholder={`Enter ${field} notes...`}
-                />
-              </AppFormField>
-            ))}
-            {aiScribeSession && showDraftModal && (
-              <DetectedProductsPanel
-                sessionId={aiScribeSession.id}
-                disabled={approvingDraft}
-                onSelectionChange={setRxSelection}
-              />
-            )}
-          </div>
-        }
       />
     </PageContainer>
   )

@@ -45,6 +45,7 @@ interface Line {
 
 export interface RxCartState {
   sessionStatus: 'DRAFT_GENERATED' | 'APPROVED'
+  summaryPublished: boolean
   proposal: { id: string; status: 'PENDING' | 'CONFIRMED'; lines: Line[] }
   approveBodies: Record<string, unknown>[]
   cart: { id: string; status: string; items: Record<string, unknown>[] }
@@ -123,6 +124,7 @@ export async function installRxCartMock(
       status: 'ACTIVE',
       items: [prescribedItem('ci-1', PRODUCTS.mag, 2), prescribedItem('ci-2', PRODUCTS.arnica, 1)],
     },
+    summaryPublished: false,
     onFile: opts.onFile ?? ON_FILE,
     oneClick: 'succeed',
     oneClickCalls: 0,
@@ -148,9 +150,17 @@ export async function installRxCartMock(
       assessment: 'Synthetic: lumbar strain, improving.',
       plan: 'Synthetic: core exercises, magnesium, arnica gel.',
     },
-    patientSummary: state.sessionStatus === 'APPROVED' ? { diagnosis: 'Synthetic' } : null,
-    patientSummaryPublished: false,
+    patientSummary: {
+      diagnosis: 'Synthetic: your back strain is healing.',
+      treatmentPlan: 'Synthetic: core exercises and magnesium at night.',
+      nextSteps: 'Synthetic: come back in 4 days.',
+    },
+    patientSummaryPublished: state.summaryPublished,
     status: state.sessionStatus,
+    aiModel: 'mock-scribe-1',
+    aiProvider: 'mock:mock',
+    processingCompletedAt: '2026-10-17T09:00:00.000Z',
+    consent: { status: 'GRANTED', source: 'BOOKING' },
     createdAt: '2026-10-17T09:00:00.000Z',
     updatedAt: '2026-10-17T09:00:00.000Z',
     visitRecord: {
@@ -170,6 +180,20 @@ export async function installRxCartMock(
 
     // ── provider ──
     if (key === `GET /ai-scribe/session/visit/${VISIT_ID}`) return ok(route, { session: session() })
+    if (key === 'GET /ai-scribe/capabilities') {
+      return ok(route, {
+        capabilities: {
+          available: true,
+          transcriptionAvailable: true,
+          draftingAvailable: true,
+          demoEnabled: true,
+          llm: { kind: 'mock', preset: 'mock', model: 'mock-scribe-1', location: 'in-process' },
+          stt: { kind: 'mock', preset: 'mock', model: 'mock-scribe-1', location: 'in-process' },
+        },
+      })
+    }
+    if (key === `GET /ai-scribe/session/${SESSION_ID}/longitudinal`)
+      return ok(route, { visits: [] })
     if (key === `PUT /ai-scribe/session/${SESSION_ID}/draft`) {
       state.calls.push(key)
       return ok(route, { session: session() })
@@ -178,6 +202,7 @@ export async function installRxCartMock(
       state.calls.push(key)
       state.approveBodies.push(body)
       state.sessionStatus = 'APPROVED'
+      state.summaryPublished = body.sendToPatient === true
       const rx = body.rxConfirmation as { confirmedLineIds: string[] } | undefined
       if (rx) {
         state.proposal.status = 'CONFIRMED'

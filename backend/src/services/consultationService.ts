@@ -328,6 +328,41 @@ export const grantConsent = async (sessionId: string, userId: string, performedB
   return updated
 }
 
+/**
+ * The patient declines AI recording (FR-1). Recording is then refused on
+ * every path for this visit; the provider documents manually. A patient who
+ * declined can still grant consent later (they changed their mind) — but
+ * never once recording has stopped.
+ */
+export const declineConsent = async (sessionId: string, userId: string, performedById: string) => {
+  const session = await prisma.consultationSession.findUnique({
+    where: { id: sessionId, ...clinicScope() },
+  })
+  if (!session) throwApi('Session not found', 404)
+  if (session.patientId !== userId) {
+    throwApi('Only the patient can decline consent', 403, 'forbidden')
+  }
+  if (session.consentStatus === ConsentStatus.DECLINED) return session
+  if (session.recordingStatus !== RecordingStatus.NOT_STARTED) {
+    throwApi('Recording has already started for this consultation', 409, 'invalid_state')
+  }
+
+  const updated = await prisma.consultationSession.update({
+    where: { id: sessionId, clinicId: session.clinicId },
+    data: { consentStatus: ConsentStatus.DECLINED, consentGrantedAt: null },
+  })
+
+  await auditService.logAudit({
+    clinicId: session.clinicId,
+    entityType: 'ConsultationSession',
+    entityId: sessionId,
+    action: 'CONSENT_DECLINED',
+    performedById,
+  })
+
+  return updated
+}
+
 // ---------------------------------------------------------------------------
 // Recording lifecycle
 // ---------------------------------------------------------------------------
@@ -546,7 +581,12 @@ export const startTranscription = async (
   }
 
   // Create AIScribeSession — this is the bridge to existing pipeline
-  const aiSession = await aiScribeService.createSession(visitRecordId, providerId, clinicId)
+  const aiSession = await aiScribeService.createSession(
+    visitRecordId,
+    providerId,
+    clinicId,
+    performedById
+  )
 
   // Upload the recording URL to the AI scribe session
   // We need to fetch the buffer from storage and pass to aiScribe
@@ -563,9 +603,28 @@ export const startTranscription = async (
     },
   })
 
-  // Add to AI Scribe Queue to trigger background worker
+  // Add to AI Scribe Queue to trigger background worker. A queue outage is a
+  // clean 503 and a FAILED consultation the provider can retry — not a 500
+  // that leaves it stuck in PROCESSING.
   const { aiScribeQueue } = await import('../queues/aiScribeQueue')
-  await aiScribeQueue.add('process', { sessionId: aiSession.id })
+  try {
+    await aiScribeQueue.add('process', { sessionId: aiSession.id, clinicId })
+  } catch {
+    const message = 'Processing could not be started. Try again.'
+    await prisma.aIScribeSession.update({
+      where: { id: aiSession.id, clinicId },
+      data: { status: 'FAILED', errorMessage: message },
+    })
+    await prisma.consultationSession.update({
+      where: { id: sessionId, clinicId },
+      data: {
+        status: ConsultationStatus.FAILED,
+        transcriptStatus: 'FAILED',
+        errorMessage: message,
+      },
+    })
+    throwApi(message, 503, 'integration_failed')
+  }
 
   await auditService.logAudit({
     clinicId,

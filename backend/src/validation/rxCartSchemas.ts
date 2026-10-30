@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { MAX_ORDERS } from '../services/rxMappingService'
+import { patientSummaryEditSchema, soapEditSchema } from './aiScribeSchemas'
 
 const id = z.string().trim().min(1).max(64)
 const quantity = z.number().int().min(1).max(99)
@@ -21,11 +22,19 @@ export const rxConfirmationSchema = z
   })
   .strict()
 
-/** POST /ai-scribe/session/:id/approve — "Approve & send". The body is optional. */
+/**
+ * POST /ai-scribe/session/:id/approve — "Approve & send". The body is optional.
+ * `sendToPatient: true` publishes the reviewed patient summary in the same
+ * transaction (B2.4); `draft` / `patientSummary` carry the provider's final
+ * on-screen text so it is saved atomically with the approval.
+ */
 export const approveSessionSchema = z
   .object({
     clinicId: id.optional(),
     rxConfirmation: rxConfirmationSchema.optional(),
+    sendToPatient: z.boolean().optional(),
+    draft: soapEditSchema.optional(),
+    patientSummary: patientSummaryEditSchema.optional(),
   })
   .strict()
   .optional()

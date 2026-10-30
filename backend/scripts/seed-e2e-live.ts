@@ -168,6 +168,31 @@ async function main() {
     },
   })
 
+  // Component 2: a visit for the full scribe pipeline — booked WITHOUT AI
+  // consent, so the provider must record verbal consent before recording.
+  const scribeStart = new Date(start.getTime() - 48 * 3_600_000)
+  const scribeAppointment = await db.appointment.create({
+    data: {
+      clinicId: clinic.id,
+      providerId: provider.id,
+      serviceId: service.id,
+      patientId: patient.id,
+      locationId: location.id,
+      startTime: scribeStart,
+      endTime: new Date(scribeStart.getTime() + 30 * 60_000),
+      priceAtBooking: new Prisma.Decimal(100),
+      status: 'COMPLETED',
+    },
+  })
+  const scribeVisit = await db.visitRecord.create({
+    data: {
+      clinicId: clinic.id,
+      appointmentId: scribeAppointment.id,
+      providerId: provider.id,
+      patientId: patient.id,
+    },
+  })
+
   // Two bookings awaiting payment (manual guide §9.7): paying one with a
   // Stripe test card saves that card on file for one-click purchases.
   const payAppointmentIds: string[] = []
@@ -219,6 +244,8 @@ async function main() {
       providerId: provider.id,
       rxAppointmentId: rxAppointment.id,
       rxVisitRecordId: rxVisit.id,
+      scribeAppointmentId: scribeAppointment.id,
+      scribeVisitRecordId: scribeVisit.id,
       payAppointmentIds,
       products,
       emails: { admin: admin.email, provider: providerUser.email, patient: patient.email },

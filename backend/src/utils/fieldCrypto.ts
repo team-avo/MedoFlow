@@ -16,6 +16,7 @@
  * `ops:encrypt-phi` seals them.
  */
 import crypto from 'crypto'
+import { Prisma } from '@prisma/client'
 import { getKeyring } from '../config/fieldKeys'
 
 export type FieldKind = 's' | 'j'
@@ -28,7 +29,7 @@ export const ENCRYPTED_FIELDS: Readonly<Record<string, Readonly<Record<string, F
   ConsultationSession: { transcriptText: 's' },
   FormResponse: { responses: 'j' },
   VoiceCall: { transcript: 'j', summary: 's' },
-  RxOrderLine: { rawText: 's' },
+  RxOrderLine: { rawText: 's', dose: 's' },
   PatientCommerceProfile: {
     shippingName: 's',
     shippingLine1: 's',
@@ -54,6 +55,8 @@ let warnedUnconfigured = false
 /** Seals one value. Returns it unchanged when no key is configured (non-production). */
 export function sealField(model: string, field: string, kind: FieldKind, value: unknown): unknown {
   if (value === null || value === undefined) return value
+  // Prisma's null sentinels clear a JSON column; there is nothing to seal.
+  if (value === Prisma.DbNull || value === Prisma.JsonNull) return value
   if (isSealed(value)) return value
   const ring = getKeyring()
   if (!ring) {

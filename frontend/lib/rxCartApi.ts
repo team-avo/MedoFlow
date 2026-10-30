@@ -28,6 +28,8 @@ export type RxRoute = 'CART' | 'EPRESCRIBE' | 'MANUAL'
 export interface RxLine {
   id: string
   rawText: string
+  /** Strength as spoken (B2.2), e.g. "400 mg". */
+  dose?: string | null
   quantity: number
   matchedProductId: string | null
   matchStatus: 'MATCHED' | 'AMBIGUOUS' | 'UNMAPPED'
@@ -161,19 +163,7 @@ export const oneClickCheckout = async (): Promise<OneClickResult> => {
   return data.data as OneClickResult
 }
 
-/** The API's error code and message from an axios error, for recoverable UI states. */
-export function apiErrorOf(err: unknown): { status?: number; code?: string; message: string } {
-  const res = (err as { response?: { status?: number; data?: Record<string, unknown> } })?.response
-  const body = res?.data ?? {}
-  const nested = (body.error ?? {}) as Record<string, unknown>
-  const code = (body.code ?? nested.code) as string | undefined
-  const message = (body.message ?? nested.message) as string | undefined
-  return {
-    status: res?.status,
-    code,
-    message: message || 'Something went wrong. Please try again.',
-  }
-}
+export { apiErrorOf } from './apiError'
 
 export const cardLabel = (card: OnFile['card']): string =>
   card ? `${card.brand.charAt(0).toUpperCase()}${card.brand.slice(1)} •••• ${card.last4}` : ''

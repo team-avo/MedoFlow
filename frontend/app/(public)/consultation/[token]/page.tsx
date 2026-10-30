@@ -55,6 +55,7 @@ function statusLabel(status: string): string {
     FAILED: 'Issue Detected',
     PENDING: 'Pending',
     GRANTED: 'Granted',
+    DECLINED: 'Declined',
   }
   return map[status] || status
 }
@@ -72,6 +73,9 @@ export default function PatientJoinPage() {
   const [error, setError] = useState<string | null>(null)
   const [consenting, setConsenting] = useState(false)
   const [consentGranted, setConsentGranted] = useState(false)
+  // FR-1: the patient may say no. The visit still goes ahead, unrecorded.
+  const [consentDeclined, setConsentDeclined] = useState(false)
+  const [declining, setDeclining] = useState(false)
   // Video room — becomes available once the provider clicks "Start Video Call"
   // on their side. We poll for it and render the Jitsi iframe in-place.
   const [videoRoom, setVideoRoom] = useState<{
@@ -89,6 +93,7 @@ export default function PatientJoinPage() {
       const s = data.data?.session ?? data.data
       setSession(s)
       setConsentGranted(s.consentStatus === 'GRANTED')
+      setConsentDeclined(s.consentStatus === 'DECLINED')
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setError(err.response?.data?.message ?? 'This consultation link is invalid or has expired.')
@@ -113,6 +118,7 @@ export default function PatientJoinPage() {
         const s = data.data?.session ?? data.data
         setSession(s)
         setConsentGranted(s.consentStatus === 'GRANTED')
+        setConsentDeclined(s.consentStatus === 'DECLINED')
       } catch {
         // ignore
       }
@@ -126,7 +132,7 @@ export default function PatientJoinPage() {
   // session. We poll the public join endpoint for that room + JaaS JWT
   // so we can mount the Jitsi iframe on the patient side too.
   useEffect(() => {
-    if (!consentGranted || videoRoom) return
+    if (!(consentGranted || consentDeclined) || videoRoom) return
     if (!session) return
 
     let cancelled = false
@@ -151,7 +157,7 @@ export default function PatientJoinPage() {
       cancelled = true
       clearInterval(poll)
     }
-  }, [consentGranted, session, token, videoRoom])
+  }, [consentGranted, consentDeclined, session, token, videoRoom])
 
   // ----- Grant consent -----
   const handleConsent = async () => {
@@ -163,6 +169,7 @@ export default function PatientJoinPage() {
       // in-memory access token and refreshes it when needed.
       await api.post(`/consultations/${session.id}/consent`)
       setConsentGranted(true)
+      setConsentDeclined(false)
       setSession((prev) => (prev ? { ...prev, consentStatus: 'GRANTED' } : prev))
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response?.status === 401) {
@@ -173,6 +180,28 @@ export default function PatientJoinPage() {
       }
     } finally {
       setConsenting(false)
+    }
+  }
+
+  // ----- Decline consent (FR-1) -----
+  const handleDecline = async () => {
+    if (!session) return
+    try {
+      setDeclining(true)
+      setError(null)
+      await api.post(`/consultations/${session.id}/consent/decline`)
+      setConsentDeclined(true)
+      setSession((prev) => (prev ? { ...prev, consentStatus: 'DECLINED' } : prev))
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        setError('Please log in to your Medoflow account to answer.')
+      } else if (axios.isAxiosError(err) && typeof err.response?.data?.message === 'string') {
+        setError(err.response.data.message)
+      } else {
+        setError('Could not save your answer. Please try again.')
+      }
+    } finally {
+      setDeclining(false)
     }
   }
 
@@ -289,7 +318,7 @@ export default function PatientJoinPage() {
         </div>
 
         {/* Consent Card */}
-        {!consentGranted && (
+        {!consentGranted && !consentDeclined && (
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <div className="text-center mb-6">
               <div className="text-4xl mb-3">🎙️</div>
@@ -337,6 +366,46 @@ export default function PatientJoinPage() {
             >
               {consenting ? 'Processing…' : 'I Consent to Recording'}
             </button>
+            <button
+              onClick={handleDecline}
+              disabled={declining || consenting}
+              className="mt-3 w-full py-3 bg-white text-gray-700 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 disabled:opacity-50 transition text-sm"
+            >
+              {declining ? 'Saving…' : 'No, do not record'}
+            </button>
+            <p className="mt-3 text-center text-xs text-gray-500">
+              Saying no does not affect your care: the visit goes ahead and your provider takes
+              notes by hand.
+            </p>
+          </div>
+        )}
+
+        {/* Consent declined state */}
+        {consentDeclined && !consentGranted && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center" role="status">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Recording declined</h2>
+            <p className="text-gray-600 text-sm">
+              This consultation will not be recorded. Your visit goes ahead as normal and your
+              provider takes notes by hand.
+            </p>
+            {videoRoom && (
+              <button
+                onClick={() => setVideoActive(true)}
+                className="mt-6 w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition text-sm"
+              >
+                Join video consultation
+              </button>
+            )}
+            {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
+            {session.recordingStatus === 'NOT_STARTED' && (
+              <button
+                onClick={handleConsent}
+                disabled={consenting}
+                className="mt-3 text-xs font-semibold text-indigo-600 underline disabled:opacity-50"
+              >
+                Changed your mind? Allow recording
+              </button>
+            )}
           </div>
         )}
 

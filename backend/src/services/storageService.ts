@@ -110,7 +110,11 @@ export async function getAudioBufferFromRef(storageRef: AudioStorageRef): Promis
     const localPath = storageRef.startsWith('local:')
       ? storageRef.slice(6)
       : storageRef.replace(/^\//, '')
-    const fullPath = path.join(process.cwd(), localPath)
+    const uploadsRoot = path.resolve(process.cwd(), 'uploads')
+    const fullPath = path.resolve(process.cwd(), localPath)
+    if (!fullPath.startsWith(uploadsRoot + path.sep)) {
+      throw new Error('Invalid audio storage reference')
+    }
     return fs.readFileSync(fullPath)
   }
   throw new Error('Invalid audio storage reference')
