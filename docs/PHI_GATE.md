@@ -37,6 +37,9 @@ DOB or address. _(development-plan.md, Acceptance model)_
 - No clinic may be onboarded with real patients on this environment. Pilots use the demo personas
   (`*@medoflow.test`, `*.demo`) or newly created synthetic accounts.
 - The AI Scribe must not be used with real patient audio on this environment.
+  The scribe AI is pluggable (`AI_SCRIBE_*`, [ADR 0006](adr/0006-ai-provider-abstraction-and-phi-egress.md));
+  in production the app refuses to boot unless every external AI host is in `AI_SCRIBE_BAA_HOSTS`
+  (BAA + zero-retention in writing) and never uses the Gemini Developer API.
 
 ## Opening the gate
 
@@ -44,3 +47,6 @@ The gate opens only by a written, dated decision from the Security Officer that 
 option above, links the signed BAAs, and updates the vendor BAA register. Until then this file stays
 **CLOSED**, and the launch-readiness gate in `development-plan.md` and HIPAA checklist §8 item 11 stay
 open.
+
+Opening the gate also means removing `AI_SCRIBE_PHI_POLICY=synthetic-data-only` from the environment
+(if set), so the AI scribe's BAA check is enforced again ([ADR 0006](adr/0006-ai-provider-abstraction-and-phi-egress.md) §4).
