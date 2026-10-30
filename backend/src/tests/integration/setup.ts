@@ -45,3 +45,8 @@ process.env.SITE_PREVIEW_SECRET = crypto.randomBytes(32).toString('hex')
 delete process.env.STRIPE_WEBHOOK_SECRET
 delete process.env.ALERT_WEBHOOK_URL
 delete process.env.REDIS_URL
+// Component 2: the deterministic in-process scribe AI; nothing leaves the machine.
+process.env.AI_SCRIBE_LLM_PROVIDER = 'mock'
+process.env.AI_SCRIBE_STT_PROVIDER = 'mock'
+delete process.env.AI_SCRIBE_DEMO_ENABLED
+delete process.env.AI_SCRIBE_BAA_HOSTS

@@ -56,8 +56,22 @@ test('F5.1 provider removes, maps and confirms detected products, then "Approve 
       confirmedLineIds: ['l-mag', 'l-tram', 'l-turmeric'],
       acknowledged: true,
     },
+    // Component 2: one call — the note and patient summary as left on screen,
+    // published together with the approval.
+    sendToPatient: true,
+    draft: {
+      subjective: 'Synthetic: lower back stiffness.',
+      objective: 'Synthetic: restricted lumbar flexion.',
+      assessment: 'Synthetic: lumbar strain, improving.',
+      plan: 'Synthetic: core exercises, magnesium, arnica gel.',
+    },
+    patientSummary: {
+      diagnosis: 'Synthetic: your back strain is healing.',
+      treatmentPlan: 'Synthetic: core exercises and magnesium at night.',
+      nextSteps: 'Synthetic: come back in 4 days.',
+    },
   })
-  expect(rx.calls).toContain(`PUT /ai-scribe/session/${SESSION_ID}/draft`)
+  expect(rx.calls).not.toContain(`PUT /ai-scribe/session/${SESSION_ID}/draft`)
   await expect(page.getByText(/2 products sent to the patient's cart/)).toBeVisible()
   await expect(
     page

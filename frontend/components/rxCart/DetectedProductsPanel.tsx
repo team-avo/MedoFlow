@@ -158,7 +158,8 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
             {unmapped.map((line) => (
               <li key={line.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-medium text-slate-800">
-                  {line.rawText} × {line.quantity}
+                  {line.rawText}
+                  {line.dose ? ` ${line.dose}` : ''} × {line.quantity}
                 </span>
                 <label className="sr-only" htmlFor={`map-${line.id}`}>
                   Map {line.rawText} to a product
@@ -240,7 +241,8 @@ function Chip({
     >
       {rx ? <Pill className="h-3.5 w-3.5" /> : <ShoppingCart className="h-3.5 w-3.5" />}
       <span className="font-semibold">
-        {name} × {line.quantity}
+        {name}
+        {line.dose ? ` · ${line.dose}` : ''} × {line.quantity}
       </span>
       <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide no-underline">
         {rx ? 'e-Prescribe' : 'Cart'}

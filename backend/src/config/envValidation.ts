@@ -6,6 +6,7 @@ import { getSseMode, isS3Configured } from '../services/fileStorage/s3Driver'
 import { fieldEncryptionConfigProblem } from './fieldKeys'
 import { patientFilesBucket } from '../services/fileStorage'
 import { domainProviderName } from '../site/config'
+import { scribeEgressProblems } from '../services/ai/egressPolicy'
 
 /**
  * Configuration problems found at boot. `fatal` entries stop a production
@@ -105,6 +106,9 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
       'SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL are not set — website image uploads are disabled'
     )
   }
+
+  // B2.7 / FR-13 — the AI scribe may only send PHI to BAA-covered hosts.
+  for (const p of scribeEgressProblems(env)) problems.push(p)
 
   if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
     warn('STRIPE_SECRET_KEY is not set — Stripe payment features will not function')

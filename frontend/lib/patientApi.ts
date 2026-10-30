@@ -352,3 +352,22 @@ export const getMyInvoices = async (): Promise<any[]> => {
   }>('/invoices/my')
   return data.data.invoices
 }
+
+/** One published care summary in the patient's portal (F2.6). */
+export interface PublishedSummary {
+  sessionId: string
+  visitRecordId: string
+  appointmentId: string
+  visitDate: string
+  providerName: string | null
+  publishedAt: string
+  summary: { diagnosis: string; treatmentPlan: string; nextSteps: string }
+}
+
+/** The signed-in patient's published care summaries, newest first. */
+export const getMySummaries = async (): Promise<PublishedSummary[]> => {
+  const { data } = await api.get<{ success: boolean; data: { summaries: PublishedSummary[] } }>(
+    '/visits/me/summaries'
+  )
+  return data.data.summaries
+}

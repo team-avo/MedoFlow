@@ -165,12 +165,36 @@ describe('parseScribeOrders', () => {
       null,
     ])
     assert.deepEqual(orders, [
-      { name: 'Arnica gel', quantity: 1 },
-      { name: 'Magnesium', quantity: 2 },
-      { name: 'Vitamin D', quantity: 3 },
-      { name: 'Fish oil', quantity: 1 },
-      { name: 'Zinc', quantity: 99 },
+      { name: 'Arnica gel', dose: null, quantity: 1 },
+      { name: 'Magnesium', dose: null, quantity: 2 },
+      { name: 'Vitamin D', dose: null, quantity: 3 },
+      { name: 'Fish oil', dose: null, quantity: 1 },
+      { name: 'Zinc', dose: null, quantity: 99 },
     ])
+  })
+
+  it('B2.2: keeps the dose separate from the name (dose / strength / dosage)', () => {
+    const orders = parseScribeOrders([
+      { name: 'Magnesium glycinate', dose: '400 mg', quantity: 2 },
+      { name: 'Vitamin D3', strength: '5000 IU' },
+      { name: 'Zinc', dosage: 25 },
+      { name: 'Arnica gel', dose: '   ' },
+      { name: 'Fish oil', dose: { amount: 1 } },
+    ])
+    assert.deepEqual(orders, [
+      { name: 'Magnesium glycinate', dose: '400 mg', quantity: 2 },
+      { name: 'Vitamin D3', dose: '5000 IU', quantity: 1 },
+      { name: 'Zinc', dose: '25', quantity: 1 },
+      { name: 'Arnica gel', dose: null, quantity: 1 },
+      { name: 'Fish oil', dose: null, quantity: 1 },
+    ])
+  })
+
+  it('B2.2: a mapped line carries the dose through to the proposal', () => {
+    const [line] = mapOrders([{ name: 'Magnesium glycinate', dose: '400 mg', quantity: 2 }], [])
+    assert.equal(line!.dose, '400 mg')
+    assert.equal(line!.rawText, 'Magnesium glycinate')
+    assert.equal(line!.matchStatus, 'UNMAPPED')
   })
 
   it('returns [] for anything that is not an array, and caps the count', () => {

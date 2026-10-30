@@ -55,13 +55,13 @@ test('provider: scribe detects products, provider maps + confirms, "Approve & se
   const console = `/dashboard/provider/visits/${seed!.rxVisitRecordId}/scribe`
   await signIn(page, seed!.emails.provider, console)
 
-  await page.getByRole('button', { name: 'Start Documentation Session' }).click()
+  await page.getByRole('button', { name: 'Start documentation session' }).click()
   await page.getByRole('button', { name: 'Demo: simulate conversation' }).click()
 
   const panel = page.getByRole('region', { name: 'Detected products' })
-  await expect(panel.getByText('Magnesium Glycinate × 2')).toBeVisible()
+  await expect(panel.getByText('Magnesium Glycinate · 400 mg × 2')).toBeVisible()
   await expect(panel.getByText('Arnica Gel × 1')).toBeVisible()
-  await expect(panel.getByText('Tramadol × 1')).toBeVisible()
+  await expect(panel.getByText('Tramadol · 50 mg × 1')).toBeVisible()
   await expect(panel.getByText('e-Prescribe', { exact: true })).toBeVisible()
   await expect(panel.getByText('Turmeric complex × 1')).toBeVisible()
 

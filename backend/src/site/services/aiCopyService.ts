@@ -7,7 +7,7 @@
  * Any model failure leaves the template copy untouched.
  */
 import prisma from '../../config/prisma'
-import { chatCompletion } from '../../services/aiProviderService'
+import { getScribeAi } from '../../services/ai/registry'
 import { notFound } from '../errors'
 import type { SiteActor } from '../actor'
 import { upgradeSections } from '../content/legacy'
@@ -94,13 +94,15 @@ export async function personaliseHomeCopy(actor: SiteActor) {
   if (!home) throw notFound('Home page')
   let copy: GeneratedCopy | null = null
   try {
-    copy = parseCopy(
-      await chatCompletion({
-        ...buildCopyPrompt(await clinicFacts(actor.clinicId)),
-        jsonMode: true,
-        temperature: 0.7,
-      })
-    )
+    // The configured AI_SCRIBE_LLM_* model: the prompt holds business facts only.
+    const { systemPrompt, userMessage } = buildCopyPrompt(await clinicFacts(actor.clinicId))
+    const res = await getScribeAi().llm.complete({
+      system: systemPrompt,
+      user: userMessage,
+      json: true,
+      temperature: 0.7,
+    })
+    copy = parseCopy(res.text)
   } catch (e) {
     console.warn(
       '[site-ai] copy generation unavailable — keeping template copy:',

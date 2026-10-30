@@ -223,3 +223,18 @@ export const listClinic = asyncHandler(
     successResponse(res, 200, 'Visit records retrieved', { visitRecords })
   }
 )
+
+/** GET /visits/me/summaries — the patient's published care summaries (F2.6). */
+export const listMySummaries = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const summaries = await aiScribeService.listPublishedSummariesForPatient(req.user!.id)
+    for (const s of summaries) {
+      await logRead(req, {
+        entityType: 'AIScribeSession',
+        entityId: s.sessionId,
+        clinicId: s.clinicId,
+      })
+    }
+    successResponse(res, 200, 'Summaries retrieved', { summaries })
+  }
+)

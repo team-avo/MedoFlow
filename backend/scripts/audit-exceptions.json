@@ -1,9 +1,1 @@
-[
-  {
-    "id": "GHSA-vfj7-8cjw-p6xm",
-    "package": "braces (via nodejs-whisper > shelljs > fast-glob > micromatch)",
-    "owner": "backend",
-    "reason": "No patched braces release exists. ReDoS needs attacker-controlled brace patterns; shelljs only receives fixed, server-generated paths for local whisper.cpp. Removed by B2.1 (replace self-hosted scribe with a BAA-covered vendor).",
-    "expires": "2027-01-31"
-  }
-]
+[]

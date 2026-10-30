@@ -14,9 +14,11 @@
 import type { ProductFulfillmentClass, RxMatchStatus, RxRoute } from '@prisma/client'
 import prisma from '../config/prisma'
 
-/** One order as the scribe extracted it. */
+/** One order as the scribe extracted it (B2.2). */
 export interface ScribeOrder {
   name: string
+  /** Strength as spoken, e.g. "400 mg"; null when none was said. */
+  dose?: string | null
   quantity?: number
 }
 
@@ -31,6 +33,7 @@ export interface CatalogProduct {
 
 export interface MappedLine {
   rawText: string
+  dose: string | null
   quantity: number
   matchedProductId: string | null
   matchStatus: RxMatchStatus
@@ -41,6 +44,7 @@ export interface MappedLine {
 
 export const MAX_ORDERS = 25
 const MAX_ORDER_TEXT = 300
+const MAX_DOSE_TEXT = 60
 const MAX_QUANTITY = 99
 const FUZZY_THRESHOLD = 0.6
 
@@ -123,6 +127,7 @@ export function parseScribeOrders(value: unknown): ScribeOrder[] {
   const out: ScribeOrder[] = []
   for (const entry of value) {
     let name = ''
+    let dose: unknown
     let quantity: unknown
     if (typeof entry === 'string') {
       name = entry
@@ -130,11 +135,16 @@ export function parseScribeOrders(value: unknown): ScribeOrder[] {
       const rec = entry as Record<string, unknown>
       const raw = rec.name ?? rec.product ?? rec.item ?? rec.medication ?? ''
       name = typeof raw === 'string' ? raw : ''
+      dose = rec.dose ?? rec.strength ?? rec.dosage
       quantity = rec.quantity ?? rec.qty
     }
     name = name.trim().slice(0, MAX_ORDER_TEXT)
     if (!name) continue
-    out.push({ name, quantity: clampQuantity(quantity) })
+    const cleanDose =
+      typeof dose === 'string' || typeof dose === 'number'
+        ? String(dose).trim().slice(0, MAX_DOSE_TEXT) || null
+        : null
+    out.push({ name, dose: cleanDose, quantity: clampQuantity(quantity) })
     if (out.length >= MAX_ORDERS) break
   }
   return out
@@ -219,6 +229,7 @@ export function mapOrders(orders: ScribeOrder[], catalog: CatalogProduct[]): Map
     const product = m.id ? byId.get(m.id) : undefined
     return {
       rawText: order.name.trim().slice(0, MAX_ORDER_TEXT),
+      dose: order.dose?.trim().slice(0, MAX_DOSE_TEXT) || null,
       quantity: clampQuantity(order.quantity),
       matchedProductId: product?.id ?? null,
       matchStatus: m.status,

@@ -94,6 +94,7 @@ export async function upsertProposalForSession(
           clinicId,
           proposalId: id,
           rawText: line.rawText,
+          dose: line.dose,
           quantity: line.quantity,
           matchedProductId: line.matchedProductId,
           matchStatus: line.matchStatus,

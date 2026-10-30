@@ -52,10 +52,14 @@ PHI flows to each of these in MedoFlow today (verified against the code on 2026-
 - [ ] 🔴 **Redis Cloud** (BullMQ queues): job data holds record IDs only today (`aiScribeQueue.ts`); keep it that way, and still prefer a BAA-covered, TLS-only instance.
 - [x] 🔴 **Patient file uploads**: _2026-10-16 (B3.1): moved to object storage (R2 today) via presigned URLs; production refuses local disk. BAA coverage of the store is still governed by the Cloudflare row above / ADR 0001._
 
-**AI Scribe (self-hosted — no third party sees the content):**
+**AI Scribe (pluggable — [ADR 0006](adr/0006-ai-provider-abstraction-and-phi-egress.md); _updated 2026-10-29, Component 2_):**
 
-- [ ] 🔴 **Whisper** (`nodejs-whisper` / whisper.cpp in `aiProviderService.ts`): runs **locally** on our server. ✅ Confirmed — no BAA needed while it stays self-hosted.
-- [ ] 🔴 **Ollama + Llama 3.1** (`OLLAMA_URL` / `OLLAMA_MODEL` in `aiProviderService.ts`; called via the misnamed `openaiService.ts`): drafts SOAP notes, timelines and patient summaries from the full transcript. Self-hosted, so no BAA — **but** the Ollama endpoint is plain HTTP with no auth: it must run on a private network with TLS + auth, and on infrastructure covered by our host's BAA.
+The scribe sends consultation audio (speech-to-text) and the transcript plus a prior-visit digest (drafting) to whatever `AI_SCRIBE_STT_*` / `AI_SCRIBE_LLM_*` configure. **Production refuses to boot** unless every external host is listed in `AI_SCRIBE_BAA_HOSTS`, and the Gemini Developer API is refused outright (`services/ai/egressPolicy.ts`). Add a host to that list **only** after the row below is ticked.
+
+- [ ] 🔴 **Scribe speech-to-text vendor** (`AI_SCRIBE_STT_PRESET`): BAA + zero-retention confirmed in writing, then host added to `AI_SCRIBE_BAA_HOSTS` — or self-hosted (`whisper-server` on a private network with TLS).
+- [ ] 🔴 **Scribe drafting LLM** (`AI_SCRIBE_LLM_PRESET` — OpenAI / Azure OpenAI / Vertex Gemini / Anthropic-compatible gateway, B2.7): BAA + zero-retention in writing, host in `AI_SCRIBE_BAA_HOSTS` — or self-hosted (`ollama` on a private network with TLS + auth, on BAA-covered infrastructure).
+- [x] 🔴 **In-process whisper.cpp / Ollama hard-wiring**: _removed 2026-10-29 (B2.1) together with `nodejs-whisper` and its audit exception._
+- [ ] 🟡 **Website AI copy** (Component 8) uses the same LLM; its prompts hold business facts only (unit-tested), so it adds no PHI flow.
 
 **Voice agent / AI front desk (third parties that DO receive PHI):**
 

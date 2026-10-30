@@ -1,26 +1,29 @@
 /**
  * BullMQ queue for AI Scribe processing.
  * Queue name: ai-scribe-processing
- * Worker steps: transcribe (Whisper) -> generate SOAP (GPT) -> update session.
+ * Worker steps: transcribe → label speakers → draft (SOAP + timeline + orders
+ * + continuity + patient summary) → map orders to the catalog.
+ * The AI is whatever AI_SCRIBE_* configures (services/ai/registry.ts).
  * Visit note versions are only created during explicit provider approval.
+ *
+ * PHI (B2.6): job data holds ids only; failures are stored, logged and kept
+ * as BullMQ failure reasons as safe codes (services/ai/errors.ts) — never
+ * model input, model output or provider error text.
  */
 
 import type { Job } from 'bullmq'
-import { Queue, Worker } from 'bullmq'
+import { Queue, UnrecoverableError, Worker } from 'bullmq'
 import prisma from '../config/prisma'
-import type * as aiScribeService from '../services/aiScribeService'
 import * as storageService from '../services/storageService'
-import * as aiProviderService from '../services/aiProviderService'
 import * as rxCartService from '../services/rxCartService'
-import { parseScribeOrders, type ScribeOrder } from '../services/rxMappingService'
+import * as auditService from '../services/auditService'
+import { buildPriorDigest } from '../services/longitudinalService'
+import { generateAnalysis, labelSpeakers, resolveBasePrompt } from '../services/scribeAnalysis'
+import { getScribeAi, getScribeAiConfig, provenance } from '../services/ai/registry'
+import { isAiError, safeFailureMessage } from '../services/ai/errors'
 import { withTenantBypass } from '../config/tenantContext'
-import path from 'path'
-import fs from 'fs'
-import https from 'https'
-import http from 'http'
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
-const AI_MODEL = process.env.OLLAMA_MODEL || 'llama3.1:8b'
 
 const connection = {
   host: process.env.REDIS_HOST || 'localhost',
@@ -47,6 +50,9 @@ function parseRedisUrl(url: string) {
 const redisConfig = process.env.REDIS_URL ? parseRedisUrl(REDIS_URL) : connection
 
 export const AI_SCRIBE_QUEUE_NAME = 'ai-scribe-processing'
+export const AI_SCRIBE_JOB_ATTEMPTS = 3
+/** Whole-job ceiling; each provider call also has AI_SCRIBE_TIMEOUT_MS. */
+const JOB_TIMEOUT_MS = 10 * 60_000
 
 let _aiScribeQueue: Queue | null = null
 
@@ -55,13 +61,20 @@ export function getAiScribeQueue(): Queue {
     _aiScribeQueue = new Queue(AI_SCRIBE_QUEUE_NAME, {
       connection: redisConfig,
       defaultJobOptions: {
-        attempts: 3,
+        attempts: AI_SCRIBE_JOB_ATTEMPTS,
         backoff: { type: 'exponential', delay: 5000 },
         removeOnComplete: 100,
+        // Failure reasons are safe codes, but keep the history bounded anyway.
+        removeOnFail: { age: 7 * 24 * 3600, count: 500 },
       },
     })
   }
   return _aiScribeQueue
+}
+
+/** Tests only: route `aiScribeQueue` to a stand-in (no Redis). Pass null to restore. */
+export function setAiScribeQueueForTests(queue: Pick<Queue, 'add'> | null): void {
+  _aiScribeQueue = queue as Queue | null
 }
 
 /**
@@ -79,8 +92,18 @@ export const aiScribeQueue = new Proxy({} as Queue, {
 
 export interface AiScribeJobData {
   sessionId: string
-  /** When true, skip Whisper and regenerate SOAP from existing transcript only */
+  /** The session's clinic: the worker looks the session up scoped to it. */
+  clinicId?: string
+  /** When true, skip transcription and regenerate the draft from the stored transcript. */
   regenerateSoapOnly?: boolean
+}
+
+/** The parts of a BullMQ job the processor uses (tests pass a plain object). */
+export interface ScribeJob {
+  data: AiScribeJobData
+  attemptsMade: number
+  opts: { attempts?: number }
+  updateProgress(progress: number): Promise<unknown>
 }
 
 function logStructured(event: string, data: Record<string, string | number | undefined>) {
@@ -91,401 +114,205 @@ function logStructured(event: string, data: Record<string, string | number | und
   console.warn(`[AI Scribe] ${event} ${parts}`)
 }
 
-async function fetchAudioBuffer(audioRef: string): Promise<Buffer> {
-  if (audioRef.startsWith('s3:') || audioRef.startsWith('local:')) {
-    return storageService.getAudioBufferFromRef(audioRef)
-  }
-  if (audioRef.startsWith('/uploads/') || audioRef.startsWith('uploads/')) {
-    const normalized = audioRef.startsWith('/') ? audioRef.slice(1) : audioRef
-    const fullPath = path.join(process.cwd(), normalized)
-    return fs.readFileSync(fullPath)
-  }
-  if (audioRef.startsWith('http')) {
-    return new Promise((resolve, reject) => {
-      const client = audioRef.startsWith('https') ? https : http
-      client
-        .get(audioRef, (res) => {
-          const chunks: Buffer[] = []
-          res.on('data', (chunk: Buffer) => chunks.push(chunk))
-          res.on('end', () => resolve(Buffer.concat(chunks)))
-          res.on('error', reject)
-        })
-        .on('error', reject)
-    })
-  }
-  throw new Error('Invalid audio reference')
+const MIME_BY_EXTENSION: Record<string, string> = {
+  webm: 'audio/webm',
+  ogg: 'audio/ogg',
+  wav: 'audio/wav',
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+  mp4: 'audio/mp4',
+  flac: 'audio/flac',
 }
 
-async function transcribeWithWhisper(buffer: Buffer, mimeType: string): Promise<string> {
-  return aiProviderService.transcribeAudio(buffer, mimeType)
-}
-
-function cleanTranscript(transcript: string): string {
-  const fillerPhrases = [
-    /\bhello doctor\b/gi,
-    /\bgood morning\b/gi,
-    /\bgood afternoon\b/gi,
-    /\bgood evening\b/gi,
-    /\bthank you\b/gi,
-    /\bthanks\b/gi,
-    /\bokay\b/gi,
-    /\bok\b/gi,
-    /\buh\b/gi,
-    /\bum\b/gi,
-    /\buhm\b/gi,
-  ]
-  let cleaned = transcript
-  for (const pattern of fillerPhrases) {
-    cleaned = cleaned.replace(pattern, ' ')
-  }
-  return cleaned.replace(/\s+/g, ' ').trim()
-}
-
-export interface ClinicalTimeline {
-  symptoms: string[]
-  duration: string | null
-  assessment: string | null
-  plan: string[]
-}
-
-export interface ClinicalAnalysisResult {
-  timeline: ClinicalTimeline
-  soap: aiScribeService.SoapDraft
-  orders: ScribeOrder[]
+/** The audio's MIME type from its storage reference ("…/audio.wav" → audio/wav). */
+export function mimeTypeForRef(ref: string): string {
+  const ext = ref.split('.').pop()?.toLowerCase() ?? ''
+  return MIME_BY_EXTENSION[ext] ?? 'audio/webm'
 }
 
 /**
- * Appended to every scribe prompt (template or fallback) so the model also
- * lists the products it heard prescribed or recommended (B5.1).
+ * Runs one scribe job. Exported for tests. Throws on failure; the worker
+ * decides whether that failure is final (see `runScribeJob`).
  */
-export const ORDERS_INSTRUCTION = `
+export async function processAiScribeJob(job: ScribeJob, signal?: AbortSignal): Promise<void> {
+  const { sessionId, clinicId, regenerateSoapOnly } = job.data
+  const ai = getScribeAi()
 
-Also include a top-level "orders" array in the same JSON object, listing every product, supplement, topical or medication the provider recommended or prescribed in this visit, as {"name": "<product as spoken, with strength>", "quantity": <whole number, default 1>}. Use [] when there are none. Do not invent orders.`
-
-async function resolveScribePrompt(
-  providerId: string,
-  tone: 'CONCISE' | 'DETAILED'
-): Promise<string> {
-  return (await resolveBasePrompt(providerId, tone)) + ORDERS_INSTRUCTION
-}
-
-async function resolveBasePrompt(
-  providerId: string,
-  tone: 'CONCISE' | 'DETAILED'
-): Promise<string> {
-  const fallbackPrompt = `Convert this medical conversation into a clinical timeline and a structured SOAP note.
-Return valid JSON only, no markdown or extra text:
-{"timeline": {"symptoms": [], "duration": "", "assessment": "", "plan": []}, "soap": {"subjective": "", "objective": "", "assessment": "", "plan": ""}, "orders": [{"name": "", "quantity": 1}]}`
-
-  try {
-    const provider = await prisma.provider.findUnique({
-      where: { id: providerId },
-      select: {
-        scribeTemplate: { select: { systemPrompt: true, isActive: true } },
-      },
-    })
-    const tpl = provider?.scribeTemplate
-    if (tpl?.isActive && tpl.systemPrompt) {
-      const toneNote =
-        tone === 'DETAILED'
-          ? '\n\nWrite a thorough, complete note. Preserve clinically relevant detail.'
-          : '\n\nWrite a concise, scannable note. One or two crisp sentences per section unless complexity demands more.'
-      return tpl.systemPrompt + toneNote
-    }
-
-    // No per-provider template — fall back to the platform GENERIC default.
-    const generic = await prisma.scribeTemplate.findFirst({
-      where: { clinicId: null, specialty: 'GENERIC', isActive: true },
-      select: { systemPrompt: true },
-    })
-    if (generic?.systemPrompt) return generic.systemPrompt
-  } catch (e) {
-    console.warn('[scribeQueue] could not resolve template, falling back', e)
-  }
-  return fallbackPrompt
-}
-
-/**
- * Exactly `String(value)` for JSON-shaped values (arrays join with ",", plain
- * objects become "[object Object]"), without relying on implicit toString.
- */
-function jsonValueToString(value: unknown): string {
-  if (typeof value === 'string') return value
-  if (Array.isArray(value)) return value.join(',')
-  if (value !== null && typeof value === 'object') return Object.prototype.toString.call(value)
-  return String(value as number | boolean | bigint | symbol | null | undefined)
-}
-
-async function generateClinicalAnalysis(
-  transcript: string,
-  providerId: string,
-  tone: 'CONCISE' | 'DETAILED'
-): Promise<ClinicalAnalysisResult> {
-  const cleaned = cleanTranscript(transcript)
-  const systemPrompt = await resolveScribePrompt(providerId, tone)
-
-  const text = await aiProviderService.chatCompletion({
-    systemPrompt,
-    userMessage: cleaned,
-    jsonMode: true,
-  })
-
-  type Json = Record<string, unknown>
-  let parsed: Json = {}
-  try {
-    // Try to find a JSON object in the text if it contains markdown or extra conversational text
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      parsed = JSON.parse(jsonMatch[0]) as Json
-    } else {
-      parsed = JSON.parse(text) as Json
-    }
-  } catch (err) {
-    console.error('Failed to parse LLM JSON response:', err)
-    parsed = {}
-  }
-
-  // --- Resilient parsing: deep search for keywords if structure is unexpected ---
-  function findKeyAcross(obj: unknown, keys: string[]): unknown {
-    if (!obj || typeof obj !== 'object') return undefined
-    const record = obj as Json
-
-    for (const key of keys) {
-      // Direct match (case-insensitive)
-      const exactMatch = Object.keys(record).find((k) => k.toLowerCase() === key.toLowerCase())
-      if (exactMatch && record[exactMatch] !== undefined) return record[exactMatch]
-    }
-
-    // Recursive search
-    for (const val of Object.values(record)) {
-      if (val && typeof val === 'object') {
-        const found = findKeyAcross(val, keys)
-        if (found !== undefined) return found
-      }
-    }
-    return undefined
-  }
-
-  // Try standard path first, fallback to deep search
-  const soapSource = parsed.soap || parsed.aiDraft || parsed
-  const timelineSource = parsed.timeline || parsed
-
-  const timeline = {
-    symptoms: findKeyAcross(timelineSource, ['symptom', 'symptoms']) || [],
-    duration: findKeyAcross(timelineSource, ['duration', 'time']) || null,
-    assessment:
-      findKeyAcross(timelineSource, ['assessment', 'timelineAssessment', 'impression']) || null,
-    plan: findKeyAcross(timelineSource, ['plan', 'timelinePlan', 'steps']) || [],
-  }
-
-  const soap = {
-    subjective: jsonValueToString(findKeyAcross(soapSource, ['subjective', 's']) || ''),
-    objective: jsonValueToString(findKeyAcross(soapSource, ['objective', 'o']) || ''),
-    assessment: jsonValueToString(
-      findKeyAcross(soapSource, ['assessment', 'a', 'impression']) || ''
-    ),
-    plan: jsonValueToString(findKeyAcross(soapSource, ['plan', 'p', 'treatment']) || ''),
-  }
-
-  return {
-    orders: parseScribeOrders(
-      findKeyAcross(parsed, ['orders', 'products', 'recommendedProducts', 'prescriptions'])
-    ),
-    timeline: {
-      symptoms: Array.isArray(timeline.symptoms) ? timeline.symptoms.map(String) : [],
-      duration: timeline.duration != null ? jsonValueToString(timeline.duration) : null,
-      assessment: timeline.assessment != null ? jsonValueToString(timeline.assessment) : null,
-      plan: Array.isArray(timeline.plan) ? timeline.plan.map(String) : [],
+  const session = await prisma.aIScribeSession.findFirst({
+    where: { id: sessionId, ...(clinicId ? { clinicId } : {}) },
+    include: {
+      provider: { select: { userId: true, scribeTone: true } },
+      visitRecord: { select: { patientId: true } },
     },
-    soap,
-  }
-}
-
-async function processAiScribeJob(job: Job<AiScribeJobData>) {
-  const { sessionId, regenerateSoapOnly } = job.data
-  const startTime = Date.now()
-
-  const session = await prisma.aIScribeSession.findUnique({
-    where: { id: sessionId },
-    include: { provider: { select: { userId: true, scribeTone: true } } },
   })
-  if (!session) {
-    throw new Error('Session not found')
-  }
-  if (!regenerateSoapOnly && !session.audioUrl) {
-    throw new Error('Session or audio not found')
-  }
-
-  if (session.status === 'APPROVED') {
-    throw new Error('This session has already been finalized.')
+  if (!session) throw new UnrecoverableError('session_not_found')
+  // Approved notes are final: a late or duplicate job is a no-op.
+  if (session.status === 'APPROVED') return
+  if (!regenerateSoapOnly && !session.audioUrl && !session.transcript) {
+    throw new UnrecoverableError('audio_missing')
   }
 
-  const visitRecordId = session.visitRecordId
-  const providerId = session.providerId
-
-  try {
-    await prisma.aIScribeSession.update({
-      where: { id: sessionId },
-      data: { processingStartedAt: new Date(), errorMessage: null },
-    })
-  } catch (err) {
-    logStructured('Processing Start Failed', {
-      sessionId,
-      visitRecordId,
-      providerId,
-      error: err instanceof Error ? err.message : String(err),
-    })
-    throw err
-  }
-
+  const scope = { id: sessionId, clinicId: session.clinicId }
+  await prisma.aIScribeSession.update({
+    where: scope,
+    data: { processingStartedAt: new Date(), errorMessage: null, status: 'TRANSCRIBING' },
+  })
   await job.updateProgress(10)
 
-  let transcript: string
-
-  if (regenerateSoapOnly && session.transcript) {
-    transcript = session.transcript
-    try {
-      await prisma.aIScribeSession.update({
-        where: { id: sessionId },
-        data: { status: 'TRANSCRIBING' },
-      })
-    } catch {
-      // non-fatal
-    }
-    await job.updateProgress(40)
-  } else {
-    try {
-      await prisma.aIScribeSession.update({
-        where: { id: sessionId },
-        data: { status: 'TRANSCRIBING' },
-      })
-    } catch {
-      // non-fatal
-    }
-
-    const buffer = await fetchAudioBuffer(session.audioUrl!)
-    const mimeType = 'audio/webm'
+  // 1. Transcript. Reused when it already exists (regenerate, or a retry after
+  //    transcription succeeded); uploading new audio clears it.
+  let transcript = session.transcript
+  let sttModel = session.sttModel
+  if (!transcript) {
+    const audio = await storageService.getAudioBufferFromRef(session.audioUrl!)
     await job.updateProgress(30)
-
-    transcript = await transcribeWithWhisper(buffer, mimeType)
-    await prisma.aIScribeSession.update({
-      where: { id: sessionId },
-      data: { transcript },
-    })
-    await job.updateProgress(50)
+    const result = await ai.stt.transcribe(
+      {
+        audio,
+        mimeType: mimeTypeForRef(session.audioUrl!),
+        language: getScribeAiConfig().language,
+      },
+      { signal }
+    )
+    transcript = result.text
+    sttModel = result.model
+    await prisma.aIScribeSession.update({ where: scope, data: { transcript, sttModel } })
   }
+  await job.updateProgress(50)
 
-  let finalTranscriptText = transcript
-
+  // 2. Speaker labels. Best effort and idempotent; the raw transcript stands
+  //    when labelling fails for a reason a retry would not fix.
   try {
-    const diarizationPrompt = `You are an expert medical transcriptionist. You have been given a messy block of text that represents a raw audio transcript of a patient consultation.
-There are two speakers: a Provider (doctor) and a Patient.
-Your job is to read the text, use context clues to figure out who is speaking, and rewrite the transcript as a clean dialogue.
-Format your output exactly like this:
-Provider: [text]
-Patient: [text]
-Output ONLY the dialogue, nothing else. Do not summarize, keep the exact words if possible.`
-
-    const diarizedText = await aiProviderService.chatCompletion({
-      systemPrompt: diarizationPrompt,
-      userMessage: transcript,
-      jsonMode: false,
-    })
-
-    if (diarizedText && diarizedText.length > 50) {
-      finalTranscriptText = diarizedText
-      await prisma.aIScribeSession.update({
-        where: { id: sessionId },
-        data: { transcript: finalTranscriptText },
-      })
+    const labelled = await labelSpeakers(ai.llm, transcript, { signal })
+    if (labelled !== transcript) {
+      transcript = labelled
+      await prisma.aIScribeSession.update({ where: scope, data: { transcript } })
     }
   } catch (e) {
-    console.warn('Pseudo-diarization failed, falling back to raw transcript', e)
+    if (isAiError(e) && e.retryable) throw e
+    logStructured('Speaker labelling skipped', { sessionId, code: safeFailureMessage(e).code })
+  }
+  await job.updateProgress(60)
+
+  // 3. Draft, with the patient's prior approved visits for continuity (FR-7).
+  const tone = session.provider?.scribeTone ?? 'CONCISE'
+  const [basePrompt, priorDigest] = await Promise.all([
+    resolveBasePrompt(session.providerId, tone),
+    buildPriorDigest(session.visitRecord.patientId, session.clinicId, session.visitRecordId),
+  ])
+  const { analysis, model } = await generateAnalysis(
+    ai.llm,
+    { basePrompt, transcript, priorDigest },
+    { signal }
+  )
+  const llm = ai.llm.describe()
+
+  // 4. B5.1: map detected products to the clinic catalog for provider review,
+  //    before the draft is marked ready: the review screen loads the products
+  //    as soon as it sees DRAFT_GENERATED, so they must already be current.
+  //    Never fails the note: a mapping error only means no chips are shown.
+  try {
+    await rxCartService.upsertProposalForSession(sessionId, session.clinicId, analysis.orders)
+  } catch (err) {
+    logStructured('Rx proposal failed', { sessionId, code: safeFailureMessage(err).code })
   }
 
-  const tone = session.provider?.scribeTone ?? 'CONCISE'
-  const {
-    timeline,
-    soap: soapDraft,
-    orders,
-  } = await generateClinicalAnalysis(finalTranscriptText, providerId, tone)
   await prisma.aIScribeSession.update({
-    where: { id: sessionId },
+    where: scope,
     data: {
-      timeline: timeline as object,
-      aiDraft: soapDraft as object,
+      timeline: { ...analysis.timeline, continuity: analysis.continuity } as object,
+      aiDraft: analysis.soap as object,
+      // A draft for the provider to review and edit; patients only ever see it
+      // once it is approved and published (B2.4).
+      patientSummary: analysis.patientSummary as object,
+      patientSummaryPublished: false,
       status: 'DRAFT_GENERATED',
       processingCompletedAt: new Date(),
-      aiModel: AI_MODEL,
+      aiModel: model,
+      aiProvider: provenance(llm),
       errorMessage: null,
     },
   })
   await job.updateProgress(80)
 
-  // B5.1: map detected products to the clinic catalog for provider review.
-  // Never fails the note: a mapping error only means no chips are shown.
-  try {
-    await rxCartService.upsertProposalForSession(sessionId, session.clinicId, orders)
-  } catch (err) {
-    logStructured('Rx proposal failed', {
-      sessionId,
-      error: err instanceof Error ? err.message : String(err),
-    })
-  }
+  // A consultation that fed this session now has its transcript.
+  await prisma.consultationSession.updateMany({
+    where: { aiScribeSessionId: sessionId, clinicId: session.clinicId, status: 'PROCESSING' },
+    data: { status: 'TRANSCRIPT_READY', transcriptStatus: 'READY', errorMessage: null },
+  })
+
+  await auditService.logAudit({
+    clinicId: session.clinicId,
+    entityType: 'AIScribeSession',
+    entityId: sessionId,
+    action: regenerateSoapOnly ? 'AI_DRAFT_REGENERATED' : 'AI_DRAFT_GENERATED',
+    // Provenance only — never content (FR-15).
+    newValue: { aiProvider: provenance(llm), aiModel: model, sttModel },
+    performedById: session.provider?.userId ?? null,
+  })
 
   await job.updateProgress(100)
+}
 
-  const duration = Math.round((Date.now() - startTime) / 1000)
-  logStructured('Processing Completed', {
-    sessionId,
-    visitRecordId,
-    providerId,
-    duration: `${duration}s`,
-    model: AI_MODEL,
-  })
+/**
+ * Runs a job with a cancelling timeout and records the outcome. A session is
+ * marked FAILED only when no retry is left (or the error cannot be fixed by
+ * retrying), so the provider never sees FAILED while BullMQ is still trying.
+ */
+export async function runScribeJob(job: ScribeJob): Promise<void> {
+  const { sessionId, clinicId } = job.data
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS)
+  const startTime = Date.now()
+  try {
+    await processAiScribeJob(job, controller.signal)
+    logStructured('Processing Completed', {
+      sessionId,
+      duration: `${Math.round((Date.now() - startTime) / 1000)}s`,
+    })
+  } catch (err) {
+    const safe = controller.signal.aborted
+      ? { code: 'ai_timeout', message: 'Processing took too long. Try again.' }
+      : safeFailureMessage(err)
+    const retryable =
+      !(err instanceof UnrecoverableError) &&
+      (controller.signal.aborted || (isAiError(err) ? err.retryable : true))
+    const attempts = job.opts.attempts ?? 1
+    const final = !retryable || job.attemptsMade + 1 >= attempts
+    if (final) {
+      await prisma.aIScribeSession.updateMany({
+        where: { id: sessionId, ...(clinicId ? { clinicId } : {}), status: { not: 'APPROVED' } },
+        data: { status: 'FAILED', errorMessage: safe.message },
+      })
+      await prisma.consultationSession.updateMany({
+        where: {
+          aiScribeSessionId: sessionId,
+          ...(clinicId ? { clinicId } : {}),
+          status: 'PROCESSING',
+        },
+        data: { status: 'FAILED', transcriptStatus: 'FAILED', errorMessage: safe.message },
+      })
+    }
+    logStructured(final ? 'Processing Failed' : 'Processing attempt failed, retrying', {
+      sessionId,
+      code: safe.code,
+      attempt: job.attemptsMade + 1,
+    })
+    // The failure reason BullMQ keeps in Redis is the code only.
+    if (final && !(err instanceof UnrecoverableError)) throw new UnrecoverableError(safe.code)
+    throw err instanceof UnrecoverableError ? err : new Error(safe.code)
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export function createAiScribeWorker(): Worker<AiScribeJobData> {
   const worker = new Worker<AiScribeJobData>(
     AI_SCRIBE_QUEUE_NAME,
-    async (job) => {
-      // BullMQ jobs run outside any HTTP request, so there's no protect()
-      // chain to populate tenant context. Wrap the whole job in a named
-      // bypass — the job data carries sessionId which itself is scoped
-      // (look it up via clinicScoped findFirst rather than findUnique to
-      // avoid laundering it across tenants if a bug ever lets cross-tenant
-      // sessionIds enter the queue).
-      return withTenantBypass('ai-scribe-worker', async () => {
-        const { sessionId } = job.data
-        const JOB_TIMEOUT_MS = 600000 // 10 minutes for local AI processing
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('AI processing timeout')), JOB_TIMEOUT_MS)
-        })
-        try {
-          await Promise.race([processAiScribeJob(job), timeoutPromise])
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : String(err)
-          const session = await prisma.aIScribeSession.findUnique({
-            where: { id: sessionId },
-            select: { visitRecordId: true, providerId: true },
-          })
-          await prisma.aIScribeSession.update({
-            where: { id: sessionId },
-            data: {
-              status: 'FAILED',
-              errorMessage,
-            },
-          })
-          logStructured('Processing Failed', {
-            sessionId,
-            visitRecordId: session?.visitRecordId,
-            providerId: session?.providerId,
-            error: errorMessage,
-          })
-          throw err
-        }
-      })
-    },
+    // BullMQ jobs run outside any HTTP request, so there's no protect() chain
+    // to populate tenant context. The job is a named bypass; every lookup is
+    // still scoped by the job's sessionId + clinicId.
+    async (job) => withTenantBypass('ai-scribe-worker', () => runScribeJob(job as Job & ScribeJob)),
     {
       connection: redisConfig,
       concurrency: 2,
@@ -493,17 +320,15 @@ export function createAiScribeWorker(): Worker<AiScribeJobData> {
   )
 
   worker.on('completed', (job) => {
-    logStructured('Job Completed', {
-      jobId: job.id,
-      sessionId: job.data.sessionId,
-    })
+    logStructured('Job Completed', { jobId: job.id, sessionId: job.data.sessionId })
   })
 
   worker.on('failed', (job, err) => {
+    // err.message is a safe code (runScribeJob), never provider text.
     logStructured('Job Failed', {
       jobId: job?.id,
       sessionId: job?.data.sessionId,
-      error: err instanceof Error ? err.message : String(err),
+      code: err.message,
     })
   })
 

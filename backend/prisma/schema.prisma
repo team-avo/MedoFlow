@@ -1262,9 +1262,17 @@ model AIScribeSession {
   patientSummaryPublished Boolean        @default(false)
 
   aiModel               String?
+  /// Which AI produced the draft (FR-15), e.g. "openai-compatible:openai@api.openai.com". Never a key or URL.
+  aiProvider            String?
+  /// Speech-to-text model that produced the transcript.
+  sttModel              String?
+  /// Safe, PHI-free failure text (services/ai/errors.ts).
   errorMessage          String?
   processingStartedAt   DateTime?
   processingCompletedAt DateTime?
+  /// FR-1: where recording consent came from (BOOKING, PATIENT_CONSULTATION, PROVIDER_ATTESTED_VERBAL).
+  consentSource         String?
+  consentRecordedAt     DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1917,6 +1925,8 @@ model RxOrderLine {
   proposalId       String
   /// The order as the scribe heard it. PHI: sealed by field-level encryption.
   rawText          String         @db.Text
+  /// Strength as spoken (B2.2), e.g. "400 mg". PHI: sealed by field-level encryption.
+  dose             String?        @db.Text
   quantity         Int            @default(1)
   matchedProductId String?
   matchStatus      RxMatchStatus

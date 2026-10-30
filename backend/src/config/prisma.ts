@@ -323,13 +323,20 @@ export function isRlsEnabled(): boolean {
   return (process.env.TENANT_RLS ?? 'on').toLowerCase() !== 'off'
 }
 
-function rlsSettings(ctx: TenantContext | undefined): [string, string, string] {
-  return [getAllowedClinicIds(ctx).join(','), ctx?.bypassReason ? 'on' : 'off', ctx?.tenantId ?? '']
+function rlsSettings(ctx: TenantContext | undefined): [string, string, string, string] {
+  return [
+    getAllowedClinicIds(ctx).join(','),
+    ctx?.bypassReason ? 'on' : 'off',
+    ctx?.tenantId ?? '',
+    // The named operation, for database guards that admit one maintenance
+    // path only (VisitNoteVersion re-encryption, migration 20261029000000).
+    ctx?.bypassReason ?? '',
+  ]
 }
 
 function setRlsConfig(client: { $executeRaw: PrismaClient['$executeRaw'] }) {
-  const [clinicIds, bypass, tenantId] = rlsSettings(getTenantContext())
-  return client.$executeRaw`SELECT set_config('app.clinic_ids', ${clinicIds}, TRUE), set_config('app.rls_bypass', ${bypass}, TRUE), set_config('app.current_tenant_id', ${tenantId}, TRUE)`
+  const [clinicIds, bypass, tenantId, opReason] = rlsSettings(getTenantContext())
+  return client.$executeRaw`SELECT set_config('app.clinic_ids', ${clinicIds}, TRUE), set_config('app.rls_bypass', ${bypass}, TRUE), set_config('app.current_tenant_id', ${tenantId}, TRUE), set_config('app.op_reason', ${opReason}, TRUE)`
 }
 
 type OperationListener = (model: string, operation: string) => void

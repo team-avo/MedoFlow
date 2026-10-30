@@ -7,7 +7,6 @@ import * as paymentService from '../services/paymentService'
 import * as appointmentController from '../controllers/appointmentController'
 import * as appointmentService from '../services/appointmentService'
 import * as visitService from '../services/visitService'
-import * as openaiService from '../services/openaiService'
 import * as auditService from '../services/auditService'
 
 // Module namespace exports are getter-only; redefine instead of assigning.
@@ -25,7 +24,6 @@ test('approving a note finalizes it without auto-publishing patient summary', as
   const originalFindUnique = prisma.aIScribeSession.findUnique
   const originalTransaction = prisma.$transaction
   const originalGetProvider = visitService.getProviderByUserId
-  const originalGenerateSummary = openaiService.generatePatientSummary
   const originalLogAudit = auditService.logAudit
 
   let updatedAiSessionData: Record<string, unknown> | null = null
@@ -53,11 +51,6 @@ test('approving a note finalizes it without auto-publishing patient summary', as
       provider: { userId: 'user-1' },
     })
     restore(visitService, 'getProviderByUserId', (async () => ({ id: 'provider-1' })) as any)
-    restore(openaiService, 'generatePatientSummary', (async () => ({
-      diagnosis: 'Dx',
-      treatmentPlan: 'Tx',
-      nextSteps: 'Nx',
-    })) as any)
     ;(prisma.$transaction as any) = async (callback: (tx: any) => Promise<void>) =>
       callback({
         visitNoteVersion: {
@@ -99,7 +92,6 @@ test('approving a note finalizes it without auto-publishing patient summary', as
     restore(prisma.aIScribeSession, 'findUnique', originalFindUnique)
     restore(prisma, '$transaction', originalTransaction)
     restore(visitService, 'getProviderByUserId', originalGetProvider)
-    restore(openaiService, 'generatePatientSummary', originalGenerateSummary)
     restore(auditService, 'logAudit', originalLogAudit)
   }
 })

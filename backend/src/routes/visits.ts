@@ -16,6 +16,7 @@ const setClinicFromUser = (req: Request, _res: Response, next: NextFunction): vo
 
 router.post('/', authorize(Role.PROVIDER), requireClinic, visitController.create)
 
+router.get('/me/summaries', authorize(Role.PATIENT), visitController.listMySummaries)
 router.get(
   '/appointment/:appointmentId',
   authorize(Role.PROVIDER, Role.SUPER_ADMIN, Role.FRONT_DESK, Role.PATIENT),

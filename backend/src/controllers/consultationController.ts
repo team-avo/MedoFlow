@@ -157,6 +157,15 @@ export const grantConsent = asyncHandler(
   }
 )
 
+/** POST /consultations/:id/consent/decline */
+export const declineConsent = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const sessionId = req.params.id as string
+    const session = await consultationService.declineConsent(sessionId, req.user!.id, req.user!.id)
+    successResponse(res, 200, 'Consent declined', { session })
+  }
+)
+
 /** POST /consultations/:id/recording/start */
 export const startRecording = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
