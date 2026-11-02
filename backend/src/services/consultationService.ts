@@ -248,7 +248,11 @@ export const getSessionByToken = async (joinToken: string) => {
   )
   if (!session) throwApi('Invalid or expired consultation link', 404)
   if (isJoinTokenExpired(session.joinTokenExpiresAt)) {
-    throwApi('Consultation link has expired', 410, 'token_expired')
+    throwApi(
+      'This consultation link has expired. Ask your clinic for a new one.',
+      410,
+      'token_expired'
+    )
   }
   return sanitizeForPatient(session as unknown as Record<string, unknown>)
 }

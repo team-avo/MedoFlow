@@ -227,7 +227,7 @@ export interface VideoRoomResult {
   jaasEnabled: boolean
 }
 
-/** POST /consultations/:id/video-room — Create Daily.co room */
+/** POST /consultations/:id/video-room — Create (or reuse) the 8x8 JaaS call room */
 export const createVideoRoom = async (
   sessionId: string,
   clinicId?: string

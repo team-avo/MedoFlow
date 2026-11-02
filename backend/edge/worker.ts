@@ -49,7 +49,6 @@ const CONTAINER_ENV_KEYS = [
   'JAAS_APP_ID',
   'JAAS_KID',
   'JAAS_PRIVATE_KEY',
-  'DAILY_API_KEY',
 ] as const
 
 type ContainerEnvKey = (typeof CONTAINER_ENV_KEYS)[number]

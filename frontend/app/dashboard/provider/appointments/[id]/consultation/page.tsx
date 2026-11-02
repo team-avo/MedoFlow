@@ -512,7 +512,8 @@ export default function ConsultationRoomPage() {
               roomName={videoRoom.roomName}
               domain={videoRoom.domain}
               jwt={videoRoom.jwt}
-              userName="Provider"
+              userName={session?.provider ? `Dr. ${session.provider.lastName}` : 'Provider'}
+              onRetry={() => void handleStartVideoCall()}
               onMeetingStarted={handleMeetingStarted}
               onCallEnded={handleCallEnded}
               className="w-full"

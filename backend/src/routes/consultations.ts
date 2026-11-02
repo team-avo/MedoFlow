@@ -78,7 +78,7 @@ router.post(
   consultationController.convertToTemplate
 )
 
-// --- Daily.co Video Room ---
+// --- Video call room (8x8 JaaS) ---
 router.post(
   '/:id/video-room',
   requireClinic,
