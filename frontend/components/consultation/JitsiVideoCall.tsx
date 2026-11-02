@@ -3,18 +3,42 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { clientLog } from '@/lib/clientLog'
 
+/**
+ * The only controls shown in the call. Recording, livestreaming, screen
+ * sharing to third parties and invites are left out on purpose: nothing about
+ * a consultation is stored or relayed by 8x8 (the backend's token turns those
+ * features off as well).
+ */
+export const JITSI_TOOLBAR_BUTTONS = [
+  'microphone',
+  'camera',
+  'hangup',
+  'chat',
+  'tileview',
+  'fullscreen',
+  'settings',
+] as const
+
 interface JitsiVideoCallProps {
-  /** Room path — "<appId>/<name>" for JaaS, or "<name>" for meet.jit.si */
+  /** Room path, "<appId>/<name>" (8x8 JaaS). */
   roomName: string
   userName?: string
-  /** Jitsi host, e.g. "8x8.vc" (JaaS) or "meet.jit.si" (public). Defaults to 8x8.vc. */
+  /** Jitsi host. Defaults to 8x8.vc (JaaS). */
   domain?: string
-  /** JWT minted by our backend for JaaS — required for 8x8.vc, ignored for meet.jit.si. */
+  /** JWT minted by our backend for this user and room. */
   jwt?: string
   /** Fires when the local participant actually enters the conference (Jitsi `videoConferenceJoined`). */
   onMeetingStarted?: () => void
   /** Fires when the local participant leaves or clicks Leave (Jitsi `readyToClose`). */
   onCallEnded?: () => void
+  /**
+   * Called by "Try again" after the call could not start (script blocked, or
+   * 8x8 refused the token). The parent should fetch a fresh token; without
+   * it the component just reloads the call.
+   */
+  onRetry?: () => void
+  /** CSS height of the call area. Jitsi needs an explicit height. */
+  height?: string
   className?: string
 }
 
@@ -37,9 +61,8 @@ declare global {
 // ---------------------------------------------------------------------------
 type ReadyCallback = () => void
 
-// We load one external_api.js per domain. In practice the whole app will
-// use a single domain (8x8.vc for JaaS, or meet.jit.si for the fallback),
-// but keyed state means if someone ever mixes the two it still works.
+// We load one external_api.js per domain. In practice the whole app uses a
+// single domain (8x8.vc for JaaS); keyed state keeps a second one working.
 type ScriptState = 'idle' | 'loading' | 'ready' | 'error'
 const scriptStateByDomain: Record<string, ScriptState> = {}
 const pendingByDomain: Record<string, ReadyCallback[]> = {}
@@ -96,13 +119,17 @@ export function JitsiVideoCall({
   jwt,
   onMeetingStarted,
   onCallEnded,
+  onRetry,
+  height = 'clamp(360px, 70vh, 720px)',
   className = '',
 }: JitsiVideoCallProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const apiRef = useRef<any>(null)
   const onCallEndedRef = useRef(onCallEnded)
   const onMeetingStartedRef = useRef(onMeetingStarted)
-  const [scriptError, setScriptError] = useState(false)
+  const [failure, setFailure] = useState<'script' | 'call' | null>(null)
+  // Bumped by "Try again" so the effect below mounts the call afresh.
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     onCallEndedRef.current = onCallEnded
@@ -137,20 +164,14 @@ export function JitsiVideoCall({
             disableDeepLinking: true,
             enableWelcomePage: false,
             disableInviteFunctions: true,
-            // Don't surface meet.jit.si's moderator-lobby waiting
-            // state — we generate a fresh room per call on the
-            // backend so the first joiner is auto-moderator.
+            // No lobby: only the two people holding a token for this room
+            // (signed by our backend) can enter it.
             enableLobbyChat: false,
             lobby: { enabled: false, autoKnock: false },
-            toolbarButtons: [
-              'microphone',
-              'camera',
-              'hangup',
-              'chat',
-              'tileview',
-              'fullscreen',
-              'settings',
-            ],
+            toolbarButtons: [...JITSI_TOOLBAR_BUTTONS],
+            fileRecordingsEnabled: false,
+            liveStreamingEnabled: false,
+            transcription: { enabled: false },
           },
           interfaceConfigOverwrite: {
             SHOW_JITSI_WATERMARK: false,
@@ -183,23 +204,22 @@ export function JitsiVideoCall({
           onCallEndedRef.current?.()
         })
 
-        // Only log non-fatal errors to console — don't surface them to UI.
-        // Jitsi shows its own error messages inside the iframe for all
-        // recoverable issues (permissions, ICE, etc.).
+        // Jitsi shows recoverable issues (permissions, ICE, …) inside the
+        // iframe. A fatal error — e.g. 8x8 refusing an expired or invalid
+        // token — leaves a dead frame, so we replace it with our own panel.
         api.addEventListener('errorOccurred', (evt: any) => {
           const isFatal = evt?.error?.isFatal ?? false
           const name = evt?.error?.name ?? 'unknown'
-          const msg = evt?.error?.message ?? ''
           if (isFatal) {
-            clientLog.error('[Jitsi] fatal error', { name, message: msg })
+            clientLog.error('[Jitsi] fatal error', { name })
+            if (!cancelled) setFailure('call')
           } else {
-            clientLog.warn('[Jitsi] non-fatal error (handled internally)', { name, message: msg })
+            clientLog.warn('[Jitsi] non-fatal error (handled internally)', { name })
           }
-          // We intentionally do NOT show a UI overlay here.
-          // Jitsi handles all errors (fatal or not) with its own in-frame UI.
         })
       } catch (err: any) {
         clientLog.error('[Jitsi] Failed to instantiate API:', err)
+        if (!cancelled) setFailure('call')
       }
     }
 
@@ -208,7 +228,7 @@ export function JitsiVideoCall({
         createApi()
       } else {
         unregisterScript = loadJitsiScript(domain, createApi, () => {
-          if (!cancelled) setScriptError(true)
+          if (!cancelled) setFailure('script')
         })
       }
     }
@@ -223,31 +243,40 @@ export function JitsiVideoCall({
         apiRef.current = null
       }
     }
-  }, [roomName, userName, domain, jwt])
+  }, [roomName, userName, domain, jwt, attempt])
 
-  if (scriptError) {
+  if (failure) {
     return (
       <div
+        role="alert"
         className={`flex items-center justify-center rounded-2xl bg-slate-900 ${className}`}
-        style={{ minHeight: '520px' }}
+        style={{ height }}
       >
         <div className="text-center p-6">
-          <div className="text-4xl mb-3">⚠️</div>
-          <p className="text-white/80 text-sm mb-2">
-            Could not load video call.
-            <br />
-            <span className="text-white/50 text-xs">
-              Check your internet connection and try refreshing.
-            </span>
+          <p className="text-white/90 text-sm font-medium mb-1">
+            {failure === 'script'
+              ? 'Could not load the video call.'
+              : 'The video call could not start.'}
+          </p>
+          <p className="text-white/60 text-xs">
+            {failure === 'script'
+              ? 'Check your internet connection, or whether a browser extension blocks 8x8.vc.'
+              : 'Your access to the call may have expired.'}
           </p>
           <button
+            type="button"
             onClick={() => {
-              setScriptError(false)
-              scriptStateByDomain[domain] = 'idle'
+              if (failure === 'script') {
+                scriptStateByDomain[domain] = 'idle'
+                document.querySelector(`script[src="https://${domain}/external_api.js"]`)?.remove()
+              }
+              setFailure(null)
+              if (onRetry) onRetry()
+              else setAttempt((n) => n + 1)
             }}
-            className="mt-3 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm"
+            className="mt-4 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm"
           >
-            Retry
+            Try again
           </button>
         </div>
       </div>
@@ -257,7 +286,7 @@ export function JitsiVideoCall({
   return (
     <div
       className={`relative w-full rounded-2xl overflow-hidden bg-slate-900 ${className}`}
-      style={{ height: '640px' }}
+      style={{ height }}
     >
       {/* Jitsi renders its full UI here — lobby, conference, error messages all inside the iframe.
                 NB: the container MUST have an explicit `height` (not min-height). Jitsi's external_api

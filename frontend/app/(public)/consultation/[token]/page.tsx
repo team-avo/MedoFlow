@@ -84,6 +84,9 @@ export default function PatientJoinPage() {
     jwt: string
   } | null>(null)
   const [videoActive, setVideoActive] = useState(false)
+  // Set when the call cannot happen from this link (not set up on the server,
+  // link expired, consultation ended): stops polling and says why.
+  const [videoUnavailable, setVideoUnavailable] = useState<string | null>(null)
 
   // ----- Load session by token -----
   const loadSession = useCallback(async () => {
@@ -131,25 +134,41 @@ export default function PatientJoinPage() {
   // POST /consultations/:id/video-room and persists meetingRoomName on the
   // session. We poll the public join endpoint for that room + JaaS JWT
   // so we can mount the Jitsi iframe on the patient side too.
+  const fetchVideoRoom = useCallback(async () => {
+    try {
+      const { data } = await publicApi.get(`/consultations/join/${token}/video-token`)
+      const payload = data?.data
+      return payload?.roomName
+        ? {
+            roomName: payload.roomName as string,
+            domain: (payload.domain as string) ?? '8x8.vc',
+            jwt: (payload.jwt as string) ?? '',
+          }
+        : null
+    } catch (err) {
+      // 400 until the provider creates the room: keep polling silently.
+      // 503 (video not set up) and 410 (link expired / call ended) are final.
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined
+      if (status === 503 || status === 410) {
+        const message = axios.isAxiosError(err) ? err.response?.data?.message : undefined
+        setVideoUnavailable(
+          status === 503
+            ? 'Video calls are not set up yet. Please contact your clinic.'
+            : (message ?? 'This consultation has ended.')
+        )
+      }
+      return null
+    }
+  }, [token])
+
   useEffect(() => {
-    if (!(consentGranted || consentDeclined) || videoRoom) return
+    if (!(consentGranted || consentDeclined) || videoRoom || videoUnavailable) return
     if (!session) return
 
     let cancelled = false
     const tryFetch = async () => {
-      try {
-        const { data } = await publicApi.get(`/consultations/join/${token}/video-token`)
-        const payload = data?.data
-        if (!cancelled && payload?.roomName) {
-          setVideoRoom({
-            roomName: payload.roomName,
-            domain: payload.domain ?? '8x8.vc',
-            jwt: payload.jwt ?? '',
-          })
-        }
-      } catch {
-        // 400 until provider creates the room; keep polling silently
-      }
+      const room = await fetchVideoRoom()
+      if (!cancelled && room) setVideoRoom(room)
     }
     void tryFetch()
     const poll = setInterval(tryFetch, 4000)
@@ -157,7 +176,14 @@ export default function PatientJoinPage() {
       cancelled = true
       clearInterval(poll)
     }
-  }, [consentGranted, consentDeclined, session, token, videoRoom])
+  }, [consentGranted, consentDeclined, session, videoRoom, videoUnavailable, fetchVideoRoom])
+
+  // "Try again" in the call: a fresh token for the same room.
+  const retryVideo = useCallback(async () => {
+    const room = await fetchVideoRoom()
+    if (room) setVideoRoom(room)
+    else setVideoActive(false)
+  }, [fetchVideoRoom])
 
   // ----- Grant consent -----
   const handleConsent = async () => {
@@ -256,9 +282,11 @@ export default function PatientJoinPage() {
             roomName={videoRoom.roomName}
             domain={videoRoom.domain}
             jwt={videoRoom.jwt}
-            userName={session.patient?.name || 'Patient'}
+            userName={session.patient?.name?.split(' ')[0] || 'Patient'}
             onCallEnded={() => setVideoActive(false)}
-            className="w-full h-full"
+            onRetry={() => void retryVideo()}
+            height="calc(100dvh - 6rem)"
+            className="w-full"
           />
         </div>
       </div>
@@ -396,6 +424,14 @@ export default function PatientJoinPage() {
                 Join video consultation
               </button>
             )}
+            {!videoRoom && videoUnavailable && (
+              <p
+                role="status"
+                className="mt-6 px-4 py-3 bg-amber-50 rounded-xl text-xs text-amber-800"
+              >
+                {videoUnavailable}
+              </p>
+            )}
             {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
             {session.recordingStatus === 'NOT_STARTED' && (
               <button
@@ -445,6 +481,13 @@ export default function PatientJoinPage() {
                     >
                       Join video consultation
                     </button>
+                  ) : videoUnavailable ? (
+                    <p
+                      role="status"
+                      className="px-4 py-3 bg-amber-50 rounded-xl text-xs text-amber-800"
+                    >
+                      {videoUnavailable}
+                    </p>
                   ) : (
                     <div className="px-4 py-3 bg-slate-50 rounded-xl flex items-center justify-center gap-3">
                       <div className="h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />

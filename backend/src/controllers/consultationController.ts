@@ -1,11 +1,12 @@
 import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
-import { clinicScope, withTenantBypass } from '../config/tenantContext'
+import { clinicScope } from '../config/tenantContext'
 import * as jaasService from '../services/jaasService'
 import * as consultationService from '../services/consultationService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import type { ApiError } from '../types/errors'
+import * as auditService from '../services/auditService'
 import { logRead } from '../services/auditService'
 import { Role } from '@prisma/client'
 
@@ -90,48 +91,40 @@ export const joinByToken = asyncHandler(
  *
  *  Mints a per-patient, non-moderator JaaS JWT so the patient can join the
  *  same room the provider created. The provider is always the moderator.
+ *  The link stops issuing tokens once it expires (410 token_expired) or the
+ *  call has ended (410 consultation_ended).
  */
 export const getVideoTokenByJoinToken = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const joinToken = req.params.token as string
-
-    // Join token is the capability (works without login), so resolve it cross-clinic.
-    const session = await withTenantBypass('consultation.join_by_token', () =>
-      prisma.consultationSession.findFirst({
-        where: { joinToken },
-        include: {
-          patient: { select: { id: true, name: true, email: true } },
-        },
-      })
-    )
-    if (!session) {
-      const err = new Error('Invalid or expired consultation link') as ApiError
-      err.statusCode = 404
-      throw err
+    if (!jaasService.isJaasEnabled()) throw jaasService.videoNotConfiguredError()
+    // Same lookup and expiry rule as the join page (cross-clinic by design:
+    // the join token is the capability).
+    const session = (await consultationService.getSessionByToken(
+      req.params.token as string
+    )) as unknown as {
+      id: string
+      clinicId: string
+      status: string
+      meetingRoomName: string | null
+      patient: { id: string; name: string | null } | null
     }
-    if (!session.meetingRoomName || !session.meetingRoomUrl) {
-      const err = new Error('No video room created yet') as ApiError
-      err.statusCode = 400
-      throw err
+    if (CALL_CLOSED_STATUSES.has(session.status)) {
+      throw apiError('This consultation has ended', 410, 'consultation_ended')
+    }
+    if (!jaasService.isOwnRoom(session.meetingRoomName)) {
+      throw apiError('No video room created yet', 400, 'no_video_room')
     }
 
     const room = jaasService.buildVideoRoom({
-      roomName: session.meetingRoomName,
+      roomName: session.meetingRoomName!,
       user: {
         id: session.patient?.id ?? `patient-${session.id}`,
-        name: session.patient?.name ?? 'Patient',
-        email: session.patient?.email,
+        name: jaasService.patientDisplayName(session.patient?.name),
         moderator: false,
       },
     })
-
-    successResponse(res, 200, 'Video room info', {
-      domain: room.domain,
-      roomUrl: room.roomUrl,
-      roomName: room.roomName,
-      jwt: room.jwt,
-      jaasEnabled: jaasService.isJaasEnabled(),
-    })
+    await logVideoToken(req, session, false, 'join_link')
+    successResponse(res, 200, 'Video room info', videoRoomPayload(room))
   }
 )
 
@@ -254,63 +247,83 @@ export const convertToTemplate = asyncHandler(
 )
 
 // ---------------------------------------------------------------------------
-// Jitsi Video Room (free, no payment required)
+// Video calls (Jitsi as a Service, 8x8.vc)
 // ---------------------------------------------------------------------------
 
-/** POST /consultations/:id/video-room — Create a Jitsi room for the consultation
+/** After these states the call is over; a new call needs a new room. */
+const CALL_CLOSED_STATUSES = new Set<string>(['ENDED', 'PROCESSING', 'TRANSCRIPT_READY'])
+
+function apiError(message: string, statusCode: number, code?: string): ApiError {
+  const err = new Error(message) as ApiError
+  err.statusCode = statusCode
+  if (code) err.code = code
+  return err
+}
+
+function videoRoomPayload(room: jaasService.VideoRoomResult) {
+  return {
+    domain: room.domain,
+    roomUrl: room.roomUrl,
+    roomName: room.roomName,
+    jwt: room.jwt,
+    jaasEnabled: true,
+  }
+}
+
+/** One audit row per issued call token: ids and the moderator flag only. */
+async function logVideoToken(
+  req: Request,
+  session: { id: string; clinicId: string },
+  moderator: boolean,
+  via: 'join_link' | 'session'
+): Promise<void> {
+  await auditService.logAudit({
+    clinicId: session.clinicId,
+    entityType: 'ConsultationSession',
+    entityId: session.id,
+    action: 'VIDEO_TOKEN_ISSUED',
+    newValue: { moderator, via },
+    performedById: req.user?.id ?? null,
+    ...auditService.requestMeta(req),
+  })
+}
+
+/** POST /consultations/:id/video-room — Create (or reuse) the call room
  *
- *  Uses Jitsi as a Service (8x8.vc) with JWT moderator tokens. The provider
- *  calling this endpoint is signed in as moderator; the patient gets a
- *  non-moderator token from the public /join/:token/video-token endpoint.
- *
- *  We always regenerate the room name when the prior session ended (so
- *  transcripts from the previous call don't collide) and on first creation.
+ *  Only the session's own provider may open the room; they join as moderator.
+ *  The patient gets a non-moderator token from /join/:token/video-token.
+ *  A new room is made on first use and after a call has ended, so a new call
+ *  never reuses the previous one's room or recording slot.
  */
 export const createVideoRoom = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const { clinicId } = await providerScope(req)
+    const { providerId, clinicId } = await providerScope(req)
+    if (!jaasService.isJaasEnabled()) throw jaasService.videoNotConfiguredError()
     const sessionId = req.params.id as string
 
     const session = await prisma.consultationSession.findUnique({
       where: { id: sessionId, clinicId },
-      include: {
-        provider: { select: { id: true, firstName: true, lastName: true } },
-      },
+      include: { provider: { select: { lastName: true } } },
     })
-    if (!session) {
-      const err = new Error('Consultation session not found') as ApiError
-      err.statusCode = 404
-      throw err
+    if (!session || session.providerId !== providerId) {
+      throw apiError('Consultation session not found', 404)
     }
 
     const isStale =
-      session.status === 'ENDED' ||
+      CALL_CLOSED_STATUSES.has(session.status) ||
       session.recordingStatus === 'STOPPED' ||
       session.recordingStatus === 'STORED'
-
-    // If JaaS is now configured but the stored room name doesn't carry the
-    // appId prefix, it was created against meet.jit.si and must be replaced.
-    const jaasConfig = jaasService.getJaasConfig()
-    const isWrongDomain =
-      jaasConfig !== null &&
-      !!session.meetingRoomName &&
-      !session.meetingRoomName.startsWith(jaasConfig.appId + '/')
-
-    const needsRoom = !session.meetingRoomName || isStale || isWrongDomain
+    // A room from another JaaS app (or the old meet.jit.si fallback) is replaced.
+    const needsRoom = isStale || !jaasService.isOwnRoom(session.meetingRoomName)
     const roomName = needsRoom
       ? jaasService.generateRoomName(`MedoFlow-${sessionId.slice(0, 10)}`)
       : session.meetingRoomName!
-
-    const providerName = session.provider
-      ? `Dr. ${session.provider.firstName} ${session.provider.lastName}`
-      : 'Provider'
 
     const room = jaasService.buildVideoRoom({
       roomName,
       user: {
         id: req.user!.id,
-        name: providerName,
-        email: req.user!.email,
+        name: jaasService.providerDisplayName(session.provider),
         moderator: true,
       },
     })
@@ -327,58 +340,65 @@ export const createVideoRoom = asyncHandler(
           ...(isStale ? { status: 'READY' as const } : {}),
         },
       })
+      await auditService.logAudit({
+        clinicId,
+        entityType: 'ConsultationSession',
+        entityId: sessionId,
+        action: 'VIDEO_ROOM_CREATED',
+        performedById: req.user!.id,
+        ...auditService.requestMeta(req),
+      })
     }
+    await logVideoToken(req, session, true, 'session')
 
-    successResponse(res, 201, 'Video room ready', {
-      domain: room.domain,
-      roomUrl: room.roomUrl,
-      roomName: room.roomName,
-      jwt: room.jwt,
-      jaasEnabled: jaasService.isJaasEnabled(),
-    })
+    successResponse(res, 201, 'Video room ready', videoRoomPayload(room))
   }
 )
 
-/** GET /consultations/:id/video-token — Get room info for authenticated users
+/** GET /consultations/:id/video-token — Rejoin the existing room
  *
- *  Same JWT shape as createVideoRoom, but doesn't create a room — useful
- *  when the provider refreshes their tab mid-call and needs to re-mount
- *  the iframe against the existing room. Moderator flag is based on role.
+ *  For the session's own patient (participant) or the session's own provider
+ *  (moderator), e.g. after a tab refresh mid-call. Anyone else gets 404, the
+ *  same answer as for a session that does not exist.
  */
 export const getVideoToken = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    if (!jaasService.isJaasEnabled()) throw jaasService.videoNotConfiguredError()
     const sessionId = req.params.id as string
+    const user = req.user!
 
     const session = await prisma.consultationSession.findUnique({
       where: { id: sessionId, ...clinicScope() },
+      include: {
+        provider: { select: { userId: true, lastName: true } },
+        patient: { select: { name: true } },
+      },
     })
-    if (!session) {
-      const err = new Error('Consultation session not found') as ApiError
-      err.statusCode = 404
-      throw err
+    const isPatient = !!session && user.role === Role.PATIENT && session.patientId === user.id
+    const isProvider =
+      !!session && user.role === Role.PROVIDER && session.provider?.userId === user.id
+    if (!session || !(isPatient || isProvider)) {
+      throw apiError('Consultation session not found', 404)
     }
-    if (!session.meetingRoomName || !session.meetingRoomUrl) {
-      const err = new Error('No video room created yet') as ApiError
-      err.statusCode = 400
-      throw err
+    if (CALL_CLOSED_STATUSES.has(session.status) && isPatient) {
+      throw apiError('This consultation has ended', 410, 'consultation_ended')
+    }
+    if (!jaasService.isOwnRoom(session.meetingRoomName)) {
+      throw apiError('No video room created yet', 400, 'no_video_room')
     }
 
     const room = jaasService.buildVideoRoom({
-      roomName: session.meetingRoomName,
+      roomName: session.meetingRoomName!,
       user: {
-        id: req.user!.id,
-        name: req.user!.name,
-        email: req.user!.email,
-        moderator: req.user!.role === Role.PROVIDER,
+        id: user.id,
+        name: isProvider
+          ? jaasService.providerDisplayName(session.provider)
+          : jaasService.patientDisplayName(session.patient?.name),
+        moderator: isProvider,
       },
     })
+    await logVideoToken(req, session, isProvider, 'session')
 
-    successResponse(res, 200, 'Video room info', {
-      domain: room.domain,
-      roomUrl: room.roomUrl,
-      roomName: room.roomName,
-      jwt: room.jwt,
-      jaasEnabled: jaasService.isJaasEnabled(),
-    })
+    successResponse(res, 200, 'Video room info', videoRoomPayload(room))
   }
 )

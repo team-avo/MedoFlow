@@ -83,6 +83,17 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
+      # Video consultations (8x8 JaaS). Unset = video calls disabled. With them
+      # set, production boot also needs VIDEO_PHI_POLICY: "baa-signed" once the
+      # 8x8 BAA is signed, or "synthetic-data-only" for test environments.
+      - key: JAAS_APP_ID # vpaas-magic-cookie-…
+        sync: false
+      - key: JAAS_KID # API Key ID, "<AppID>/<id>"
+        sync: false
+      - key: JAAS_PRIVATE_KEY # PEM on one line, newlines written as \n
+        sync: false
+      - key: VIDEO_PHI_POLICY
+        sync: false
       # R2 (S3-compatible) file storage — required in production (B3.1: patient
       # files are only reached through presigned URLs; boot refuses local disk).
       - key: S3_SSE # R2 always encrypts at rest and rejects the SSE header
