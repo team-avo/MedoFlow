@@ -10,10 +10,34 @@ import { sealWriteArgs, openResult, assertNoEncryptedFilter } from '../utils/fie
 // One client per process in development (survives hot reloads).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
+const DEFAULT_TX_MAX_WAIT_MS = 5_000
+const DEFAULT_TX_TIMEOUT_MS = 15_000
+
+function positiveMs(raw: string | undefined, fallback: number): number {
+  const n = Number.parseInt(raw ?? '', 10)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+/**
+ * Default limits for interactive transactions. Prisma's own 5 s timeout is
+ * too tight when the database is a region away: a booking transaction makes
+ * ~20 sequential round trips. Per-call options still override these.
+ */
+export function interactiveTransactionOptions(env: NodeJS.ProcessEnv = process.env): {
+  maxWait: number
+  timeout: number
+} {
+  return {
+    maxWait: positiveMs(env.PRISMA_TX_MAX_WAIT_MS, DEFAULT_TX_MAX_WAIT_MS),
+    timeout: positiveMs(env.PRISMA_TX_TIMEOUT_MS, DEFAULT_TX_TIMEOUT_MS),
+  }
+}
+
 const basePrisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? (['error', 'warn'] as const) : ['error'],
+    transactionOptions: interactiveTransactionOptions(),
   })
 
 if (process.env.NODE_ENV !== 'production') {

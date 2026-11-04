@@ -671,59 +671,86 @@ export const createAppointment = async (
         },
       })
 
-      let clientSecret: string | undefined = undefined
+      const amountToCharge = requirePrepayment
+        ? paymentRequirementType === PaymentRequirementType.DEPOSIT
+          ? Number(service.depositAmount)
+          : Number(priceAtBooking)
+        : null
 
-      if (requirePrepayment) {
-        const amountToCharge =
-          paymentRequirementType === PaymentRequirementType.DEPOSIT
-            ? Number(service.depositAmount)
-            : Number(priceAtBooking)
-
-        const amountInCents = Math.round(amountToCharge * 100)
-
-        try {
-          const paymentIntent = await stripe.paymentIntents.create({
-            amount: amountInCents,
-            currency: 'usd',
-            metadata: {
-              appointmentId: appointment.id,
-              clinicId,
-              patientId,
-              type: 'APPOINTMENT',
-            },
-          })
-          clientSecret = paymentIntent.client_secret ?? undefined
-
-          await tx.payment.create({
-            data: {
-              clinicId,
-              providerId,
-              appointmentId: appointment.id,
-              patientId,
-              amount: amountToCharge,
-              status: PaymentStatus.PENDING,
-              stripePaymentIntentId: paymentIntent.id,
-              stripeClientSecret: paymentIntent.client_secret ?? null,
-              paymentChannel: 'STRIPE',
-              paymentMethod: 'CARD',
-            },
-          })
-        } catch (err) {
-          console.error('Stripe PaymentIntent Error:', err)
-          // We still created the appointment in PENDING_PAYMENT state
-        }
-      }
-
+      return { appointment, amountToCharge }
+    })
+  )
+    .catch((err: unknown) => {
+      // B1.1/B1.2: the overlap constraint is the last line of defence when the
+      // advisory lock and the checks above are bypassed (e.g. a concurrent
+      // writer outside this code path). The transaction has rolled back — the
+      // slot hold is still ACTIVE, nothing was written — so answer a clean 409.
+      if (isAppointmentOverlapError(err)) throw slotTakenError()
+      throw err
+    })
+    .then(async ({ appointment, amountToCharge }) => {
+      // Stripe is called after commit: an HTTP round trip must not hold the
+      // booking transaction (and its advisory locks) open.
+      const clientSecret =
+        amountToCharge === null
+          ? undefined
+          : await withPatientSelfEnrollScope(clinicId, patientId, () =>
+              startAppointmentPayment({
+                clinicId,
+                providerId,
+                patientId,
+                appointmentId: appointment.id,
+                amount: amountToCharge,
+              })
+            )
       return { appointment, clientSecret }
     })
-  ).catch((err: unknown) => {
-    // B1.1/B1.2: the overlap constraint is the last line of defence when the
-    // advisory lock and the checks above are bypassed (e.g. a concurrent
-    // writer outside this code path). The transaction has rolled back — the
-    // slot hold is still ACTIVE, nothing was written — so answer a clean 409.
-    if (isAppointmentOverlapError(err)) throw slotTakenError()
-    throw err
-  })
+}
+
+/**
+ * Creates the Stripe PaymentIntent and its PENDING Payment row for a booking
+ * that needs prepayment. A failure leaves the appointment in PENDING_PAYMENT,
+ * as before.
+ */
+const startAppointmentPayment = async (input: {
+  clinicId: string
+  providerId: string
+  patientId: string
+  appointmentId: string
+  amount: number
+}): Promise<string | undefined> => {
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(input.amount * 100),
+      currency: 'usd',
+      metadata: {
+        appointmentId: input.appointmentId,
+        clinicId: input.clinicId,
+        patientId: input.patientId,
+        type: 'APPOINTMENT',
+      },
+    })
+
+    await prisma.payment.create({
+      data: {
+        clinicId: input.clinicId,
+        providerId: input.providerId,
+        appointmentId: input.appointmentId,
+        patientId: input.patientId,
+        amount: input.amount,
+        status: PaymentStatus.PENDING,
+        stripePaymentIntentId: paymentIntent.id,
+        stripeClientSecret: paymentIntent.client_secret ?? null,
+        paymentChannel: 'STRIPE',
+        paymentMethod: 'CARD',
+      },
+    })
+    return paymentIntent.client_secret ?? undefined
+  } catch (err) {
+    console.error('Stripe PaymentIntent Error:', err)
+    // We still created the appointment in PENDING_PAYMENT state
+    return undefined
+  }
 }
 
 export interface CreateRecurringSeriesInput {

@@ -1,6 +1,6 @@
 import { DateTime } from 'luxon'
 import type { Prisma, ProviderUnavailability } from '@prisma/client'
-import prisma from '../config/prisma'
+import prisma, { type TxClient } from '../config/prisma'
 import type { ApiError } from '../types/errors'
 import * as auditService from './auditService'
 import { clinicScope } from '../config/tenantContext'
@@ -15,6 +15,9 @@ import {
 const CANCELLED_STATUS = 'CANCELLED'
 const RESCHEDULED_STATUS = 'RESCHEDULED'
 const ONLINE_LOCATION_NAME = 'Online'
+
+/** Either the client or a transaction: only the delegates slot computation reads. */
+type SlotsDb = Pick<TxClient, 'provider' | 'appointment' | 'slotHold' | 'providerUnavailability'>
 
 function parseTime(timeStr: string): { hours: number; minutes: number } {
   const [h, m] = timeStr.split(':').map(Number)
@@ -274,10 +277,11 @@ async function loadBlockers(
   providerIds: string[],
   from: Date,
   to: Date,
-  now: Date
+  now: Date,
+  db: SlotsDb = prisma
 ): Promise<Map<string, ProviderBlockers>> {
   const [appointments, holds, unavailabilities] = await Promise.all([
-    prisma.appointment.findMany({
+    db.appointment.findMany({
       where: {
         clinicId,
         providerId: { in: providerIds },
@@ -287,7 +291,7 @@ async function loadBlockers(
       },
       select: { providerId: true, startTime: true, endTime: true },
     }),
-    prisma.slotHold.findMany({
+    db.slotHold.findMany({
       where: {
         clinicId,
         providerId: { in: providerIds },
@@ -298,7 +302,7 @@ async function loadBlockers(
       },
       select: { providerId: true, startTime: true, endTime: true, expiresAt: true },
     }),
-    prisma.providerUnavailability.findMany({
+    db.providerUnavailability.findMany({
       where: { providerId: { in: providerIds }, date: { gte: from, lt: to } },
     }),
   ])
@@ -313,12 +317,17 @@ async function loadBlockers(
   return byProvider
 }
 
+/**
+ * Pass `db` (a transaction) when the caller holds a transaction open, so the
+ * reads run on its connection instead of separate ones from the pool.
+ */
 export const getAvailableSlots = async (
-  params: GetAvailableSlotsParams
+  params: GetAvailableSlotsParams,
+  db: SlotsDb = prisma
 ): Promise<SchedulingSlot[]> => {
   const { providerId, serviceId, date, clinicId } = params
 
-  const provider = await prisma.provider.findFirst({
+  const provider = await db.provider.findFirst({
     where: { id: providerId, isActive: true, ...(clinicId ? { clinicId } : clinicScope()) },
     include: providerForSlotsInclude(serviceId),
   })
@@ -336,7 +345,8 @@ export const getAvailableSlots = async (
     [provider.id],
     day.start.toJSDate(),
     day.end.plus({ milliseconds: 1 }).toJSDate(),
-    now
+    now,
+    db
   )
 
   return computeProviderDaySlots(provider, params, blockers.get(provider.id) ?? NO_BLOCKERS, now)
