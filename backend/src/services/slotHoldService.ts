@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
 import type { ApiError } from '../types/errors'
 import * as availabilityService from './availabilityService'
@@ -29,20 +30,25 @@ export const createSlotHold = async (input: CreateSlotHoldInput) => {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`slot-hold:${input.providerId}`}))`
 
-    const availableSlots = await availabilityService.getAvailableSlots({
-      providerId: input.providerId,
-      serviceId: input.serviceId,
-      locationId: input.locationId ?? null,
-      serviceDurationMinutes:
-        (
-          await tx.service.findUnique({
-            where: { id: input.serviceId, clinicId: input.clinicId },
-            select: { duration: true },
-          })
-        )?.duration ?? Math.round((input.endTime.getTime() - input.startTime.getTime()) / 60000),
-      date,
-      clinicId: input.clinicId,
+    const service = await tx.service.findUnique({
+      where: { id: input.serviceId, clinicId: input.clinicId },
+      select: { duration: true },
     })
+
+    // Read availability on this transaction's connection, under the lock.
+    const availableSlots = await availabilityService.getAvailableSlots(
+      {
+        providerId: input.providerId,
+        serviceId: input.serviceId,
+        locationId: input.locationId ?? null,
+        serviceDurationMinutes:
+          service?.duration ??
+          Math.round((input.endTime.getTime() - input.startTime.getTime()) / 60000),
+        date,
+        clinicId: input.clinicId,
+      },
+      tx
+    )
 
     const requestedFingerprint = buildSlotFingerprint({
       providerId: input.providerId,
@@ -80,19 +86,22 @@ export const createSlotHold = async (input: CreateSlotHoldInput) => {
     })
 
     if (input.performedById) {
-      await auditService.logAudit({
-        clinicId: input.clinicId,
-        entityType: 'SlotHold',
-        entityId: hold.id,
-        action: 'HOLD_CREATED',
-        newValue: {
-          providerId: input.providerId,
-          locationId: input.locationId ?? null,
-          startTime: input.startTime.toISOString(),
-          endTime: input.endTime.toISOString(),
-          expiresAt: expiresAt.toISOString(),
+      await tx.auditLog.create({
+        data: {
+          clinicId: input.clinicId,
+          entityType: 'SlotHold',
+          entityId: hold.id,
+          action: 'HOLD_CREATED',
+          oldValue: Prisma.JsonNull,
+          newValue: {
+            providerId: input.providerId,
+            locationId: input.locationId ?? null,
+            startTime: input.startTime.toISOString(),
+            endTime: input.endTime.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+          },
+          performedById: input.performedById,
         },
-        performedById: input.performedById,
       })
     }
 
