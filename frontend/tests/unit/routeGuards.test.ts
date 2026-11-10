@@ -1,6 +1,12 @@
 /** F0.4.2 (b) — each role's route guard. */
 import { describe, expect, it } from 'vitest'
-import { accountRedirect, dashboardRedirect, platformRedirect } from '@/lib/routeGuards'
+import {
+  accountRedirect,
+  dashboardRedirect,
+  onboardingRedirect,
+  onboardingResumePath,
+  platformRedirect,
+} from '@/lib/routeGuards'
 import type { Role } from '@/lib/types'
 
 const onboarded = { tenant: { onboardingCompletedAt: '2026-01-01T00:00:00.000Z' } }
@@ -51,11 +57,14 @@ describe('dashboard guard', () => {
     expect(dashboardRedirect(u(role), path)).toBe(expected)
   })
 
-  it('a first-time clinic admin is sent to onboarding; a clinic-less admin to signup', () => {
+  it('a first-time clinic admin is sent to onboarding; a clinic-less admin to sign up a clinic', () => {
+    // Nothing done yet → the first application step.
     expect(dashboardRedirect(u('SUPER_ADMIN', { clinic: { tenant: {} } }), '/dashboard')).toBe(
-      '/welcome'
+      '/practice'
     )
-    expect(dashboardRedirect(u('SUPER_ADMIN', { clinicId: null }), '/dashboard')).toBe('/signup')
+    expect(dashboardRedirect(u('SUPER_ADMIN', { clinicId: null }), '/dashboard')).toBe(
+      '/get-started'
+    )
   })
 
   it('does not match look-alike prefixes', () => {
@@ -87,5 +96,90 @@ describe('platform guard', () => {
     expect(platformRedirect(u('SUPER_ADMIN'))).toBe('/dashboard')
     expect(platformRedirect(u('PATIENT'))).toBe('/dashboard')
     expect(platformRedirect(u('PLATFORM_ADMIN'))).toBeNull()
+  })
+})
+
+// ─── Clinic onboarding ──────────────────────────────────────────────────────
+
+const done = '2026-11-01T00:00:00.000Z'
+const owner = (
+  profile: { practiceCompletedAt?: string | null; practitionersCompletedAt?: string | null } | null,
+  tenant: Record<string, unknown> = {}
+) => ({
+  role: 'SUPER_ADMIN' as Role,
+  clinicId: 'clinic-1',
+  clinic: { tenant: { onboardingCompletedAt: null, ...tenant }, clinicProfile: profile },
+})
+const signed = owner(
+  { practiceCompletedAt: done, practitionersCompletedAt: done },
+  { termsAcceptedAt: done }
+)
+
+describe('onboarding guard', () => {
+  it('only an un-onboarded clinic owner may be in onboarding', () => {
+    expect(onboardingRedirect(null, '/practice')).toBe('/?auth=login&returnUrl=%2Fpractice')
+    expect(onboardingRedirect(u('PROVIDER'), '/practice')).toBe('/dashboard')
+    expect(onboardingRedirect(u('SUPER_ADMIN'), '/welcome')).toBe('/dashboard') // already onboarded
+    expect(onboardingRedirect({ ...owner(null), clinicId: null }, '/practice')).toBe('/dashboard')
+  })
+
+  it.each<[string, ReturnType<typeof owner>, string, string | null]>([
+    ['nothing done: practice is the only open step', owner(null), '/practice', null],
+    ['nothing done: practitioners is locked', owner(null), '/practitioners', '/practice'],
+    ['nothing done: agreement is locked', owner(null), '/agreement', '/practice'],
+    ['nothing done: setup is locked', owner(null), '/welcome', '/practice'],
+    [
+      'practice done: back to practice is fine',
+      owner({ practiceCompletedAt: done }),
+      '/practice',
+      null,
+    ],
+    [
+      'practice done: practitioners open',
+      owner({ practiceCompletedAt: done }),
+      '/practitioners',
+      null,
+    ],
+    [
+      'practice done: agreement still locked',
+      owner({ practiceCompletedAt: done }),
+      '/agreement',
+      '/practitioners',
+    ],
+    [
+      'both done: agreement open',
+      owner({ practiceCompletedAt: done, practitionersCompletedAt: done }),
+      '/agreement',
+      null,
+    ],
+    ['signed: setup open', signed, '/services', null],
+    ['signed: application closed', signed, '/agreement', '/welcome'],
+    ['signed: application closed (practice)', signed, '/practice', '/welcome'],
+  ])('%s', (_name, user, path, expected) => {
+    expect(onboardingRedirect(user, path)).toBe(expected)
+  })
+
+  it('resumes the setup wizard at the saved step', () => {
+    expect(onboardingResumePath(owner(null))).toBe('/practice')
+    expect(onboardingResumePath(signed)).toBe('/welcome')
+    expect(
+      onboardingResumePath(
+        owner(
+          { practiceCompletedAt: done, practitionersCompletedAt: done },
+          { termsAcceptedAt: done, onboardingStep: 4 }
+        )
+      )
+    ).toBe('/services')
+    expect(
+      onboardingResumePath(
+        owner(
+          { practiceCompletedAt: done, practitionersCompletedAt: done },
+          { termsAcceptedAt: done, onboardingStep: 99 }
+        )
+      )
+    ).toBe('/done')
+    expect(dashboardRedirect(owner({ practiceCompletedAt: done }), '/dashboard')).toBe(
+      '/practitioners'
+    )
   })
 })

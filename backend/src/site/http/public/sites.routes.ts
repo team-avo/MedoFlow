@@ -17,6 +17,7 @@ import { createLead } from '../../services/leadService'
 import { readLocalAsset } from '../../services/assetService'
 import { siteError } from '../../errors'
 import prisma from '../../../config/prisma'
+import { liveClinicWhere } from '../../../services/clinicVerification'
 
 const router = Router()
 
@@ -149,7 +150,7 @@ router.post(
     }
     if (!clinicId && body.clinic) {
       const c = await prisma.clinic.findFirst({
-        where: { isActive: true, OR: [{ slug: body.clinic }, { id: body.clinic }] },
+        where: { ...liveClinicWhere, OR: [{ slug: body.clinic }, { id: body.clinic }] },
         select: { id: true },
       })
       clinicId = c?.id ?? null

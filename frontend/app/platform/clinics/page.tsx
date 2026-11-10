@@ -8,6 +8,21 @@ import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 type Status = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED'
 type Plan = 'FREE' | 'STARTER' | 'GROWTH' | 'ENTERPRISE'
+type Verification = 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED'
+
+const VERIFICATION_LABELS: Record<Verification, string> = {
+  PENDING_REVIEW: 'In review',
+  CHANGES_REQUESTED: 'Changes requested',
+  APPROVED: 'Approved',
+  REJECTED: 'Rejected',
+}
+
+const VERIFICATION_STYLES: Record<Verification, string> = {
+  PENDING_REVIEW: 'bg-indigo-50 text-indigo-700',
+  CHANGES_REQUESTED: 'bg-amber-50 text-amber-700',
+  APPROVED: 'bg-emerald-50 text-emerald-700',
+  REJECTED: 'bg-rose-50 text-rose-700',
+}
 
 interface ClinicRow {
   id: string
@@ -18,6 +33,8 @@ interface ClinicRow {
   trialEndsAt: string | null
   termsAcceptedAt: string | null
   onboardingCompletedAt: string | null
+  verificationStatus: Verification
+  submittedForReviewAt: string | null
   createdAt: string
   clinics: { id: string; name: string; email: string }[]
 }
@@ -33,6 +50,8 @@ const STATUS_STYLES: Record<Status, string> = {
 export default function PlatformClinicsListPage() {
   const [q, setQ] = React.useState('')
   const [status, setStatus] = React.useState<Status | ''>('')
+  const [verification, setVerification] = React.useState<Verification | ''>('')
+  const [pendingReview, setPendingReview] = React.useState(0)
   const [items, setItems] = React.useState<ClinicRow[]>([])
   const [total, setTotal] = React.useState(0)
   const [loading, setLoading] = React.useState(true)
@@ -45,12 +64,14 @@ export default function PlatformClinicsListPage() {
       const params = new URLSearchParams()
       if (q.trim()) params.set('q', q.trim())
       if (status) params.set('status', status)
+      if (verification) params.set('verification', verification)
       const { data } = await api.get<{
         success: boolean
-        data: { items: ClinicRow[]; total: number }
+        data: { items: ClinicRow[]; total: number; pendingReview: number }
       }>(`/platform/clinics?${params.toString()}`)
       setItems(data.data.items)
       setTotal(data.data.total)
+      setPendingReview(data.data.pendingReview ?? 0)
     } catch (e: unknown) {
       const msg =
         (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
@@ -59,7 +80,7 @@ export default function PlatformClinicsListPage() {
     } finally {
       setLoading(false)
     }
-  }, [q, status])
+  }, [q, status, verification])
 
   React.useEffect(() => {
     void load()
@@ -87,6 +108,22 @@ export default function PlatformClinicsListPage() {
         </Link>
       </div>
 
+      {pendingReview > 0 && (
+        <button
+          type="button"
+          onClick={() => setVerification('PENDING_REVIEW')}
+          data-testid="review-queue"
+          className="flex w-full items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left text-sm text-indigo-900 hover:bg-indigo-100"
+        >
+          <span>
+            <strong>{pendingReview}</strong>{' '}
+            {pendingReview === 1 ? 'clinic application is' : 'clinic applications are'} waiting for
+            review
+          </span>
+          <span className="font-semibold">Show queue →</span>
+        </button>
+      )}
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[240px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -110,6 +147,19 @@ export default function PlatformClinicsListPage() {
           <option value="SUSPENDED">Suspended</option>
           <option value="CANCELED">Canceled</option>
         </select>
+        <select
+          aria-label="Review status"
+          value={verification}
+          onChange={(e) => setVerification(e.target.value as Verification | '')}
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200"
+        >
+          <option value="">Any review status</option>
+          {(Object.keys(VERIFICATION_LABELS) as Verification[]).map((v) => (
+            <option key={v} value={v}>
+              {VERIFICATION_LABELS[v]}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
@@ -118,6 +168,7 @@ export default function PlatformClinicsListPage() {
             <tr>
               <th className="px-4 py-3">Clinic</th>
               <th className="px-4 py-3">Subdomain</th>
+              <th className="px-4 py-3">Review</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Plan</th>
               <th className="px-4 py-3">Agreement</th>
@@ -128,14 +179,14 @@ export default function PlatformClinicsListPage() {
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={7} className="px-4 py-6">
+                <td colSpan={8} className="px-4 py-6">
                   <LoadingSkeleton variant="text" count={4} />
                 </td>
               </tr>
             )}
             {!loading && error && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-rose-600">
+                <td colSpan={8} className="px-4 py-8 text-center text-rose-600">
                   <AlertCircle className="mr-1 inline h-4 w-4" />
                   {error}
                 </td>
@@ -143,7 +194,7 @@ export default function PlatformClinicsListPage() {
             )}
             {!loading && !error && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                <td colSpan={8} className="px-4 py-12 text-center text-slate-500">
                   No clinics yet. Use <strong>New clinic</strong> to provision the first one.
                 </td>
               </tr>
@@ -162,6 +213,15 @@ export default function PlatformClinicsListPage() {
                     <p className="text-xs text-slate-500">{row.clinics[0]?.email ?? '—'}</p>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{row.slug}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${VERIFICATION_STYLES[row.verificationStatus]}`}
+                    >
+                      {row.verificationStatus === 'PENDING_REVIEW' && !row.submittedForReviewAt
+                        ? 'Not submitted'
+                        : VERIFICATION_LABELS[row.verificationStatus]}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}

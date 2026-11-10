@@ -23,3 +23,15 @@ export const list = asyncHandler(
     successResponse(res, 200, 'Locations retrieved', { locations })
   }
 )
+
+export const update = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const location = await locationService.updateLocation(
+      String(req.params.id),
+      req.body as locationService.UpdateLocationData,
+      req.user!.clinicId!,
+      req.user!.id
+    )
+    successResponse(res, 200, 'Location updated', { location })
+  }
+)

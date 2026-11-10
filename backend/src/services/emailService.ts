@@ -308,3 +308,122 @@ export async function sendSiteLeadNotification(params: {
   const html = `<p>You have a new enquiry from your website.</p><p><a href="${params.inboxUrl}">Sign in to read it</a></p>`
   await sendEmail({ to: params.to, subject, html, text })
 }
+
+// ─── Clinic onboarding: application review ──────────────────────────────────
+// Names and notes are typed by clinics and reviewers, so they are escaped
+// before going into HTML.
+
+const escapeHtml = (v: string) =>
+  v
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+
+const emailShell = (title: string, body: string) => `
+    <div style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px;">
+      <h2 style="color: #4f46e5;">${title}</h2>
+      ${body}
+    </div>
+  `
+
+/** To the clinic owner, right after the application is submitted. */
+export async function sendClinicApplicationReceived(params: {
+  to: string
+  name: string
+  clinicName: string
+  dashboardUrl: string
+}): Promise<void> {
+  const name = escapeHtml(params.name)
+  const clinic = escapeHtml(params.clinicName)
+  const subject = `We received ${params.clinicName}'s application`
+  const html = emailShell(
+    'Application received',
+    `<p>Hi ${name},</p>
+      <p>Thanks — we have the application for <strong>${clinic}</strong>. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.</p>
+      <p>You can keep setting up services, team and website in the meantime. Your public website and online booking switch on as soon as the clinic is approved.</p>
+      <p><a href="${params.dashboardUrl}">Continue setup</a></p>`
+  )
+  const text = `Hi ${params.name},
+
+Thanks — we have the application for ${params.clinicName}. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.
+
+You can keep setting up services, team and website in the meantime. Your public website and online booking switch on as soon as the clinic is approved.
+
+Continue setup: ${params.dashboardUrl}`
+
+  await sendEmail({ to: params.to, subject, html, text })
+}
+
+/** To the platform review inbox: a clinic application is waiting. */
+export async function sendClinicApplicationForReview(params: {
+  to: string
+  clinicName: string
+  legalName: string
+  practiceType: string
+  resubmitted: boolean
+  reviewUrl: string
+}): Promise<void> {
+  const verb = params.resubmitted ? 'resubmitted' : 'submitted'
+  const subject = `Clinic application ${verb}: ${params.clinicName}`
+  const html = emailShell(
+    `Clinic application ${verb}`,
+    `<p><strong>${escapeHtml(params.clinicName)}</strong> (${escapeHtml(params.legalName)}, ${escapeHtml(params.practiceType)}) has ${verb} its application and is waiting for review.</p>
+      <p><a href="${params.reviewUrl}">Open the application</a></p>`
+  )
+  const text = `${params.clinicName} (${params.legalName}, ${params.practiceType}) has ${verb} its application and is waiting for review.
+
+Open the application: ${params.reviewUrl}`
+
+  await sendEmail({ to: params.to, subject, html, text })
+}
+
+/** To the clinic owner: the reviewer's decision. */
+export async function sendClinicReviewDecision(params: {
+  to: string
+  name: string
+  clinicName: string
+  decision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED'
+  notes: string | null
+  dashboardUrl: string
+}): Promise<void> {
+  const clinic = escapeHtml(params.clinicName)
+  const notesHtml = params.notes
+    ? `<div style="background: #f9f9f9; padding: 12px 16px; border-radius: 8px; margin: 16px 0; white-space: pre-wrap;">${escapeHtml(params.notes)}</div>`
+    : ''
+  const copy = {
+    APPROVED: {
+      subject: `${params.clinicName} is approved — you're live`,
+      title: 'Your clinic is approved',
+      body: `<p><strong>${clinic}</strong> has been approved. Your public website and online booking are now switched on.</p>`,
+      text: `${params.clinicName} has been approved. Your public website and online booking are now switched on.`,
+    },
+    CHANGES_REQUESTED: {
+      subject: `Action needed on ${params.clinicName}'s application`,
+      title: 'A few changes are needed',
+      body: `<p>We reviewed the application for <strong>${clinic}</strong> and need a few changes before we can approve it:</p>`,
+      text: `We reviewed the application for ${params.clinicName} and need a few changes before we can approve it:`,
+    },
+    REJECTED: {
+      subject: `Update on ${params.clinicName}'s application`,
+      title: 'Application not approved',
+      body: `<p>We were unable to approve the application for <strong>${clinic}</strong>.</p>`,
+      text: `We were unable to approve the application for ${params.clinicName}.`,
+    },
+  }[params.decision]
+  const html = emailShell(
+    copy.title,
+    `<p>Hi ${escapeHtml(params.name)},</p>
+      ${copy.body}
+      ${notesHtml}
+      <p><a href="${params.dashboardUrl}">Open your dashboard</a></p>`
+  )
+  const text = `Hi ${params.name},
+
+${copy.text}
+${params.notes ? `\n${params.notes}\n` : ''}
+Open your dashboard: ${params.dashboardUrl}`
+
+  await sendEmail({ to: params.to, subject: copy.subject, html, text })
+}

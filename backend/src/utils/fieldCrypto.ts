@@ -39,6 +39,8 @@ export const ENCRYPTED_FIELDS: Readonly<Record<string, Readonly<Record<string, F
   },
   SiteLead: { name: 's', email: 's', phone: 's', message: 's' },
   User: { phone: 's' },
+  // Clinic onboarding: the practice's tax and DEA registration numbers.
+  ClinicProfile: { federalTaxId: 's', deaNumber: 's' },
 }
 
 export const ENVELOPE_PREFIX = 'fle:v1:'

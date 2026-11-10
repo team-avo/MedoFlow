@@ -125,6 +125,14 @@ export const MOCK_USERS: Record<MockRole, { id: string; name: string; email: str
   },
 }
 
+export interface MockOnboarding {
+  tenant: Record<string, unknown>
+  clinicProfile: {
+    practiceCompletedAt: string | null
+    practitionersCompletedAt: string | null
+  } | null
+}
+
 export async function installMockApi(
   page: Page,
   opts: {
@@ -138,6 +146,11 @@ export async function installMockApi(
     phone?: string | null
     /** A just-signed-up clinic: onboarding and terms not done yet (WS4). */
     newClinic?: boolean
+    /**
+     * Live clinic-onboarding state, read on every /auth/me: a spec mutates it
+     * from its own /onboarding/** routes (tenant fields and clinicProfile).
+     */
+    onboarding?: MockOnboarding
   } = {}
 ) {
   const state: MockState = {
@@ -174,7 +187,19 @@ export async function installMockApi(
         onboardingStep: opts.newClinic ? 0 : 9,
         termsAcceptedAt: opts.newClinic ? null : '2026-01-01T00:00:00.000Z',
         termsVersion: '1',
+        verificationStatus: opts.newClinic ? 'PENDING_REVIEW' : 'APPROVED',
+        submittedForReviewAt: null,
+        reviewNotes: null,
+        ...(opts.onboarding?.tenant ?? {}),
       },
+      clinicProfile: opts.onboarding
+        ? opts.onboarding.clinicProfile
+        : opts.newClinic
+          ? null
+          : {
+              practiceCompletedAt: '2026-01-01T00:00:00.000Z',
+              practitionersCompletedAt: '2026-01-01T00:00:00.000Z',
+            },
     },
   })
   const issue = (route: Route) => {
@@ -261,6 +286,35 @@ export async function installMockApi(
         state.mfaEnabled = true
         return ok(route, {
           recoveryCodes: Array.from({ length: 8 }, (_, i) => `e2e0-rc0${i}-${1000 + i}`),
+        })
+      // Clinic onboarding (an already-approved clinic unless a spec overrides these).
+      case 'GET /onboarding/application':
+        if (!authed) return fail(route, 401, 'unauthorized', 'Not authenticated')
+        return ok(route, {
+          clinicName: opts.identity?.clinicName ?? 'Synthetic Clinic',
+          verification: { status: 'APPROVED', submittedAt: null, reviewedAt: null, notes: null },
+          progress: { practice: true, practitioners: true, agreement: true },
+          profile: null,
+          location: null,
+          agreement: null,
+        })
+      case 'GET /onboarding/status':
+        if (!authed) return fail(route, 401, 'unauthorized', 'Not authenticated')
+        return ok(route, {
+          completedAt: '2026-01-01T00:00:00.000Z',
+          step: 6,
+          termsAcceptedAt: '2026-01-01T00:00:00.000Z',
+          verification: { status: 'APPROVED', submittedAt: null, reviewedAt: null, notes: null },
+          application: { practice: true, practitioners: true, agreement: true },
+          checklist: {
+            brand: true,
+            locations: true,
+            disciplines: true,
+            services: true,
+            providers: true,
+            availability: false,
+            website: false,
+          },
         })
       default:
         // Anything else the dashboard chrome asks for: an empty, successful answer.

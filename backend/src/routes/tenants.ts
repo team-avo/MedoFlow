@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { asyncHandler } from '../utils/asyncHandler'
 import { successResponse } from '../utils/apiResponse'
 import { validateRequest } from '../middleware/validateRequest'
-import { authRateLimit } from '../middleware/rateLimit'
+import { publicApiRateLimit, signupRateLimit } from '../middleware/rateLimit'
 import { withPublicScope } from '../middleware/auth'
 import { siteBaseUrls } from '../site/services/domainService'
 import * as tenantService from '../services/tenantService'
@@ -50,7 +50,7 @@ router.get('/plans', (_req, res) => {
 // POST /api/v1/tenants/signup
 router.post(
   '/signup',
-  authRateLimit,
+  signupRateLimit,
   validateRequest({ body: signupSchema }),
   asyncHandler(async (req, res) => {
     const result = await tenantService.provisionTenant(req.body as tenantService.SignupData)
@@ -58,6 +58,7 @@ router.post(
       tenantId: result.tenant.id,
       plan: result.tenant.plan,
       status: result.tenant.status,
+      verificationStatus: result.tenant.verificationStatus,
       trialEndsAt: result.tenant.trialEndsAt,
       clinicId: result.clinic.id,
       subdomain: result.subdomain,
@@ -72,6 +73,7 @@ router.post(
 // GET /api/v1/tenants/check-subdomain?subdomain=xyz
 router.get(
   '/check-subdomain',
+  publicApiRateLimit,
   asyncHandler(async (req, res) => {
     const parsed = subdomainCheckSchema.safeParse(req.query)
     if (!parsed.success) {

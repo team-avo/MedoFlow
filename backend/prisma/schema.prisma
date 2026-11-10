@@ -242,27 +242,107 @@ enum CommissionStatus {
 // One Tenant = one SaaS customer account (may own multiple Clinics/locations)
 // All clinic data is scoped through Clinic → Tenant
 model Tenant {
-  id                    String       @id @default(cuid())
+  id                    String                   @id @default(cuid())
   name                  String
-  slug                  String       @unique
-  status                TenantStatus @default(TRIAL)
-  plan                  TenantPlan   @default(FREE)
-  region                String       @default("us-east-1")
+  slug                  String                   @unique
+  status                TenantStatus             @default(TRIAL)
+  plan                  TenantPlan               @default(FREE)
+  region                String                   @default("us-east-1")
   dataResidency         String?
   trialEndsAt           DateTime?
-  onboardingStep        Int          @default(0)
+  onboardingStep        Int                      @default(0)
   onboardingCompletedAt DateTime?
   termsAcceptedAt       DateTime?
   termsAcceptedByUserId String?
   termsVersion          String?
-  createdAt             DateTime     @default(now())
-  updatedAt             DateTime     @updatedAt
+  /// Clinic application review (onboarding). Public site, booking and patient
+  /// intake stay off until APPROVED (services/clinicVerification.ts).
+  verificationStatus    ClinicVerificationStatus @default(PENDING_REVIEW)
+  submittedForReviewAt  DateTime?
+  reviewedAt            DateTime?
+  reviewedById          String?
+  reviewNotes           String?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 
   clinics Clinic[]
   brand   Brand?
 
   @@index([slug])
   @@index([status])
+  @@index([verificationStatus])
+}
+
+enum ClinicVerificationStatus {
+  PENDING_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  REJECTED
+}
+
+/// The clinic's practice application (onboarding step "Practice details" and
+/// "Practitioners"). One per clinic. federalTaxId and deaNumber are
+/// field-encrypted (utils/fieldCrypto).
+model ClinicProfile {
+  id                       String    @id @default(cuid())
+  clinicId                 String    @unique
+  legalName                String
+  dbaName                  String?
+  practiceType             String
+  locationCount            Int       @default(1)
+  officePhone              String?
+  fax                      String?
+  website                  String?
+  primaryContactName       String
+  primaryContactEmail      String
+  primaryContactPhone      String?
+  officeManagerName        String?
+  officeManagerEmail       String?
+  accountsPayableName      String?
+  accountsPayableEmail     String?
+  mailingSameAsPrimary     Boolean   @default(true)
+  mailingAddressLine1      String?
+  mailingAddressLine2      String?
+  mailingCity              String?
+  mailingState             String?
+  mailingPostalCode        String?
+  groupNpi                 String?
+  noNpi                    Boolean   @default(false)
+  federalTaxId             String
+  licenseNumber            String?
+  licenseState             String?
+  deaNumber                String?
+  estimatedSeats           Int       @default(1)
+  referralSource           String?
+  salesRep                 String?
+  /// [{name, email, phone?, credentials?, licenseNumber?, licenseState?, npi?, isOwner, isSelf}]
+  practitioners            Json      @default("[]")
+  practiceCompletedAt      DateTime?
+  practitionersCompletedAt DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+/// A signed clinic service agreement (append-only; the latest row is current).
+model ClinicAgreement {
+  id                    String   @id @default(cuid())
+  clinicId              String
+  version               String
+  signerUserId          String
+  signerName            String
+  signerTitle           String
+  signatureText         String
+  acknowledgements      Json
+  communicationsConsent Boolean
+  ipAddress             String?
+  userAgent             String?
+  acceptedAt            DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, acceptedAt])
 }
 
 model Brand {
@@ -344,6 +424,8 @@ model Clinic {
   rxOrderProposals          RxOrderProposal[]
   rxOrderLines              RxOrderLine[]
   patientCommerceProfiles   PatientCommerceProfile[]
+  clinicProfile             ClinicProfile?
+  clinicAgreements          ClinicAgreement[]
 
   @@index([tenantId])
 }
@@ -669,6 +751,11 @@ model Provider {
   headshotUrl         String?
   signatureUrl        String?
   licenseNumber       String?
+  /// National Provider Identifier (10 digits, checksum-validated).
+  npi                 String?
+  licenseState        String?
+  /// Post-nominal credentials, e.g. "MD", "ND", "DC".
+  credentials         String?
   languages           String[]   @default([])
   scribeTemplateId    String?
   scribeTone          ScribeTone @default(CONCISE)

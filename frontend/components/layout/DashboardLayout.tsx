@@ -9,6 +9,7 @@ import { TopBar } from './TopBar'
 import { DashboardErrorBoundary, LoadingSkeleton } from '@/components/ui-system'
 import { useTour } from '@/contexts/TourContext'
 import { dashboardRedirect } from '@/lib/routeGuards'
+import { VerificationBanner } from '@/components/onboarding/VerificationBanner'
 
 export interface DashboardLayoutProps {
   children: React.ReactNode
@@ -57,6 +58,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           onOpenMobileNav={() => setMobileNavOpen(true)}
           onRestartTour={() => startTour({ force: true })}
         />
+        {/* Clinic onboarding: under review / changes requested / rejected. */}
+        <VerificationBanner user={user} />
         <main className="min-h-[calc(100vh-3.5rem)]">
           <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
         </main>

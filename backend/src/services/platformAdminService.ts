@@ -94,11 +94,15 @@ export async function createClinicByPlatform(input: CreateClinicByPlatformInput)
   const billing = newTenantBilling(input.plan ?? 'FREE')
 
   const result = await prisma.$transaction(async (tx) => {
+    // Created by a platform admin, so already vetted: no review queue.
     const tenant = await tx.tenant.create({
       data: {
         name: input.clinicName,
         slug: subdomain,
         ...billing,
+        verificationStatus: 'APPROVED',
+        reviewedAt: new Date(),
+        reviewNotes: 'Created by a platform admin',
       },
     })
 
@@ -182,6 +186,7 @@ export interface ListClinicsFilters {
   q?: string
   status?: 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'SUSPENDED' | 'CANCELED'
   plan?: 'FREE' | 'STARTER' | 'GROWTH' | 'ENTERPRISE'
+  verification?: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED'
   limit?: number
   offset?: number
 }
@@ -190,6 +195,7 @@ export async function listClinics(filters: ListClinicsFilters = {}) {
   const where: Record<string, unknown> = {}
   if (filters.status) where['status'] = filters.status
   if (filters.plan) where['plan'] = filters.plan
+  if (filters.verification) where['verificationStatus'] = filters.verification
   if (filters.q && filters.q.trim()) {
     const q = filters.q.trim()
     where['OR'] = [
@@ -198,7 +204,7 @@ export async function listClinics(filters: ListClinicsFilters = {}) {
     ]
   }
 
-  const [items, total] = await Promise.all([
+  const [items, total, pendingReview] = await Promise.all([
     prisma.tenant.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -213,14 +219,20 @@ export async function listClinics(filters: ListClinicsFilters = {}) {
         trialEndsAt: true,
         termsAcceptedAt: true,
         onboardingCompletedAt: true,
+        verificationStatus: true,
+        submittedForReviewAt: true,
         createdAt: true,
         clinics: { select: { id: true, name: true, email: true }, take: 1 },
       },
     }),
     prisma.tenant.count({ where }),
+    // Submitted applications waiting for a reviewer (the queue badge).
+    prisma.tenant.count({
+      where: { verificationStatus: 'PENDING_REVIEW', submittedForReviewAt: { not: null } },
+    }),
   ])
 
-  return { items, total }
+  return { items, total, pendingReview }
 }
 
 export async function getClinicDetail(tenantId: string) {
@@ -237,6 +249,11 @@ export async function getClinicDetail(tenantId: string) {
       termsVersion: true,
       onboardingCompletedAt: true,
       onboardingStep: true,
+      verificationStatus: true,
+      submittedForReviewAt: true,
+      reviewedAt: true,
+      reviewedById: true,
+      reviewNotes: true,
       createdAt: true,
       brand: {
         select: { subdomain: true, customDomain: true, primaryColor: true, logoUrl: true },

@@ -1,0 +1,47 @@
+{
+  "$comment": "Clinic onboarding parity: backend/src/utils/practiceIds.ts and frontend/lib/practiceIds.ts must both accept every `valid` value and reject every `invalid` one. Both test suites load this file. Synthetic values only — 1234567893 is the CMS documentation example NPI.",
+  "npi": {
+    "valid": [
+      "1234567893",
+      "1987654328",
+      "1334455668",
+      "1000000004",
+      "1234 567 893",
+      "1234-567-893"
+    ],
+    "invalid": [
+      "",
+      "1234567890",
+      "123456789",
+      "12345678931",
+      "abcdefghij",
+      "1987654320",
+      "0000000000"
+    ]
+  },
+  "ein": {
+    "valid": ["12-3456789", "123456789", "45-0000001", " 98-7654321 "],
+    "invalid": [
+      "",
+      "00-1234567",
+      "12-345678",
+      "1-23456789",
+      "12-34567890",
+      "11-1111111",
+      "AB-CDEFGHI",
+      "12 3456789"
+    ]
+  },
+  "dea": {
+    "valid": ["AB1234563", "FS9081720", "M95551230", "ab1234563", "AB 1234563"],
+    "invalid": [
+      "",
+      "AB1234564",
+      "AB123456",
+      "1B1234563",
+      "IB1234563",
+      "ABC123456",
+      "AB12345630"
+    ]
+  }
+}

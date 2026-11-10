@@ -44,7 +44,8 @@ export async function createClinicFixture(label: string): Promise<ClinicFixture>
   const password = await hashPassword()
 
   const tenant = await adminDb.tenant.create({
-    data: { name: `Synthetic ${suffix}`, slug: `t-${suffix}` },
+    // A live clinic: its application is approved (clinic onboarding go-live gate).
+    data: { name: `Synthetic ${suffix}`, slug: `t-${suffix}`, verificationStatus: 'APPROVED' },
   })
   const clinic = await adminDb.clinic.create({
     data: {

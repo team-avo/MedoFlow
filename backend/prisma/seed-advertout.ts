@@ -63,6 +63,7 @@ async function main() {
         termsVersion: 'v1-2026-05',
         onboardingStep: 7,
         onboardingCompletedAt: new Date(),
+        verificationStatus: 'APPROVED',
       },
     })
   }

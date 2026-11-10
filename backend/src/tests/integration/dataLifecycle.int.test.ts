@@ -92,7 +92,8 @@ describe('customer off-boarding (B0.6.7)', () => {
     const scoped = Prisma.dmmf.datamodel.models
       .filter((m) => m.fields.some((f) => f.name === 'clinicId'))
       .map((m) => m.name)
-      .filter((n) => !['AuditLog', 'User', 'ScribeTemplate'].includes(n))
+      // Retained by design: the audit trail and signed clinic agreements.
+      .filter((n) => !['AuditLog', 'ClinicAgreement', 'User', 'ScribeTemplate'].includes(n))
     expect(scoped.filter((n) => !planned.has(n))).toEqual([])
     for (const child of [
       'InvoiceItem',

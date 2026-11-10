@@ -3,6 +3,7 @@ import type { TenantPlan } from '@prisma/client'
 import prisma from '../config/prisma'
 import { newTenantBilling } from '../config/billingMode'
 import type { ApiError } from '../types/errors'
+import { logAudit } from './auditService'
 
 export interface SignupData {
   // Account step
@@ -94,8 +95,13 @@ export async function provisionTenant(data: SignupData) {
     throw err
   }
 
-  const existingBrand = await prisma.brand.findUnique({ where: { subdomain } })
-  if (existingBrand) {
+  const [existingBrand, existingDomain] = await Promise.all([
+    prisma.brand.findUnique({ where: { subdomain } }),
+    // A site hostname can hold the label without a Brand (e.g. an older
+    // clinic's site); the new clinic would silently get no website.
+    prisma.siteDomain.findUnique({ where: { hostname: subdomain }, select: { id: true } }),
+  ])
+  if (existingBrand || existingDomain) {
     const err = new Error('This subdomain is already taken.') as ApiError
     err.statusCode = 409
     throw err
@@ -111,7 +117,7 @@ export async function provisionTenant(data: SignupData) {
   // TRIAL for 14 days, or ACTIVE with no end on the demo (config/billingMode).
   const billing = newTenantBilling(data.plan ?? 'FREE')
 
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     // 1. Create Tenant
     const tenant = await tx.tenant.create({
       data: {
@@ -196,6 +202,22 @@ export async function provisionTenant(data: SignupData) {
 
     return { tenant, clinic, user, subdomain }
   })
+
+  await logAudit({
+    clinicId: result.clinic.id,
+    entityType: 'Tenant',
+    entityId: result.tenant.id,
+    action: 'TENANT_SIGNUP',
+    newValue: {
+      plan: result.tenant.plan,
+      status: result.tenant.status,
+      verificationStatus: result.tenant.verificationStatus,
+      subdomain,
+    },
+    performedById: result.user.id,
+  })
+
+  return result
 }
 
 export async function checkSubdomainAvailability(subdomain: string): Promise<boolean> {

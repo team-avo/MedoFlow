@@ -15,12 +15,22 @@ export interface UserTenantSummary {
   onboardingStep: number
   termsAcceptedAt: string | null
   termsVersion: string | null
+  /** Clinic onboarding review; public site and booking go live once APPROVED. */
+  verificationStatus?: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED'
+  submittedForReviewAt?: string | null
+  /** The reviewer's note when changes were requested or the clinic was rejected. */
+  reviewNotes?: string | null
 }
 
 export interface UserClinicSummary {
   id: string
   name: string
   tenant: UserTenantSummary
+  /** Which application steps are done; null before the practice details are saved. */
+  clinicProfile?: {
+    practiceCompletedAt: string | null
+    practitionersCompletedAt: string | null
+  } | null
 }
 
 export interface User {

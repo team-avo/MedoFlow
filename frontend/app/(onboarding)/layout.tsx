@@ -3,69 +3,36 @@
 import { useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
-import { loginRedirect } from '@/lib/routeGuards'
+import { onboardingRedirect } from '@/lib/routeGuards'
 import { LoadingSkeleton } from '@/components/ui-system'
 
 /**
- * Minimal layout for the post-signup clinic onboarding wizard.
- * - No sidebar, no topbar (the wizard shell renders its own navigation)
- * - Only SUPER_ADMIN with a clinic + !onboardingCompletedAt can stay here.
- *   PATIENTs, PROVIDERs, and already-onboarded admins are redirected.
- * - Tenants who haven't accepted the agreement are redirected to /agreement
- *   before any other onboarding step is reachable.
+ * Minimal layout for clinic onboarding: the practice application
+ * (/practice → /practitioners → /agreement) and then the setup wizard
+ * (/welcome … /done). No sidebar or topbar — the step shells render their
+ * own navigation. Who may be on which step is decided by the pure, unit-tested
+ * `onboardingRedirect` (lib/routeGuards.ts).
  */
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
-  const pathname = usePathname()
+  const pathname = usePathname() ?? '/welcome'
   const { user, isLoading, isAuthenticated } = useAuth()
 
-  const isOnAgreement = pathname === '/agreement'
+  const target = isLoading ? null : onboardingRedirect(isAuthenticated ? user : null, pathname)
 
   useEffect(() => {
     if (isLoading) return
-    if (!isAuthenticated) {
-      router.replace(loginRedirect('/welcome'))
-      return
-    }
-    if (!user) return
+    if (isAuthenticated && !user) return
+    if (target && target !== pathname) router.replace(target)
+  }, [target, pathname, isLoading, isAuthenticated, user, router])
 
-    if (user.role !== 'SUPER_ADMIN' || !user.clinicId) {
-      router.replace('/dashboard')
-      return
-    }
-
-    if (user.clinic?.tenant?.onboardingCompletedAt) {
-      router.replace('/dashboard')
-      return
-    }
-
-    // Gate: agreement must be on file before any other wizard step is reachable.
-    const termsAccepted = Boolean(user.clinic?.tenant?.termsAcceptedAt)
-    if (!termsAccepted && !isOnAgreement) {
-      router.replace('/agreement')
-      return
-    }
-    if (termsAccepted && isOnAgreement) {
-      router.replace('/welcome')
-      return
-    }
-  }, [user, isLoading, isAuthenticated, router, isOnAgreement])
-
-  if (isLoading || !user) {
+  if (isLoading || !user || target) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <LoadingSkeleton variant="avatar" count={1} />
       </div>
     )
   }
-
-  if (user.role !== 'SUPER_ADMIN' || !user.clinicId || user.clinic?.tenant?.onboardingCompletedAt) {
-    return null
-  }
-
-  const termsAccepted = Boolean(user.clinic?.tenant?.termsAcceptedAt)
-  if (!termsAccepted && !isOnAgreement) return null
-  if (termsAccepted && isOnAgreement) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">

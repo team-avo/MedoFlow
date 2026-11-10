@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
+import { assertClinicLive, liveClinicWhere } from '../services/clinicVerification'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import type { ApiError } from '../types/errors'
@@ -15,7 +16,7 @@ const ONLINE_LOCATION_NAMES = ['online', 'virtual']
 const resolveClinicId = async (idOrSlug: string): Promise<string | null> => {
   if (!idOrSlug) return null
   const clinic = await prisma.clinic.findFirst({
-    where: { isActive: true, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
+    where: { ...liveClinicWhere, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
     select: { id: true },
   })
   return clinic?.id ?? null
@@ -24,7 +25,7 @@ const resolveClinicId = async (idOrSlug: string): Promise<string | null> => {
 export const listClinics = asyncHandler(
   async (_req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const clinics = await prisma.clinic.findMany({
-      where: { isActive: true },
+      where: liveClinicWhere,
       select: {
         id: true,
         name: true,
@@ -47,7 +48,7 @@ export const getClinic = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const idOrSlug = req.params.id as string
     const clinic = await prisma.clinic.findFirst({
-      where: { isActive: true, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
+      where: { ...liveClinicWhere, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
       select: {
         id: true,
         name: true,
@@ -276,6 +277,7 @@ export const getAvailability = asyncHandler(
       err.code = 'validation_error'
       throw err
     }
+    await assertClinicLive(clinicId)
 
     const service = await prisma.service.findFirst({
       where: {
@@ -393,6 +395,7 @@ export const createSlotHold = asyncHandler(
       err.code = 'validation_error'
       throw err
     }
+    await assertClinicLive(clinicId)
     const hold = await slotHoldService.createSlotHold({
       clinicId,
       providerId,
@@ -442,6 +445,7 @@ export const getAvailableDatesSummary = asyncHandler(
       err.statusCode = 400
       throw err
     }
+    await assertClinicLive(clinicId)
 
     const availableDates = await availabilityService.getAvailableDatesInRange({
       clinicId,

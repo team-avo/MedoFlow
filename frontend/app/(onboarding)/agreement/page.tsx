@@ -3,383 +3,311 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Building2, ShieldCheck, Loader2, CheckCircle2 } from 'lucide-react'
-import api from '@/lib/api'
+import { ArrowLeft, CheckCircle2, Loader2, PenLine } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { AppErrorState, AppFormField, AppInput, LoadingSkeleton } from '@/components/ui-system'
+import { ApplicationShell } from '@/components/onboarding/ApplicationShell'
+import { useApplication } from '@/components/onboarding/useApplication'
+import { apiErrorOf } from '@/lib/apiError'
+import {
+  ACKNOWLEDGEMENTS,
+  ACKNOWLEDGEMENT_KEYS,
+  COMMUNICATIONS_AUTHORIZATION,
+  onboardingApi,
+  type AcknowledgementKey,
+  type Application,
+} from '@/lib/onboardingApi'
+import { PRACTICE_TYPES } from '@/lib/practiceIds'
+import { signatureMatches } from '@/lib/schemas/onboarding'
 
-const ACK_LABELS = {
-  baa: 'I will execute a Business Associate Agreement (BAA) before processing PHI',
-  hipaa: 'I will follow HIPAA requirements for clinical data handling',
-  dataResidency: 'I understand patient data is stored in US data centers',
-  refundPolicy: 'I have reviewed the refund and cancellation policy',
-  authorizedSignatory: 'I am authorized to bind this clinic to this agreement',
-} as const
+const practiceTypeLabel = (key: string) => PRACTICE_TYPES.find(([k]) => k === key)?.[1] ?? key
 
-type AckKey = keyof typeof ACK_LABELS
-
-interface FormState {
-  legalName: string
-  taxId: string
-  primaryContactName: string
-  primaryContactEmail: string
-  mailingAddress: string
-  estimatedSeats: number
-  acknowledgements: Record<AckKey, boolean>
-}
-
-const ACK_KEYS: AckKey[] = ['baa', 'hipaa', 'dataResidency', 'refundPolicy', 'authorizedSignatory']
-
+/** Clinic application, step 3 — review, acknowledge, sign and submit. */
 export default function AgreementPage() {
   const router = useRouter()
   const { user, refetchUser } = useAuth()
+  const { data, isLoading, isError, refetch } = useApplication()
   const clinicName = user?.clinic?.tenant?.name ?? user?.clinic?.name ?? 'your clinic'
 
-  const [form, setForm] = React.useState<FormState>(() => ({
-    legalName: '',
-    taxId: '',
-    primaryContactName: user?.name ?? '',
-    primaryContactEmail: user?.email ?? '',
-    mailingAddress: '',
-    estimatedSeats: 5,
-    acknowledgements: {
-      baa: false,
-      hipaa: false,
-      dataResidency: false,
-      refundPolicy: false,
-      authorizedSignatory: false,
-    },
-  }))
+  const [acks, setAcks] = React.useState<Record<AcknowledgementKey, boolean>>({
+    baa: false,
+    hipaa: false,
+    dataResidency: false,
+    refundPolicy: false,
+    authorizedSignatory: false,
+  })
+  const [communications, setCommunications] = React.useState(false)
+  const [signerName, setSignerName] = React.useState(user?.name ?? '')
+  const [signerTitle, setSignerTitle] = React.useState('')
+  const [signature, setSignature] = React.useState('')
   const [showConfirm, setShowConfirm] = React.useState(false)
   const [confirmText, setConfirmText] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  const allAcked = ACK_KEYS.every((k) => form.acknowledgements[k])
+  const allAcked = ACKNOWLEDGEMENT_KEYS.every((k) => acks[k])
+  const signed = signatureMatches(signature, signerName)
   const formValid =
-    form.legalName.trim().length >= 2 &&
-    form.taxId.trim().length >= 2 &&
-    form.primaryContactName.trim().length >= 2 &&
-    /^\S+@\S+\.\S+$/.test(form.primaryContactEmail) &&
-    form.mailingAddress.trim().length >= 5 &&
-    form.estimatedSeats >= 1 &&
-    allAcked
-
+    allAcked &&
+    communications &&
+    signerName.trim().length >= 2 &&
+    signerTitle.trim().length >= 2 &&
+    signed
   const confirmMatches = confirmText.trim().toLowerCase() === clinicName.trim().toLowerCase()
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formValid) return
-    setShowConfirm(true)
-    setConfirmText('')
-    setError(null)
-  }
+  const today = new Date().toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 
   const onConfirm = async () => {
     if (!confirmMatches || submitting) return
     setSubmitting(true)
     setError(null)
     try {
-      await api.post('/onboarding/agreement', {
-        legalName: form.legalName.trim(),
-        taxId: form.taxId.trim(),
-        primaryContactName: form.primaryContactName.trim(),
-        primaryContactEmail: form.primaryContactEmail.trim(),
-        mailingAddress: form.mailingAddress.trim(),
-        estimatedSeats: form.estimatedSeats,
+      await onboardingApi.signAgreement({
+        acknowledgements: acks,
+        communications,
+        signerName: signerName.trim(),
+        signerTitle: signerTitle.trim(),
+        signature: signature.trim(),
         confirmClinicName: confirmText.trim(),
-        acknowledgements: form.acknowledgements,
       })
       await refetchUser()
       router.replace('/welcome')
-    } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Could not save the agreement. Please try again.'
-      setError(msg)
+    } catch (err) {
+      setError(apiErrorOf(err).message)
       setSubmitting(false)
     }
   }
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-4xl flex-col px-4 py-6 md:px-8 md:py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <Link href="/agreement" className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 shadow-md">
-            <Building2 className="h-5 w-5 text-white" />
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-slate-900">MedoFlow</span>
-        </Link>
-        <span className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-          <ShieldCheck className="h-3.5 w-3.5" />
-          Service agreement
-        </span>
-      </div>
+    <ApplicationShell
+      stepKey="agreement"
+      title={`Service agreement for ${clinicName}`}
+      subtitle="Check your application, acknowledge the compliance terms and sign. Submitting sends the application to our team for review."
+    >
+      <Link
+        href="/practitioners"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800"
+      >
+        <ArrowLeft className="h-4 w-4" /> Practitioners
+      </Link>
 
-      <div className="rounded-3xl border border-slate-100 bg-white shadow-xl">
-        <div className="px-6 py-7 md:px-10 md:py-10">
-          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-            Before we set up your clinic
-          </p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-            Service agreement for {clinicName}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 md:text-base">
-            Confirm the legal entity behind your clinic and acknowledge the compliance terms. Once
-            submitted you'll continue to the setup wizard.
-          </p>
-
-          <form onSubmit={onSubmit} className="mt-8 space-y-6">
-            <section className="grid gap-4 md:grid-cols-2">
-              <Field label="Legal entity name" required>
-                <input
-                  type="text"
-                  value={form.legalName}
-                  onChange={(e) => setForm({ ...form, legalName: e.target.value })}
-                  className="input"
-                  placeholder="Acme Wellness LLC"
-                  required
-                />
-              </Field>
-              <Field label="EIN / Tax ID" required>
-                <input
-                  type="text"
-                  value={form.taxId}
-                  onChange={(e) => setForm({ ...form, taxId: e.target.value })}
-                  className="input"
-                  placeholder="12-3456789"
-                  required
-                />
-              </Field>
-              <Field label="Primary contact name" required>
-                <input
-                  type="text"
-                  value={form.primaryContactName}
-                  onChange={(e) => setForm({ ...form, primaryContactName: e.target.value })}
-                  className="input"
-                  required
-                />
-              </Field>
-              <Field label="Primary contact email" required>
-                <input
-                  type="email"
-                  value={form.primaryContactEmail}
-                  onChange={(e) => setForm({ ...form, primaryContactEmail: e.target.value })}
-                  className="input"
-                  required
-                />
-              </Field>
-              <Field label="Mailing address" required className="md:col-span-2">
-                <input
-                  type="text"
-                  value={form.mailingAddress}
-                  onChange={(e) => setForm({ ...form, mailingAddress: e.target.value })}
-                  className="input"
-                  placeholder="Street, city, state, ZIP"
-                  required
-                />
-              </Field>
-              <Field label="Estimated seat count" required>
-                <input
-                  type="number"
-                  min={1}
-                  max={1000}
-                  value={form.estimatedSeats}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      estimatedSeats: Math.max(1, Number(e.target.value) || 1),
-                    })
-                  }
-                  className="input"
-                  required
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Doctors, front desk, and admins combined. You can change this later.
-                </p>
-              </Field>
-            </section>
-
-            <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
-              <h2 className="text-sm font-semibold text-slate-900">Acknowledgements</h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Each item must be checked individually. We do not bundle these into a single "I
-                agree" because they're material to the agreement.
-              </p>
-              <ul className="mt-4 space-y-3">
-                {ACK_KEYS.map((key) => (
-                  <li key={key}>
-                    <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-800">
-                      <input
-                        type="checkbox"
-                        checked={form.acknowledgements[key]}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            acknowledgements: {
-                              ...form.acknowledgements,
-                              [key]: e.target.checked,
-                            },
-                          })
-                        }
-                        className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span>{ACK_LABELS[key]}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <div className="flex flex-col-reverse items-stretch gap-3 border-t border-slate-100 pt-6 md:flex-row md:items-center md:justify-between">
-              <p className="text-xs text-slate-500">
-                You'll be asked to retype the clinic name to confirm before we save this.
-              </p>
-              <button
-                type="submit"
-                disabled={!formValid}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Approve &amp; continue
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      {showConfirm && (
-        <ConfirmAgreementModal
-          clinicName={clinicName}
-          confirmText={confirmText}
-          setConfirmText={setConfirmText}
-          confirmMatches={confirmMatches}
-          submitting={submitting}
-          error={error}
-          onCancel={() => {
-            if (submitting) return
-            setShowConfirm(false)
+      {isLoading ? (
+        <LoadingSkeleton variant="card" count={2} />
+      ) : isError || !data ? (
+        <AppErrorState title="Couldn't load your application" onRetry={() => void refetch()} />
+      ) : (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (!formValid) return
             setConfirmText('')
             setError(null)
+            setShowConfirm(true)
           }}
-          onConfirm={onConfirm}
-        />
+          className="space-y-8"
+          aria-label="Service agreement"
+        >
+          <ApplicationSummary app={data} />
+
+          <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+            <h2 className="text-sm font-semibold text-slate-900">Acknowledgements</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Each item is checked on its own — they are material terms, not a single &quot;I
+              agree&quot;.
+            </p>
+            <ul className="mt-4 space-y-3">
+              {ACKNOWLEDGEMENT_KEYS.map((key) => (
+                <li key={key}>
+                  <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={acks[key]}
+                      onChange={(e) => setAcks({ ...acks, [key]: e.target.checked })}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                    />
+                    <span>{ACKNOWLEDGEMENTS[key]}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="space-y-4 rounded-2xl border border-slate-100 p-5">
+            <div className="flex items-center gap-2">
+              <PenLine className="h-4 w-4 text-indigo-600" />
+              <h2 className="text-sm font-semibold text-slate-900">Authorization</h2>
+            </div>
+            <p className="text-sm leading-relaxed text-slate-600">{COMMUNICATIONS_AUTHORIZATION}</p>
+            <label className="flex cursor-pointer items-start gap-3 text-sm text-slate-800">
+              <input
+                type="checkbox"
+                checked={communications}
+                onChange={(e) => setCommunications(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-600"
+              />
+              <span>I have read and agree to the authorization above.</span>
+            </label>
+            <div className="grid gap-4 md:grid-cols-2">
+              <AppFormField label="Print name" required htmlFor="signerName">
+                <AppInput
+                  id="signerName"
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                />
+              </AppFormField>
+              <AppFormField label="Title" required htmlFor="signerTitle">
+                <AppInput
+                  id="signerTitle"
+                  value={signerTitle}
+                  onChange={(e) => setSignerTitle(e.target.value)}
+                  placeholder="Owner, Medical Director…"
+                />
+              </AppFormField>
+              <AppFormField
+                label="Signature (type your name)"
+                required
+                htmlFor="signature"
+                error={signature && !signed ? 'Type your name exactly as printed' : undefined}
+              >
+                <AppInput
+                  id="signature"
+                  value={signature}
+                  onChange={(e) => setSignature(e.target.value)}
+                  className="font-serif text-lg italic"
+                  autoComplete="off"
+                />
+              </AppFormField>
+              <AppFormField label="Date signed" htmlFor="signedDate">
+                <AppInput id="signedDate" value={today} readOnly disabled />
+              </AppFormField>
+            </div>
+          </section>
+
+          <div className="flex flex-col-reverse items-stretch gap-3 border-t border-slate-100 pt-6 md:flex-row md:items-center md:justify-between">
+            <p className="text-xs text-slate-500">
+              You&apos;ll retype the clinic name to confirm. A copy is emailed to you.
+            </p>
+            <button
+              type="submit"
+              disabled={!formValid}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Sign &amp; submit application
+            </button>
+          </div>
+        </form>
       )}
 
-      <style jsx>{`
-        .input {
-          width: 100%;
-          border-radius: 0.625rem;
-          border: 1px solid rgb(226 232 240);
-          background: white;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-          color: rgb(15 23 42);
-        }
-        .input:focus {
-          outline: none;
-          border-color: rgb(99 102 241);
-          box-shadow: 0 0 0 3px rgb(199 210 254 / 0.5);
-        }
-      `}</style>
-    </div>
+      {showConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-agreement-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-8"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-lg">
+            <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-4">
+              <CheckCircle2 className="h-5 w-5 text-indigo-600" />
+              <h3 id="confirm-agreement-title" className="text-base font-semibold text-slate-900">
+                Confirm and submit
+              </h3>
+            </div>
+            <div className="space-y-4 px-6 py-5">
+              <p className="text-sm leading-relaxed text-slate-700">
+                This signs the agreement for <strong>{clinicName}</strong> and sends the application
+                for review. To confirm, retype the clinic name exactly as it appears:
+              </p>
+              <AppInput
+                aria-label="Clinic name"
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                autoFocus
+                disabled={submitting}
+                placeholder={clinicName}
+              />
+              <p className="text-xs text-slate-500">
+                Expected: <span className="font-mono">{clinicName}</span>
+              </p>
+              {error && (
+                <p role="alert" className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                  {error}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => !submitting && setShowConfirm(false)}
+                disabled={submitting}
+                className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onConfirm}
+                disabled={!confirmMatches || submitting}
+                className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting ? 'Submitting…' : 'Confirm & submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </ApplicationShell>
   )
 }
 
-function Field({
-  label,
-  required,
-  children,
-  className,
-}: {
-  label: string
-  required?: boolean
-  children: React.ReactNode
-  className?: string
-}) {
+function ApplicationSummary({ app }: { app: Application }) {
+  const p = app.profile
+  const l = app.location
+  if (!p) return null
+  const owner = p.practitioners.find((x) => x.isOwner)
+  const rows: [string, React.ReactNode][] = [
+    ['Legal name', p.legalName],
+    ['Practice name / DBA', p.dbaName ?? 'Same as legal name'],
+    ['Practice type', practiceTypeLabel(p.practiceType)],
+    [
+      'Primary location',
+      l
+        ? [l.addressLine1, l.addressLine2, l.city, l.state, l.postalCode].filter(Boolean).join(', ')
+        : '—',
+    ],
+    ['Group NPI', p.noNpi ? 'No NPI' : (p.groupNpi ?? '—')],
+    ['Federal Tax ID', p.federalTaxIdMasked ?? '—'],
+    ['State license', p.licenseNumber ? `${p.licenseNumber} (${p.licenseState ?? '—'})` : '—'],
+    ['DEA', p.deaNumberMasked ?? 'None'],
+    [
+      'Practitioners',
+      `${p.practitioners.length}${owner ? ` · owner on record: ${owner.name}` : ''}`,
+    ],
+  ]
   return (
-    <label className={`block text-sm ${className ?? ''}`}>
-      <span className="mb-1 block font-medium text-slate-800">
-        {label}
-        {required && <span className="ml-0.5 text-rose-500">*</span>}
-      </span>
-      {children}
-    </label>
-  )
-}
-
-function ConfirmAgreementModal({
-  clinicName,
-  confirmText,
-  setConfirmText,
-  confirmMatches,
-  submitting,
-  error,
-  onCancel,
-  onConfirm,
-}: {
-  clinicName: string
-  confirmText: string
-  setConfirmText: (v: string) => void
-  confirmMatches: boolean
-  submitting: boolean
-  error: string | null
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 py-8">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-lg">
-        <div className="border-b border-slate-100 px-6 py-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-indigo-600" />
-            <h3 className="text-base font-semibold text-slate-900">Confirm agreement</h3>
-          </div>
-        </div>
-        <div className="space-y-4 px-6 py-5">
-          <p className="text-sm leading-relaxed text-slate-700">
-            By confirming, you place this agreement on file for <strong>{clinicName}</strong>. We'll
-            email a copy to your inbox for your records.
-          </p>
-          <p className="text-sm text-slate-700">
-            To confirm, retype the clinic name exactly as it appears:
-          </p>
-          <div>
-            <input
-              type="text"
-              value={confirmText}
-              onChange={(e) => setConfirmText(e.target.value)}
-              autoFocus
-              disabled={submitting}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:opacity-60"
-              placeholder={clinicName}
-            />
-            <p className="mt-1 text-xs text-slate-500">
-              Expected: <span className="font-mono">{clinicName}</span>
-            </p>
-          </div>
-          {error && (
-            <p className="rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
-          )}
-        </div>
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={!confirmMatches || submitting}
-            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {submitting ? 'Saving…' : 'Confirm & save'}
-          </button>
+    <section className="rounded-2xl border border-slate-100 p-5" aria-label="Application summary">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-slate-900">Your application</h2>
+        <div className="flex gap-3 text-xs font-medium text-indigo-600">
+          <Link href="/practice" className="hover:underline">
+            Edit practice
+          </Link>
+          <Link href="/practitioners" className="hover:underline">
+            Edit practitioners
+          </Link>
         </div>
       </div>
-    </div>
+      <dl className="grid gap-x-6 gap-y-2 text-sm md:grid-cols-2">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-1">
+            <dt className="text-slate-500">{k}</dt>
+            <dd className="text-right font-medium text-slate-900">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }

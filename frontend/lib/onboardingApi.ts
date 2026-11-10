@@ -1,0 +1,192 @@
+/**
+ * Clinic onboarding: the practice application (practice details →
+ * practitioners → signed agreement), its review status, and the setup
+ * checklist. Backend: backend/src/routes/onboarding.ts.
+ */
+import api from '@/lib/api'
+
+export type VerificationStatus = 'PENDING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED'
+
+export interface Practitioner {
+  name: string
+  email: string
+  phone?: string | null
+  credentials?: string | null
+  licenseNumber?: string | null
+  licenseState?: string | null
+  npi?: string | null
+  isOwner: boolean
+  isSelf: boolean
+}
+
+export interface ClinicProfile {
+  id: string
+  legalName: string
+  dbaName: string | null
+  practiceType: string
+  locationCount: number
+  officePhone: string | null
+  fax: string | null
+  website: string | null
+  primaryContactName: string
+  primaryContactEmail: string
+  primaryContactPhone: string | null
+  officeManagerName: string | null
+  officeManagerEmail: string | null
+  accountsPayableName: string | null
+  accountsPayableEmail: string | null
+  mailingSameAsPrimary: boolean
+  mailingAddressLine1: string | null
+  mailingAddressLine2: string | null
+  mailingCity: string | null
+  mailingState: string | null
+  mailingPostalCode: string | null
+  groupNpi: string | null
+  noNpi: boolean
+  /** Last 4 only — the full number never comes back to the clinic. */
+  federalTaxIdMasked: string | null
+  deaNumberMasked: string | null
+  hasDeaNumber: boolean
+  licenseNumber: string | null
+  licenseState: string | null
+  estimatedSeats: number
+  referralSource: string | null
+  salesRep: string | null
+  practitioners: Practitioner[]
+  practiceCompletedAt: string | null
+  practitionersCompletedAt: string | null
+}
+
+export interface ApplicationLocation {
+  id: string
+  name: string
+  addressLine1: string | null
+  addressLine2: string | null
+  city: string | null
+  state: string | null
+  postalCode: string | null
+  phone: string | null
+  timezone: string
+}
+
+export interface Verification {
+  status: VerificationStatus
+  submittedAt: string | null
+  reviewedAt: string | null
+  notes: string | null
+}
+
+export interface Application {
+  clinicName: string
+  verification: Verification
+  progress: { practice: boolean; practitioners: boolean; agreement: boolean }
+  profile: ClinicProfile | null
+  location: ApplicationLocation | null
+  agreement: {
+    version: string
+    signerName: string
+    signerTitle: string
+    communicationsConsent: boolean
+    acceptedAt: string
+  } | null
+}
+
+/** What PUT /onboarding/application/practice accepts. */
+export interface PracticeDetailsPayload {
+  legalName: string
+  dbaName: string | null
+  practiceType: string
+  locationCount: number
+  addressLine1: string
+  addressLine2: string | null
+  city: string
+  state: string
+  postalCode: string
+  timezone: string
+  officePhone: string | null
+  fax: string | null
+  website: string | null
+  primaryContactName: string
+  primaryContactEmail: string
+  primaryContactPhone: string | null
+  officeManagerName: string | null
+  officeManagerEmail: string | null
+  accountsPayableName: string | null
+  accountsPayableEmail: string | null
+  mailingSameAsPrimary: boolean
+  mailingAddressLine1: string | null
+  mailingAddressLine2: string | null
+  mailingCity: string | null
+  mailingState: string | null
+  mailingPostalCode: string | null
+  noNpi: boolean
+  groupNpi: string | null
+  /** Omit to keep the number on file. */
+  federalTaxId?: string
+  licenseNumber: string | null
+  licenseState: string | null
+  /** Omit to keep, null to remove. */
+  deaNumber?: string | null
+  estimatedSeats: number
+  referralSource: string | null
+  salesRep: string | null
+}
+
+export const ACKNOWLEDGEMENTS = {
+  baa: 'I will execute a Business Associate Agreement (BAA) with MedoFlow before any patient health information (PHI) is processed',
+  hipaa: 'The practice follows HIPAA requirements for handling clinical data',
+  dataResidency: 'I understand patient data is stored in US data centers',
+  refundPolicy: 'I have reviewed the refund and cancellation policy',
+  authorizedSignatory: 'I am authorized to sign on behalf of this practice',
+} as const
+
+export type AcknowledgementKey = keyof typeof ACKNOWLEDGEMENTS
+export const ACKNOWLEDGEMENT_KEYS = Object.keys(ACKNOWLEDGEMENTS) as AcknowledgementKey[]
+
+export const COMMUNICATIONS_AUTHORIZATION =
+  'I authorize MedoFlow to contact the practice by email, phone, fax and mail about this account, its review and service updates. MedoFlow does not share these details, and marketing emails can be turned off at any time.'
+
+export interface AgreementPayload {
+  acknowledgements: Record<AcknowledgementKey, boolean>
+  communications: boolean
+  signerName: string
+  signerTitle: string
+  signature: string
+  confirmClinicName: string
+}
+
+export interface OnboardingStatus {
+  completedAt: string | null
+  step: number
+  termsAcceptedAt: string | null
+  verification: Verification
+  application: { practice: boolean; practitioners: boolean; agreement: boolean }
+  checklist: {
+    brand: boolean
+    locations: boolean
+    disciplines: boolean
+    services: boolean
+    providers: boolean
+    availability: boolean
+    website: boolean
+  }
+}
+
+const data = <T>(p: Promise<{ data: { data: T } }>) => p.then((r) => r.data.data)
+
+export const onboardingApi = {
+  getApplication: () => data<Application>(api.get('/onboarding/application')),
+  savePractice: (payload: PracticeDetailsPayload) =>
+    data<Application>(api.put('/onboarding/application/practice', payload)),
+  savePractitioners: (practitioners: Practitioner[]) =>
+    data<Application>(api.put('/onboarding/application/practitioners', { practitioners })),
+  signAgreement: (payload: AgreementPayload) =>
+    data<{ acceptedAt: string; version: string; verificationStatus: VerificationStatus }>(
+      api.post('/onboarding/agreement', payload)
+    ),
+  resubmit: () =>
+    data<{ verificationStatus: VerificationStatus; submittedAt: string }>(
+      api.post('/onboarding/application/resubmit', {})
+    ),
+  getStatus: () => data<OnboardingStatus>(api.get('/onboarding/status')),
+}
