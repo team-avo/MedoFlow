@@ -138,6 +138,10 @@ export class MockStt implements SpeechToTextProvider {
     if (opts.signal?.aborted) return Promise.reject(new AiError('ai_timeout'))
     const failure = takeFailure('stt')
     if (failure) return Promise.reject(failure)
+    if (input.segment !== undefined) {
+      const lines = MOCK_TRANSCRIPT.split('\n')
+      return Promise.resolve({ text: lines[input.segment % lines.length]!, model: MOCK_MODEL })
+    }
     return Promise.resolve({ text: MOCK_TRANSCRIPT, model: MOCK_MODEL })
   }
 }

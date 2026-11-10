@@ -145,6 +145,30 @@ describe('template catalog', () => {
     }
   )
 
+  it.each(SITE_TEMPLATES.map((t) => [t.key, t] as const))(
+    '%s: Products in the header, a homepage menu, and Treatments → Products → Medicine store (WS3)',
+    (_key, t) => {
+      const storeLinks = t.settings.header.links.filter(
+        (l) => l.link.kind === 'route' && l.link.route === 'store'
+      )
+      expect(storeLinks.map((l) => l.label)).toEqual(['Products'])
+      expect(t.settings.homeMenu.items.map((i) => i.label)).toContain('Products')
+
+      const home = t.pages.find((p) => p.kind === 'HOME')!
+      const types = home.sections.map((s) => s.type)
+      const at = types.indexOf('service-grid')
+      expect(at).toBeGreaterThanOrEqual(0)
+      expect(types.slice(at, at + 3)).toEqual([
+        'service-grid',
+        'featured-products',
+        'medicine-store',
+      ])
+      expect(types.filter((x) => x === 'featured-products')).toHaveLength(1)
+      expect(home.sections[at + 1]!.settings).toMatchObject({ excludeMedicines: true })
+      expect(types).toContain('quick-links')
+    }
+  )
+
   it('template links to pages only point at pages the template ships', () => {
     for (const t of SITE_TEMPLATES) {
       const slugs = new Set(t.pages.map((p) => `tpl_${p.slug}`))

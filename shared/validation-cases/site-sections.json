@@ -11,6 +11,8 @@
     "faq": ["accordion", "two-column"],
     "pricing": ["packages", "memberships", "both"],
     "featured-products": ["grid", "row"],
+    "medicine-store": ["grid", "row"],
+    "quick-links": ["tiles", "pills"],
     "locations-hours": ["cards", "split"],
     "contact-form": ["simple", "split"],
     "booking-cta": ["banner", "split"],
@@ -95,6 +97,36 @@
         "variant": "large",
         "hidden": true,
         "settings": { "divider": true }
+      }
+    },
+    {
+      "name": "products without medicines",
+      "section": {
+        "id": "s_ws3a0001",
+        "type": "featured-products",
+        "settings": {
+          "heading": "Products",
+          "excludeMedicines": true,
+          "maxItems": 4
+        }
+      }
+    },
+    {
+      "name": "medicine store",
+      "section": {
+        "id": "s_ws3a0002",
+        "type": "medicine-store",
+        "variant": "row",
+        "settings": { "heading": "Medicine store", "maxItems": 8 }
+      }
+    },
+    {
+      "name": "homepage quick links",
+      "section": {
+        "id": "s_ws3a0003",
+        "type": "quick-links",
+        "variant": "tiles",
+        "settings": { "heading": "Explore" }
       }
     }
   ],
@@ -212,6 +244,30 @@
         "settings": {
           "items": "@repeat:31:{\"question\":\"q\",\"answer\":\"a\"}"
         }
+      }
+    },
+    {
+      "name": "quick-links has no item list of its own (items live in settings.homeMenu)",
+      "section": {
+        "id": "s_ws3b0001",
+        "type": "quick-links",
+        "settings": { "items": [] }
+      }
+    },
+    {
+      "name": "medicine store: maxItems above 24",
+      "section": {
+        "id": "s_ws3b0002",
+        "type": "medicine-store",
+        "settings": { "maxItems": 99 }
+      }
+    },
+    {
+      "name": "excludeMedicines must be a boolean",
+      "section": {
+        "id": "s_ws3b0003",
+        "type": "featured-products",
+        "settings": { "excludeMedicines": "yes" }
       }
     }
   ]

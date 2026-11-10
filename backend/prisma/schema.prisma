@@ -568,6 +568,8 @@ model User {
   clinicId           String?
   name               String
   email              String    @unique
+  /// Patient contact number (WS1 booking). Field-encrypted (utils/fieldCrypto).
+  phone              String?
   password           String
   role               Role
   customRoleId       String?
@@ -592,6 +594,7 @@ model User {
   customRole                    CustomRole?                @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   provider                      Provider?
   passwordSetupTokens           PasswordSetupToken[]
+  authHandoffCodes              AuthHandoffCode[]
   refreshTokens                 RefreshToken[]
   sessions                      UserSession[]
   breakGlassGrants              BreakGlassGrant[]
@@ -1386,6 +1389,25 @@ model ProcessedStripeEvent {
   id          String   @id
   type        String
   processedAt DateTime @default(now())
+}
+
+/// One-time code that carries a signed-in patient's session from the app host
+/// to a clinic's own domain (different browser site, so the refresh cookie
+/// can't follow). Only the sha256 of the code is stored; 60 s TTL, single use,
+/// bound to the clinic origin it was minted for.
+model AuthHandoffCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String    @unique
+  origin    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model PasswordSetupToken {

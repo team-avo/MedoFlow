@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { ArrowRight, ShieldCheck, Activity, Lock, Sparkles } from 'lucide-react'
 import { BrandLogo } from '@/components/common/BrandLogo'
 import { BrandGradient } from '@/components/landing/BrandGradient'
+import { salesMailto } from '@/lib/tenantApi'
 
 type FooterColumn = {
   title: string
@@ -26,35 +27,25 @@ const columns: FooterColumn[] = [
     links: [
       { href: '/#features', label: 'Features' },
       { href: '/#how-it-works', label: 'How it works' },
-      { href: '/#pricing', label: 'Pricing' },
-      { href: '/register', label: 'Start free trial' },
+      { href: '/pricing', label: 'Pricing' },
+      { href: '/get-started', label: 'Start free trial' },
     ],
   },
   {
     title: 'Built for',
     links: [
-      { href: '#', label: 'Primary care' },
-      { href: '#', label: 'Specialists' },
-      { href: '#', label: 'Mental health' },
-      { href: '#', label: 'Med spas' },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { href: '#', label: 'Documentation' },
-      { href: '#', label: 'API reference' },
-      { href: '#', label: 'Case studies' },
-      { href: '#', label: 'Blog' },
+      { href: '/#features', label: 'Primary care' },
+      { href: '/#features', label: 'Specialists' },
+      { href: '/#features', label: 'Mental health' },
+      { href: '/#features', label: 'Med spas' },
     ],
   },
   {
     title: 'Company',
     links: [
-      { href: '#', label: 'About' },
-      { href: '#', label: 'Careers' },
-      { href: '#', label: 'Contact' },
-      { href: '#', label: 'Press' },
+      { href: salesMailto('Hello MedoFlow'), label: 'Contact' },
+      { href: salesMailto('Book a MedoFlow demo'), label: 'Book a demo' },
+      { href: '/?auth=login', label: 'Clinic login' },
     ],
   },
 ]

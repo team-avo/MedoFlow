@@ -13,7 +13,8 @@
  *   6. Commerce       — zoom into the revenue angle
  *   7. ROICalculator  — make it personal
  *   8. Testimonials   — social proof
- *   9. FinalCTA       — the close
+ *   9. Pricing        — the plans (#pricing) → /get-started (WS4)
+ *  10. FinalCTA       — the close
  */
 
 import React from 'react'
@@ -26,6 +27,7 @@ import { CommerceSection } from '@/components/landing/CommerceSection'
 import { ROICalculatorSection } from '@/components/landing/ROICalculatorSection'
 import { TestimonialsSection } from '@/components/landing/TestimonialsSection'
 import { FinalCTASection } from '@/components/landing/FinalCTASection'
+import { PlanCards } from '@/components/marketing/PlanCards'
 
 export default function PublicHomePage() {
   return (
@@ -33,11 +35,26 @@ export default function PublicHomePage() {
       <HeroSection />
       <TrustBanner />
       <ChaosToClaritySection />
+      <div id="features" />
       <BentoGridSection />
       <DayInTheLifeSection />
       <CommerceSection />
       <ROICalculatorSection />
       <TestimonialsSection />
+      <section id="pricing" className="mf-zone-white px-4 py-24 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto mb-12 max-w-2xl text-center">
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+              Simple plans for every clinic
+            </h2>
+            <p className="mt-3 text-slate-600">
+              Pick a plan, set up your clinic in minutes, and go live with booking, records and your
+              own website.
+            </p>
+          </div>
+          <PlanCards />
+        </div>
+      </section>
       <FinalCTASection />
     </div>
   )

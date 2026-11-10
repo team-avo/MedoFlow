@@ -151,9 +151,10 @@ describe('live site', () => {
       'href',
       '/s/everwell/services'
     )
-    // A link to a deleted page renders as text, not a broken link.
+    // A menu link that leads nowhere (a deleted page, or Products with no
+    // products yet) is left out of the live menu — no broken link, no dead label.
     expect(screen.queryByRole('link', { name: 'Deleted page', hidden: true })).toBeNull()
-    expect(screen.getByText('Deleted page')).toBeInTheDocument()
+    expect(screen.queryByText('Deleted page')).toBeNull()
     expect(screen.getByRole('link', { name: 'Book a visit' })).toHaveAttribute(
       'href',
       '/s/everwell/book'
@@ -359,5 +360,142 @@ describe('commerce and booking actions', () => {
         '/store'
       )
     )
+  })
+})
+
+describe('WS3 — Products, Medicine store and menus', () => {
+  const product = (id: string, name: string, medicine: boolean) => ({
+    id,
+    slug: id,
+    name,
+    description: null,
+    price: '10.00',
+    inStock: true,
+    medicine,
+  })
+  const products = [
+    product('p1', 'Retinol serum', false),
+    product('p2', 'Magnesium glycinate', true),
+    product('p3', 'Arnica gel', true),
+  ]
+  const withProducts = (sections: Section[], over: Partial<RenderPayload['site']> = {}) => {
+    const p = payload(sections, { hasStore: true, ...over })
+    p.data.products = products
+    return p
+  }
+
+  it('Products leaves medicines to the Medicine store, which shows only OTC / supplements', () => {
+    const sections = [
+      sec('s_prod0001', 'featured-products', {
+        heading: 'Products',
+        productIds: [],
+        maxItems: 8,
+        excludeMedicines: true,
+      }),
+      sec('s_meds0001', 'medicine-store', {
+        heading: 'Medicine store',
+        productIds: [],
+        maxItems: 8,
+      }),
+    ]
+    const { container } = render(
+      <SiteRenderer payload={withProducts(sections)} base="/s/everwell" mode="live" />
+    )
+    const productsSection = container.querySelector('#s_prod0001') as HTMLElement
+    const medicineSection = container.querySelector('#s_meds0001') as HTMLElement
+    expect(within(productsSection).getByText('Retinol serum')).toBeInTheDocument()
+    expect(within(productsSection).queryByText('Magnesium glycinate')).toBeNull()
+    expect(within(medicineSection).getByText('Magnesium glycinate')).toBeInTheDocument()
+    expect(within(medicineSection).getByText('Arnica gel')).toBeInTheDocument()
+    expect(within(medicineSection).queryByText('Retinol serum')).toBeNull()
+    expect(
+      within(medicineSection).getByRole('link', { name: /visit the medicine store/i })
+    ).toHaveAttribute('href', '/s/everwell/store?type=medicines')
+  })
+
+  it('product sections with nothing to show are left off the live site, hinted in the builder', () => {
+    const sections = [
+      sec('s_prod0002', 'featured-products', {
+        heading: 'Our products',
+        productIds: [],
+        maxItems: 4,
+      }),
+      sec('s_meds0002', 'medicine-store', { heading: 'Our pharmacy', productIds: [], maxItems: 4 }),
+    ]
+    const { unmount } = render(
+      <SiteRenderer payload={payload(sections)} base="/s/everwell" mode="live" />
+    )
+    expect(screen.queryByText('Our products')).toBeNull()
+    expect(screen.queryByText('Our pharmacy')).toBeNull()
+    unmount()
+    render(<SiteRenderer payload={payload(sections)} base="" mode="editor" />)
+    expect(screen.getByText('Our pharmacy')).toBeInTheDocument()
+    expect(screen.getByText(/prescription medicines are never shown/i)).toBeInTheDocument()
+  })
+
+  it('the homepage menu shows settings.homeMenu, without links that lead nowhere', () => {
+    const p = payload([sec('s_quick001', 'quick-links', { heading: 'Explore' })])
+    p.site.settings.homeMenu = {
+      items: [
+        { label: 'Treatments', link: { kind: 'route', route: 'services', href: '/services' } },
+        { label: 'Products', link: { kind: 'route', route: 'store', href: null } },
+        { label: 'Book a visit', link: { kind: 'booking', href: '/book' } },
+      ],
+    }
+    render(<SiteRenderer payload={p} base="/s/everwell" mode="live" />)
+    const nav = screen.getByRole('navigation', { name: 'Explore' })
+    expect(within(nav).getByRole('link', { name: 'Treatments' })).toHaveAttribute(
+      'href',
+      '/s/everwell/services'
+    )
+    expect(within(nav).getByRole('link', { name: 'Book a visit' })).toBeInTheDocument()
+    expect(within(nav).queryByText('Products')).toBeNull()
+  })
+
+  it('header items with sub-items open a dropdown (click / Escape), keyboard-reachable', () => {
+    const p = payload([])
+    p.site.settings.header.links = [
+      {
+        label: 'Treatments',
+        link: { kind: 'route', route: 'services', href: '/services' },
+        children: [
+          {
+            label: 'Facials',
+            link: { kind: 'service', serviceId: 's1', href: '/services/facials' },
+          },
+          { label: 'Gone', link: { kind: 'page', pageId: 'x', href: null } },
+        ],
+      },
+    ]
+    render(<SiteRenderer payload={p} base="/s/everwell" mode="live" />)
+    const toggle = screen.getAllByRole('button', { name: /treatments/i, hidden: true })[0]!
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('link', { name: 'Facials', hidden: true })).toHaveAttribute(
+      'href',
+      '/s/everwell/services/facials'
+    )
+    // The parent stays reachable as the first dropdown entry; dead sub-items are dropped.
+    expect(screen.getByRole('link', { name: 'Treatments', hidden: true })).toBeInTheDocument()
+    expect(screen.queryByText('Gone')).toBeNull()
+    fireEvent.keyDown(toggle, { key: 'Escape' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('the store splits Medicines from other products, and ?type=medicines opens on Medicines', () => {
+    window.history.replaceState(null, '', '/store?type=medicines')
+    const p = withProducts([])
+    p.route = { key: 'store', path: '/store', params: {} }
+    p.page = null as unknown as RenderPayload['page']
+    render(<SiteRenderer payload={p} base="" mode="live" />)
+    const tab = screen.getByRole('tab', { name: 'Medicines' })
+    expect(tab).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByText('Retinol serum')).toBeNull()
+    expect(screen.getByText('Arnica gel')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab', { name: 'Other products' }))
+    expect(screen.getByText('Retinol serum')).toBeInTheDocument()
+    expect(screen.queryByText('Arnica gel')).toBeNull()
+    window.history.replaceState(null, '', '/')
   })
 })

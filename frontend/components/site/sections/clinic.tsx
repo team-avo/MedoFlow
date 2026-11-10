@@ -413,10 +413,18 @@ export function ProductCard({ product }: { product: PublicProduct }) {
   )
 }
 
+/** OTC medicines and supplements (never Rx: the API keeps those off every site). */
+export const isMedicine = (p: PublicProduct) => p.medicine === true
+
 export function FeaturedProductsSection({ section }: { section: Section }) {
-  const { data, base } = useSite()
+  const { data, base, mode } = useSite()
   const s = section.settings
-  const products = pick(data.products, arr<string>(s.productIds), num(s.maxItems, 4))
+  const pool = bool(s.excludeMedicines, false)
+    ? data.products.filter((p) => !isMedicine(p))
+    : data.products
+  const products = pick(pool, arr<string>(s.productIds), num(s.maxItems, 4))
+  // Nothing to sell: the live site shows no empty section (the builder hints).
+  if (products.length === 0 && mode !== 'editor') return null
   return (
     <section className="mf-section mf-section-alt" id={section.id}>
       <div className="mf-container">
@@ -433,6 +441,43 @@ export function FeaturedProductsSection({ section }: { section: Section }) {
           <p style={{ marginTop: '2rem' }}>
             <a className="mf-link" href={withSiteBase(base, '/store')}>
               Visit the store →
+            </a>
+          </p>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** The Medicine store (WS3): over-the-counter medicines and supplements only. */
+export function MedicineStoreSection({ section }: { section: Section }) {
+  const { data, base, mode } = useSite()
+  const s = section.settings
+  const products = pick(
+    data.products.filter(isMedicine),
+    arr<string>(s.productIds),
+    num(s.maxItems, 4)
+  )
+  if (products.length === 0 && mode !== 'editor') return null
+  return (
+    <section className="mf-section" id={section.id} data-section="medicine-store">
+      <div className="mf-container">
+        <SectionHeading heading={s.heading} intro={s.intro} />
+        {products.length === 0 && (
+          <EmptyHint>
+            Add OTC medicines or supplements under Commerce → Products and they appear here.
+            Prescription medicines are never shown on your website.
+          </EmptyHint>
+        )}
+        <div className={`mf-grid ${section.variant === 'row' ? 'mf-grid-4' : 'mf-grid-3'}`}>
+          {products.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </div>
+        {products.length > 0 && (
+          <p style={{ marginTop: '2rem' }}>
+            <a className="mf-link" href={`${withSiteBase(base, '/store')}?type=medicines`}>
+              Visit the medicine store →
             </a>
           </p>
         )}

@@ -60,6 +60,9 @@ export const RESERVED_SITE_SEGMENTS: ReadonlySet<string> = new Set([
   'onboarding',
   'consultation',
   'intake',
+  // App-only flows (WS1 session handoff, WS4 clinic sign-up).
+  'auth',
+  'get-started',
   'home',
   'sitemap.xml',
   'robots.txt',

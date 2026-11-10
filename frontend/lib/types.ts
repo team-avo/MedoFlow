@@ -27,6 +27,8 @@ export interface User {
   id: string
   name: string
   email: string
+  /** Patient contact number; auto-filled into bookings. */
+  phone?: string | null
   role: Role
   clinicId: string | null
   customRoleId?: string | null

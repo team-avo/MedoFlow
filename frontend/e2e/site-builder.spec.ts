@@ -169,13 +169,14 @@ test('keyboard reorder, undo, and the draft preview link', async ({ page, contex
     page.getByText(new RegExp(`moved over droppable area (?!${heroId})s_`))
   ).toBeAttached()
   await page.keyboard.press('Space')
-  await expect(rows.first()).toHaveAttribute('data-testid', 'section-row-trust-bar')
+  // Clarity's home starts hero → homepage menu (WS3) → trust bar.
+  await expect(rows.first()).toHaveAttribute('data-testid', 'section-row-quick-links')
   await expect(rows.nth(1)).toHaveAttribute('data-testid', 'section-row-hero')
 
   await page.getByRole('button', { name: 'Undo' }).click()
   await expect(rows.first()).toHaveAttribute('data-testid', 'section-row-hero')
   await page.getByRole('button', { name: 'Redo' }).click()
-  await expect(rows.first()).toHaveAttribute('data-testid', 'section-row-trust-bar')
+  await expect(rows.first()).toHaveAttribute('data-testid', 'section-row-quick-links')
 
   // Preview opens the signed draft link on the clinic host.
   const popupPromise = context.waitForEvent('page')

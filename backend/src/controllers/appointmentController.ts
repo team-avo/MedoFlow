@@ -14,6 +14,22 @@ type CreateAppointmentBody = Omit<appointmentService.CreateAppointmentData, 'pat
   patientPackageId?: string
 }
 
+/**
+ * Patients book for themselves only ("book for someone else" is deferred).
+ * Staff (FRONT_DESK / SUPER_ADMIN) may name any patient of their clinic.
+ */
+function resolveBookingPatientId(req: Request, patientId: unknown): string {
+  const self = req.user!.id
+  const requested = typeof patientId === 'string' && patientId ? patientId : self
+  if (req.user!.role === 'PATIENT' && requested !== self) {
+    const err = new Error('Patients can only book appointments for themselves') as ApiError
+    err.statusCode = 403
+    err.code = 'self_booking_only'
+    throw err
+  }
+  return requested
+}
+
 interface CreateRecurringBody {
   clinicId?: string
   patientId?: string
@@ -37,7 +53,7 @@ export const create = asyncHandler(
       throw err
     }
     const { patientId, slotHoldId, patientPackageId, ...rest } = body as CreateAppointmentBody
-    const resolvedPatientId = (patientId as string) || req.user!.id
+    const resolvedPatientId = resolveBookingPatientId(req, patientId)
     const bookingSource =
       req.user!.role === 'FRONT_DESK'
         ? BookingSource.FRONT_DESK
@@ -68,7 +84,7 @@ export const createRecurring = asyncHandler(
       throw err
     }
     const recurringBody = body as CreateRecurringBody
-    const resolvedPatientId = (recurringBody.patientId as string) || req.user!.id
+    const resolvedPatientId = resolveBookingPatientId(req, recurringBody.patientId)
     const {
       locationId,
       providerId,

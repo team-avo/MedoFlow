@@ -19,7 +19,8 @@ export interface CreateAppointmentPayload {
   locationId?: string
   providerId: string
   serviceId: string
-  patientId: string
+  /** Staff only. Patients book for themselves; the API uses the caller. */
+  patientId?: string
   startTime: string
   endTime: string
   slotHoldId?: string

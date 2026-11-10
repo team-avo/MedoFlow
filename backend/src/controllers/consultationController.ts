@@ -179,6 +179,30 @@ export const stopRecording = asyncHandler(
   }
 )
 
+/** POST /consultations/:id/live-transcript — one live-caption segment (WS2). */
+export const liveTranscript = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const { providerId } = await providerScope(req)
+    const sessionId = req.params.id as string
+    const file = (req as Express.Request & { file?: Express.Multer.File }).file
+    if (!file) {
+      const err = new Error('Audio segment required') as ApiError
+      err.statusCode = 400
+      throw err
+    }
+    const raw = Number((req.body as { segment?: string } | undefined)?.segment ?? 0)
+    const segment = Number.isInteger(raw) && raw >= 0 && raw < 100_000 ? raw : 0
+    const result = await consultationService.transcribeLiveSegment(
+      sessionId,
+      providerId,
+      file.buffer,
+      file.mimetype,
+      segment
+    )
+    successResponse(res, 200, 'Live caption', result)
+  }
+)
+
 /** POST /consultations/:id/recording/upload */
 export const uploadRecording = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {

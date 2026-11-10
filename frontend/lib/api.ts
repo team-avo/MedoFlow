@@ -99,9 +99,13 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 
 const isAuthFlowUrl = (url?: string) =>
   !!url &&
-  ['/auth/login', '/auth/mfa/verify', '/auth/refresh-token', '/auth/logout'].some((p) =>
-    url.includes(p)
-  )
+  [
+    '/auth/login',
+    '/auth/mfa/verify',
+    '/auth/refresh-token',
+    '/auth/logout',
+    '/auth/handoff/exchange',
+  ].some((p) => url.includes(p))
 
 api.interceptors.response.use(
   (response) => response,

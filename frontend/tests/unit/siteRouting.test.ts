@@ -154,6 +154,15 @@ describe('edge routing (middleware.ts)', () => {
     expect(go('everwell.medoflow.test', '/login', '', null)).toEqual({ action: 'next' })
   })
 
+  it('clinic host: the session-handoff page always runs on the app host', () => {
+    expect(go('www.everwellclinic.com', '/auth/handoff', '?return=x')).toEqual({
+      action: 'redirect',
+      url: 'https://app.medoflow.test/auth/handoff?return=x',
+      status: 307,
+    })
+    expect(go('app.medoflow.test', '/auth/handoff', '?return=x')).toEqual({ action: 'next' })
+  })
+
   it('the internal tree is never reachable directly', () => {
     expect(go('app.medoflow.test', '/clinic-site/everwell.medoflow.test')).toEqual({
       action: 'notFound',

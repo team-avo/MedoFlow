@@ -166,6 +166,8 @@ jobs:
         env:
           # e2e build: the API is simulated in the browser (e2e/mockApi.ts).
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3999
+          # The e2e app origin: clinic hosts bounce through it (booking-handoff.spec).
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:4310
         run: pnpm run build
       - name: Install Playwright Chromium
         run: pnpm exec playwright install --with-deps chromium

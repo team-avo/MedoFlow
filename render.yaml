@@ -42,6 +42,11 @@ services:
       # B0.3.6: audit rows are kept at least 6 years.
       - key: AUDIT_RETENTION_YEARS
         value: '6'
+      # WS4: the hosted demo shows plans for display only — every clinic is
+      # ACTIVE with the top limits and nothing expires (config/billingMode.ts).
+      # Remove (or set to trial) for a real deployment.
+      - key: BILLING_MODE
+        value: demo
       # Frontend origin(s) allowed by CORS (comma-separated).
       # Component 8 cut-over (arh-agent-docs/cloudflare-custom-domains-setup-guide.md):
       # once app.<root> / api.<root> / *.<root> are live, set

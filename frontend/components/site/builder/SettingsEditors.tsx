@@ -326,10 +326,15 @@ function NavItemsEditor({
   items,
   onChange,
   max,
+  allowChildren = false,
+  addLabel = 'Add menu item',
 }: {
   items: NavItem[]
   onChange: (v: NavItem[]) => void
   max: number
+  /** Header items may hold one level of sub-items (a dropdown). */
+  allowChildren?: boolean
+  addLabel?: string
 }) {
   const move = (i: number, d: number) => {
     const j = i + d
@@ -381,6 +386,27 @@ function NavItemsEditor({
             value={item.link as SiteLink}
             onChange={(link) => onChange(items.map((x, j) => (j === i ? { ...x, link } : x)))}
           />
+          {allowChildren && (
+            <div className="mt-2 border-l-2 border-slate-100 pl-3">
+              {(item.children?.length ?? 0) > 0 && (
+                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                  Dropdown
+                </p>
+              )}
+              <NavItemsEditor
+                items={item.children ?? []}
+                max={8}
+                addLabel="Add sub-item"
+                onChange={(children) =>
+                  onChange(
+                    items.map((x, j) =>
+                      j === i ? { ...x, children: children.length ? children : undefined } : x
+                    )
+                  )
+                }
+              />
+            </div>
+          )}
         </div>
       ))}
       {items.length < max && (
@@ -391,142 +417,214 @@ function NavItemsEditor({
           }
           className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
         >
-          <Plus className="h-4 w-4" /> Add menu item
+          <Plus className="h-4 w-4" /> {addLabel}
         </button>
       )}
     </div>
   )
 }
 
+type MenuTab = 'header' | 'footer' | 'homepage'
+
+/**
+ * Menus (WS3): the header menu (with dropdowns), the footer columns and the
+ * homepage quick-links menu, one tab each.
+ */
 export function HeaderFooterEditor({
   settings,
   onChange,
+  homepage,
 }: {
   settings: SiteSettings
   onChange: Update
+  /** Where the homepage menu shows: the HOME page needs a "Homepage menu" section. */
+  homepage?: { isHomePage: boolean; hasSection: boolean; onAddSection: () => void }
 }) {
   const h = settings.header
   const f = settings.footer
+  const homeItems = settings.homeMenu?.items ?? []
   const id = React.useId()
+  const [tab, setTab] = React.useState<MenuTab>('header')
   return (
     <div className="space-y-5">
-      <Group title="Header">
-        <Select
-          label="Layout"
-          value={h.variant}
-          onChange={(variant) => onChange({ ...settings, header: { ...h, variant } })}
-          options={[
-            { value: 'classic', label: 'Logo left, menu right' },
-            { value: 'centered', label: 'Centered logo' },
-            { value: 'minimal', label: 'Minimal (menu button)' },
-          ]}
-        />
-        <Toggle
-          label="Stick to the top when scrolling"
-          checked={h.sticky}
-          onChange={(sticky) => onChange({ ...settings, header: { ...h, sticky } })}
-        />
-        <Label>Menu</Label>
-        <NavItemsEditor
-          items={h.links}
-          max={8}
-          onChange={(links) => onChange({ ...settings, header: { ...h, links } })}
-        />
-        <CtaEditor
-          label="Header button"
-          value={h.cta}
-          onChange={(cta) => onChange({ ...settings, header: { ...h, cta } })}
-        />
-      </Group>
-      <Group title="Footer">
-        <Select
-          label="Layout"
-          value={f.variant}
-          onChange={(variant) => onChange({ ...settings, footer: { ...f, variant } })}
-          options={[
-            { value: 'columns', label: 'Link columns' },
-            { value: 'simple', label: 'Simple' },
-          ]}
-        />
-        <div>
-          <Label htmlFor={`${id}-ft`}>Footer text</Label>
-          <textarea
-            id={`${id}-ft`}
-            className={inputCls}
-            rows={2}
-            maxLength={500}
-            value={f.text}
-            onChange={(e) => onChange({ ...settings, footer: { ...f, text: e.target.value } })}
+      <div
+        role="tablist"
+        aria-label="Menus"
+        className="grid grid-cols-3 gap-1 rounded-lg bg-slate-100 p-1 text-xs font-medium"
+      >
+        {(
+          [
+            ['header', 'Header'],
+            ['footer', 'Footer'],
+            ['homepage', 'Homepage'],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={tab === k}
+            onClick={() => setTab(k)}
+            className={cn(
+              'rounded-md px-2 py-1.5',
+              tab === k
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === 'homepage' && (
+        <Group title="Homepage menu">
+          <p className="text-xs text-slate-500">
+            Quick links shown on your homepage, e.g. Treatments, Products, Book. Links to pages that
+            are empty right now (like Products before you add any) are hidden on the live site.
+          </p>
+          <NavItemsEditor
+            items={homeItems}
+            max={12}
+            onChange={(items) => onChange({ ...settings, homeMenu: { items } })}
           />
-        </div>
-        {f.variant === 'columns' && (
-          <div className="space-y-3">
-            {f.columns.map((col, i) => (
-              <div key={i} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-                <div className="mb-2 flex gap-1">
-                  <input
-                    className={inputCls}
-                    value={col.title}
-                    maxLength={40}
-                    aria-label={`Column ${i + 1} title`}
-                    onChange={(e) =>
+          {homepage?.isHomePage && !homepage.hasSection && (
+            <button
+              type="button"
+              onClick={homepage.onAddSection}
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4" /> Add the menu to this page
+            </button>
+          )}
+          {homepage && !homepage.isHomePage && (
+            <p className="text-xs text-slate-500">
+              Open the Home page to place the menu (Add section → Homepage menu).
+            </p>
+          )}
+        </Group>
+      )}
+      {tab === 'header' && (
+        <Group title="Header">
+          <Select
+            label="Layout"
+            value={h.variant}
+            onChange={(variant) => onChange({ ...settings, header: { ...h, variant } })}
+            options={[
+              { value: 'classic', label: 'Logo left, menu right' },
+              { value: 'centered', label: 'Centered logo' },
+              { value: 'minimal', label: 'Minimal (menu button)' },
+            ]}
+          />
+          <Toggle
+            label="Stick to the top when scrolling"
+            checked={h.sticky}
+            onChange={(sticky) => onChange({ ...settings, header: { ...h, sticky } })}
+          />
+          <Label>Menu</Label>
+          <NavItemsEditor
+            items={h.links}
+            max={8}
+            allowChildren
+            onChange={(links) => onChange({ ...settings, header: { ...h, links } })}
+          />
+          <CtaEditor
+            label="Header button"
+            value={h.cta}
+            onChange={(cta) => onChange({ ...settings, header: { ...h, cta } })}
+          />
+        </Group>
+      )}
+      {tab === 'footer' && (
+        <Group title="Footer">
+          <Select
+            label="Layout"
+            value={f.variant}
+            onChange={(variant) => onChange({ ...settings, footer: { ...f, variant } })}
+            options={[
+              { value: 'columns', label: 'Link columns' },
+              { value: 'simple', label: 'Simple' },
+            ]}
+          />
+          <div>
+            <Label htmlFor={`${id}-ft`}>Footer text</Label>
+            <textarea
+              id={`${id}-ft`}
+              className={inputCls}
+              rows={2}
+              maxLength={500}
+              value={f.text}
+              onChange={(e) => onChange({ ...settings, footer: { ...f, text: e.target.value } })}
+            />
+          </div>
+          {f.variant === 'columns' && (
+            <div className="space-y-3">
+              {f.columns.map((col, i) => (
+                <div key={i} className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                  <div className="mb-2 flex gap-1">
+                    <input
+                      className={inputCls}
+                      value={col.title}
+                      maxLength={40}
+                      aria-label={`Column ${i + 1} title`}
+                      onChange={(e) =>
+                        onChange({
+                          ...settings,
+                          footer: {
+                            ...f,
+                            columns: f.columns.map((c, j) =>
+                              j === i ? { ...c, title: e.target.value } : c
+                            ),
+                          },
+                        })
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...settings,
+                          footer: { ...f, columns: f.columns.filter((_, j) => j !== i) },
+                        })
+                      }
+                      className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      aria-label="Remove column"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <NavItemsEditor
+                    items={col.links}
+                    max={8}
+                    onChange={(links) =>
                       onChange({
                         ...settings,
                         footer: {
                           ...f,
-                          columns: f.columns.map((c, j) =>
-                            j === i ? { ...c, title: e.target.value } : c
-                          ),
+                          columns: f.columns.map((c, j) => (j === i ? { ...c, links } : c)),
                         },
                       })
                     }
                   />
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onChange({
-                        ...settings,
-                        footer: { ...f, columns: f.columns.filter((_, j) => j !== i) },
-                      })
-                    }
-                    className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                    aria-label="Remove column"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
                 </div>
-                <NavItemsEditor
-                  items={col.links}
-                  max={8}
-                  onChange={(links) =>
+              ))}
+              {f.columns.length < 4 && (
+                <button
+                  type="button"
+                  onClick={() =>
                     onChange({
                       ...settings,
-                      footer: {
-                        ...f,
-                        columns: f.columns.map((c, j) => (j === i ? { ...c, links } : c)),
-                      },
+                      footer: { ...f, columns: [...f.columns, { title: 'Links', links: [] }] },
                     })
                   }
-                />
-              </div>
-            ))}
-            {f.columns.length < 4 && (
-              <button
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...settings,
-                    footer: { ...f, columns: [...f.columns, { title: 'Links', links: [] }] },
-                  })
-                }
-                className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
-              >
-                <Plus className="h-4 w-4" /> Add column
-              </button>
-            )}
-          </div>
-        )}
-      </Group>
+                  className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-sm text-slate-600 hover:border-indigo-400 hover:text-indigo-600"
+                >
+                  <Plus className="h-4 w-4" /> Add column
+                </button>
+              )}
+            </div>
+          )}
+        </Group>
+      )}
     </div>
   )
 }

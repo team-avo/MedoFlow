@@ -100,6 +100,7 @@ const SAMPLE_DATA: SectionData = {
       description: 'Sample product.',
       price: '24.00',
       inStock: true,
+      medicine: true,
     },
     {
       id: 'prd_sample2',
@@ -108,6 +109,7 @@ const SAMPLE_DATA: SectionData = {
       description: 'Sample product.',
       price: '19.00',
       inStock: true,
+      medicine: true,
     },
     {
       id: 'prd_sample3',
@@ -116,6 +118,7 @@ const SAMPLE_DATA: SectionData = {
       description: 'Sample product.',
       price: '28.00',
       inStock: true,
+      medicine: false,
     },
     {
       id: 'prd_sample4',
@@ -124,6 +127,25 @@ const SAMPLE_DATA: SectionData = {
       description: 'Sample product.',
       price: '15.00',
       inStock: false,
+      medicine: true,
+    },
+    {
+      id: 'prd_sample5',
+      slug: 'hydrating-serum',
+      name: 'Hydrating serum',
+      description: 'Sample product.',
+      price: '32.00',
+      inStock: true,
+      medicine: false,
+    },
+    {
+      id: 'prd_sample6',
+      slug: 'posture-support-band',
+      name: 'Posture support band',
+      description: 'Sample product.',
+      price: '26.00',
+      inStock: true,
+      medicine: false,
     },
   ],
   packages: [

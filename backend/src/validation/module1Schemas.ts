@@ -8,6 +8,20 @@ const emailSchema = z
   .email('Valid email is required')
   .transform((value) => value.toLowerCase())
 
+/**
+ * A patient's phone number as typed: digits with the usual separators and an
+ * optional leading +. 7–15 digits (E.164 allows at most 15).
+ */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .max(32, 'Phone number is too long')
+  .regex(/^\+?[0-9 ().-]+$/, 'Enter a valid phone number')
+  .refine((v) => {
+    const digits = v.replace(/\D/g, '').length
+    return digits >= 7 && digits <= 15
+  }, 'Enter a valid phone number')
+
 const optionalPriceOverride = z.preprocess((value) => {
   if (value === '' || value === null || value === undefined) {
     return undefined
@@ -20,6 +34,8 @@ export const patientRegistrationSchema = {
     name: z.string().trim().min(1, 'Name is required'),
     email: emailSchema,
     password: z.string().min(6, 'Password must be at least 6 characters'),
+    // Optional: auto-filled into bookings so the patient never re-types it.
+    phone: z.preprocess((v) => (v === '' ? undefined : v), phoneSchema.optional()),
     // Optional. Carried through from the clinic page (`/clinic/[idOrSlug]`)
     // so a new patient is auto-linked to that clinic. Backend resolves
     // slug → cuid and falls back to null if unknown.
@@ -59,13 +75,9 @@ export const generateWebsiteSchema = {
     logoUrl: z
       .string()
       .trim()
-      .refine(
-        (v) =>
-          v === '' ||
-          v.startsWith('data:image/') ||
-          /^https?:\/\//i.test(v),
-        { message: 'Logo must be a valid image URL or upload' }
-      )
+      .refine((v) => v === '' || v.startsWith('data:image/') || /^https?:\/\//i.test(v), {
+        message: 'Logo must be a valid image URL or upload',
+      })
       .optional(),
     themeColor: z
       .string()

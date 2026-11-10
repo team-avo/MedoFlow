@@ -271,7 +271,47 @@ export const SECTION_DEFS: readonly SectionDef[] = [
         hint: 'Leave empty to show newest',
       },
       { kind: 'number', key: 'maxItems', label: 'How many', min: 1, max: 24, default: 4 },
+      {
+        kind: 'boolean',
+        key: 'excludeMedicines',
+        label: 'Leave medicines to the Medicine store section',
+        default: false,
+      },
     ],
+  },
+  {
+    type: 'medicine-store',
+    label: 'Medicine store',
+    description: 'Over-the-counter medicines and supplements, with add-to-cart.',
+    group: 'Your clinic',
+    variants: [
+      { value: 'grid', label: 'Grid' },
+      { value: 'row', label: 'Row' },
+    ],
+    fields: [
+      heading(),
+      intro,
+      {
+        kind: 'ids',
+        key: 'productIds',
+        label: 'Show only these medicines',
+        source: 'products',
+        max: 24,
+        hint: 'Leave empty to show all OTC medicines and supplements',
+      },
+      { kind: 'number', key: 'maxItems', label: 'How many', min: 1, max: 24, default: 4 },
+    ],
+  },
+  {
+    type: 'quick-links',
+    label: 'Homepage menu',
+    description: 'Your homepage quick links (edit them under Menus → Homepage).',
+    group: 'Layout',
+    variants: [
+      { value: 'tiles', label: 'Tiles' },
+      { value: 'pills', label: 'Pills' },
+    ],
+    fields: [heading(), { kind: 'textarea', key: 'intro', label: 'Intro', max: 300 }],
   },
   {
     type: 'locations-hours',

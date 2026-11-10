@@ -571,7 +571,20 @@ function SiteEditor() {
             {panel === 'theme' && <ThemeEditor settings={settings} onChange={setSettings} />}
             {panel === 'brand' && <BrandSeoEditor settings={settings} onChange={setSettings} />}
             {panel === 'header' && (
-              <HeaderFooterEditor settings={settings} onChange={setSettings} />
+              <HeaderFooterEditor
+                settings={settings}
+                onChange={setSettings}
+                homepage={{
+                  isHomePage: page?.kind === 'HOME',
+                  hasSection: state.doc.sections.some((x) => x.type === 'quick-links'),
+                  onAddSection: () => {
+                    // Right after the hero, where visitors look first.
+                    const hero = state.doc.sections.findIndex((x) => x.type === 'hero')
+                    dispatch({ type: 'add', sectionType: 'quick-links', index: hero + 1 })
+                    setPanel('sections')
+                  },
+                }}
+              />
             )}
           </div>
         </aside>

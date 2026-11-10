@@ -32,8 +32,20 @@ export const PATIENT_PATHS = [
   // First-builder URLs (/clinic/<id>/…): they redirect to the new routes.
   '/clinic',
 ]
-/** Staff-only app routes; on a clinic host they move to the app host. */
-export const STAFF_PATHS = ['/dashboard', '/login', '/register', '/platform', '/onboarding']
+/**
+ * App-only routes; on a clinic host they move to the app host. Staff areas,
+ * plus /auth/handoff (lib/authHandoff), which must run where the app
+ * session lives, and /get-started (new clinic sign-up).
+ */
+export const STAFF_PATHS = [
+  '/dashboard',
+  '/login',
+  '/register',
+  '/platform',
+  '/onboarding',
+  '/auth/handoff',
+  '/get-started',
+]
 /** Files with an extension that are site routes rather than static assets. */
 const SITE_FILES = new Set(['/sitemap.xml', '/robots.txt', '/favicon.ico'])
 

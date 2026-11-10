@@ -4,6 +4,7 @@
  * single place site features are gated, so B12 can absorb it in one move.
  */
 import type { TenantPlan } from '@prisma/client'
+import { effectivePlan } from '../config/billingMode'
 
 export interface SiteEntitlements {
   /** Maximum pages, including HOME/SERVICES/TEAM/CONTACT/LEGAL. */
@@ -23,6 +24,7 @@ export const SITE_ENTITLEMENTS: Readonly<Record<TenantPlan, SiteEntitlements>> =
   ENTERPRISE: { maxPages: 200, maxCustomDomains: 20, canRemoveBadge: true, maxAssets: 5000 },
 }
 
+/** Limits for a clinic's plan. In BILLING_MODE=demo every plan gets the top limits. */
 export function siteEntitlements(plan: TenantPlan | null | undefined): SiteEntitlements {
-  return SITE_ENTITLEMENTS[plan ?? 'FREE'] ?? SITE_ENTITLEMENTS.FREE
+  return SITE_ENTITLEMENTS[effectivePlan(plan)] ?? SITE_ENTITLEMENTS.FREE
 }

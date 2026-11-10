@@ -1,4 +1,5 @@
 import prisma from '../config/prisma'
+import { newTenantBilling } from '../config/billingMode'
 import type { ApiError } from '../types/errors'
 import { createPasswordSetupToken } from './passwordSetupService'
 import { sendStaffInviteEmail } from './emailService'
@@ -89,17 +90,15 @@ export async function createClinicByPlatform(input: CreateClinicByPlatformInput)
     throw err
   }
 
-  const trialEndsAt = new Date()
-  trialEndsAt.setDate(trialEndsAt.getDate() + 14)
+  // TRIAL for 14 days, or ACTIVE with no end on the demo (config/billingMode).
+  const billing = newTenantBilling(input.plan ?? 'FREE')
 
   const result = await prisma.$transaction(async (tx) => {
     const tenant = await tx.tenant.create({
       data: {
         name: input.clinicName,
         slug: subdomain,
-        status: 'TRIAL',
-        plan: input.plan ?? 'FREE',
-        trialEndsAt,
+        ...billing,
       },
     })
 

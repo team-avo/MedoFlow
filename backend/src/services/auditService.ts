@@ -102,6 +102,7 @@ export const logRead = async (
 export type AuthEventAction =
   | 'LOGIN_SUCCESS'
   | 'LOGIN_FAILURE'
+  | 'SESSION_HANDOFF'
   | 'LOGOUT'
   | 'SESSION_IDLE_TIMEOUT'
   | 'REFRESH_TOKEN_REUSE'

@@ -1,4 +1,4 @@
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 
 /**
  * Login rate limiter: 5 failed attempts per 15 minutes per IP.
@@ -112,4 +112,18 @@ export const siteLeadRateLimit = rateLimit({
     success: false,
     error: 'Too many messages. Please try again later or call the clinic.',
   },
+})
+
+/**
+ * Live captions (WS2): one request per ~6 s audio segment while recording.
+ * 60 per minute per signed-in user leaves room for retries.
+ * LIVE_TRANSCRIPT_RATE_LIMIT_MAX overrides.
+ */
+export const liveTranscriptRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: () => Number(process.env.LIVE_TRANSCRIPT_RATE_LIMIT_MAX) || 60,
+  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : ipKeyGenerator(req.ip ?? '')),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many live caption requests. Please slow down.' },
 })

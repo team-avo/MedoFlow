@@ -1,5 +1,7 @@
 import * as argon2 from 'argon2'
+import type { TenantPlan } from '@prisma/client'
 import prisma from '../config/prisma'
+import { newTenantBilling } from '../config/billingMode'
 import type { ApiError } from '../types/errors'
 
 export interface SignupData {
@@ -12,6 +14,8 @@ export interface SignupData {
   clinicEmail: string
   // Subdomain step
   subdomain: string
+  /** Chosen on the pricing page (WS4); defaults to FREE. */
+  plan?: TenantPlan
 }
 
 function sanitizeSubdomain(raw: string): string {
@@ -104,8 +108,8 @@ export async function provisionTenant(data: SignupData) {
     parallelism: 1,
   })
 
-  const trialEndsAt = new Date()
-  trialEndsAt.setDate(trialEndsAt.getDate() + 14) // 14-day trial
+  // TRIAL for 14 days, or ACTIVE with no end on the demo (config/billingMode).
+  const billing = newTenantBilling(data.plan ?? 'FREE')
 
   return prisma.$transaction(async (tx) => {
     // 1. Create Tenant
@@ -113,9 +117,7 @@ export async function provisionTenant(data: SignupData) {
       data: {
         name: data.clinicName,
         slug: subdomain,
-        status: 'TRIAL',
-        plan: 'FREE',
-        trialEndsAt,
+        ...billing,
       },
     })
 

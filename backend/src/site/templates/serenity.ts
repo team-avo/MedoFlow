@@ -1,4 +1,5 @@
 import type { SiteTemplate } from './types'
+import { DEFAULT_HOME_MENU } from '../content/settings'
 import { templatePageRef } from './types'
 import { bookCta, contactPage, privacyPage, routeCta, sec, servicesPage, teamPage } from './common'
 
@@ -33,7 +34,7 @@ export const serenity: SiteTemplate = {
       links: [
         { label: 'Treatments', link: { kind: 'route', route: 'services' } },
         { label: 'Memberships', link: templatePageRef('memberships') },
-        { label: 'Shop', link: { kind: 'route', route: 'store' } },
+        { label: 'Products', link: { kind: 'route', route: 'store' } },
         { label: 'About', link: templatePageRef('about') },
         { label: 'Contact', link: { kind: 'route', route: 'contact' } },
       ],
@@ -46,6 +47,7 @@ export const serenity: SiteTemplate = {
         {
           title: 'Visit',
           links: [
+            { label: 'Products', link: { kind: 'route', route: 'store' } },
             { label: 'Treatments', link: { kind: 'route', route: 'services' } },
             { label: 'Memberships', link: templatePageRef('memberships') },
             { label: 'Book', link: { kind: 'booking' } },
@@ -62,6 +64,7 @@ export const serenity: SiteTemplate = {
       ],
       text: 'A quiet space to restore, renew and feel like yourself.',
     },
+    homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: {
       enabled: true,
       text: 'New this season: members save on every treatment.',
@@ -96,6 +99,7 @@ export const serenity: SiteTemplate = {
             alt: 'Soft natural light in a treatment room',
           },
         }),
+        sec('quick-links', 'pills', { heading: '' }),
         sec('image-with-text', 'image-left', {
           heading: 'A slower kind of care',
           body: 'Every visit begins with a consultation, so your plan fits your goals — never a one-size-fits-all menu.\n\n*Unhurried appointments. Honest advice. Results that look like you.*',
@@ -108,6 +112,17 @@ export const serenity: SiteTemplate = {
           maxItems: 4,
           showPrices: true,
           showDuration: true,
+        }),
+        sec('featured-products', 'grid', {
+          heading: 'Take the ritual home',
+          intro: 'The products we use in the treatment room.',
+          maxItems: 4,
+          excludeMedicines: true,
+        }),
+        sec('medicine-store', 'grid', {
+          heading: 'Wellness pharmacy',
+          intro: 'Supplements and gentle over-the-counter care, chosen by our team.',
+          maxItems: 4,
         }),
         sec('pricing', 'memberships', {
           heading: 'Membership',
@@ -123,11 +138,6 @@ export const serenity: SiteTemplate = {
               detail: 'Replace with a real, consented review',
             },
           ],
-        }),
-        sec('featured-products', 'row', {
-          heading: 'Take the ritual home',
-          intro: 'Practitioner-selected products to extend your results.',
-          maxItems: 4,
         }),
         sec('booking-cta', 'split', {
           heading: 'Your time to unwind',

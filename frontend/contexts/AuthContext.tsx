@@ -36,6 +36,11 @@ interface AuthContextType {
   login: (email: string, password: string, clinicId?: string | null) => Promise<LoginResult>
   /** Second step of an MFA sign-in (TOTP or a one-time recovery code). */
   verifyMfa: (mfaToken: string, factor: MfaFactor) => Promise<User>
+  /**
+   * Trade a one-time session-handoff code (lib/authHandoff) for a session on
+   * this origin. Resolves null when the code is invalid or expired.
+   */
+  exchangeHandoffCode: (code: string) => Promise<User | null>
   logout: (reason?: SessionEndReason) => Promise<void>
   getCurrentUser: () => Promise<User | null>
   refetchUser: () => Promise<User | null>
@@ -165,6 +170,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [startSession]
   )
 
+  const exchangeHandoffCode = useCallback(
+    async (code: string): Promise<User | null> => {
+      try {
+        const { data } = await api.post<{ success: boolean; message?: string; data: AuthPayload }>(
+          '/auth/handoff/exchange',
+          { code }
+        )
+        return await startSession(data?.data, data?.message)
+      } catch (err) {
+        clientLog.error('Session handoff failed', err)
+        return null
+      }
+    },
+    [startSession]
+  )
+
   const logout = useCallback(
     async (reason: SessionEndReason = 'user') => {
       try {
@@ -248,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     idleTimeoutMinutes,
     login,
     verifyMfa,
+    exchangeHandoffCode,
     logout,
     getCurrentUser,
     refetchUser: getCurrentUser,

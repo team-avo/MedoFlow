@@ -25,7 +25,7 @@ import { useForm } from 'react-hook-form'
 import { isOnClinicSiteHost } from '@/lib/site/host'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowRight, Lock, Mail, ShieldCheck, User as UserIcon } from 'lucide-react'
+import { ArrowRight, Lock, Mail, Phone, ShieldCheck, User as UserIcon } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cn } from '@/lib/utils'
@@ -37,6 +37,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getClinic } from '@/lib/clinicApi'
 import type { User } from '@/lib/types'
 import { MfaChallengeForm } from './MfaChallengeForm'
+import { isValidPhone } from '@/components/booking/BookingIdentity'
 
 const CLINIC_DEFAULT_THEME = '#0D9488'
 
@@ -45,8 +46,8 @@ const CLINIC_DEFAULT_THEME = '#0D9488'
 // the theme color for accents) when on a clinic site, otherwise null.
 function useClinicContext() {
   const pathname = usePathname()
-  const match = pathname?.match(/^\/clinic\/([^/?#]+)/)
-  const idOrSlug = match?.[1] ?? null
+  const search = useSearchParams()
+  const idOrSlug = bookingClinicId(pathname, search) ?? clinicIdFromPath(pathname)
   const { data } = useQuery({
     queryKey: ['clinic', idOrSlug],
     queryFn: () => getClinic(idOrSlug as string),
@@ -450,6 +451,9 @@ function LoginForm({ onSuccess, themeColor }: { onSuccess: () => void; themeColo
   // staff/admin (non-PATIENT) get routed to their dashboard.
   const finish = (user: User) => {
     onSuccess()
+    // Mid-booking: stay exactly where we are (the held slot and the
+    // ?clinicId query live on this page).
+    if (user.role === 'PATIENT' && pathname?.startsWith('/book/') && !returnUrl) return
     const isPatientOnClinicSite =
       user.role === 'PATIENT' &&
       (pathname?.startsWith('/clinic/') || pathname?.startsWith('/s/') || isOnClinicSiteHost())
@@ -551,6 +555,11 @@ function LoginForm({ onSuccess, themeColor }: { onSuccess: () => void; themeColo
 const signupSchema = z.object({
   name: z.string().min(1, 'Please enter your name'),
   email: z.string().email('Please enter a valid email'),
+  // Optional; saved to the profile so bookings never ask for it again.
+  phone: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || isValidPhone(v), 'Please enter a valid phone number'),
   password: z.string().min(6, 'Use at least 6 characters'),
 })
 type SignupData = z.infer<typeof signupSchema>
@@ -563,8 +572,19 @@ function clinicIdFromPath(pathname: string | null): string | null {
   return m?.[1] ?? null
 }
 
+// The booking page (/book/<serviceId>?clinicId=…) names its clinic in the
+// query: used for branding and to link a new patient to that clinic.
+function bookingClinicId(
+  pathname: string | null,
+  search: { get(name: string): string | null } | null
+): string | null {
+  if (!pathname?.startsWith('/book/')) return null
+  return search?.get('clinicId') || null
+}
+
 function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeColor?: string }) {
   const pathname = usePathname()
+  const search = useSearchParams()
   const isClinic = !!themeColor
   const { login } = useAuth()
   const [error, setError] = React.useState<string | null>(null)
@@ -576,7 +596,7 @@ function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeCol
     formState: { errors },
   } = useForm<SignupData>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { name: '', email: '', phone: '', password: '' },
   })
 
   // Register and immediately log the patient in. Skips the old "Account
@@ -586,10 +606,15 @@ function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeCol
     setError(null)
     setSubmitting(true)
     try {
-      const clinicId = clinicIdFromPath(pathname)
-      await api.post('/auth/register', { ...data, clinicId: clinicId ?? undefined })
+      const pathClinic = clinicIdFromPath(pathname)
+      const clinicId = pathClinic ?? bookingClinicId(pathname, search)
+      await api.post('/auth/register', {
+        ...data,
+        phone: data.phone || undefined,
+        clinicId: clinicId ?? undefined,
+      })
       try {
-        await login(data.email, data.password, clinicId)
+        await login(data.email, data.password, pathClinic)
         onSuccess()
       } catch {
         // Auto-login failed (rare) — fall back to the sign-in tab so the
@@ -629,6 +654,18 @@ function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeCol
         themeColor={themeColor}
         error={errors.email?.message}
         {...register('email')}
+      />
+
+      <Field
+        id="signup-phone"
+        label="Phone (optional)"
+        icon={Phone}
+        type="tel"
+        autoComplete="tel"
+        placeholder="+1 (555) 000-0000"
+        themeColor={themeColor}
+        error={errors.phone?.message}
+        {...register('phone')}
       />
 
       <Field

@@ -1,4 +1,5 @@
 import type { SiteTemplate } from './types'
+import { DEFAULT_HOME_MENU } from '../content/settings'
 import { templatePageRef } from './types'
 import { bookCta, contactPage, privacyPage, routeCta, sec, servicesPage, teamPage } from './common'
 
@@ -34,7 +35,7 @@ export const botanica: SiteTemplate = {
         { label: 'Approach', link: templatePageRef('approach') },
         { label: 'Services', link: { kind: 'route', route: 'services' } },
         { label: 'Practitioners', link: { kind: 'route', route: 'team' } },
-        { label: 'Shop', link: { kind: 'route', route: 'store' } },
+        { label: 'Products', link: { kind: 'route', route: 'store' } },
         { label: 'Contact', link: { kind: 'route', route: 'contact' } },
       ],
       cta: bookCta('Book a consult'),
@@ -45,6 +46,7 @@ export const botanica: SiteTemplate = {
       columns: [],
       text: 'Root-cause care that treats the whole person. Supplements are not intended to diagnose, treat, cure or prevent any disease.',
     },
+    homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: { enabled: false, text: '', link: null },
     social: {},
     seo: {
@@ -72,6 +74,7 @@ export const botanica: SiteTemplate = {
           secondaryCta: { label: 'Our approach', link: templatePageRef('approach') },
           image: { src: '/site-samples/hero-botanica.svg', alt: 'Fresh herbs and leaves' },
         }),
+        sec('quick-links', 'pills', { heading: '' }),
         sec('steps', 'numbered', {
           heading: 'How we work together',
           items: [
@@ -91,8 +94,14 @@ export const botanica: SiteTemplate = {
           showDuration: true,
         }),
         sec('featured-products', 'grid', {
-          heading: 'From our dispensary',
-          intro: 'Practitioner-grade supplements, chosen for quality and purity.',
+          heading: 'From the apothecary',
+          intro: 'Botanical care to continue your treatment at home.',
+          maxItems: 4,
+          excludeMedicines: true,
+        }),
+        sec('medicine-store', 'grid', {
+          heading: 'Natural pharmacy',
+          intro: 'Herbal supplements and over-the-counter remedies we recommend.',
           maxItems: 4,
         }),
         sec('testimonials', 'quote', {
