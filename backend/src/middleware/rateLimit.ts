@@ -11,7 +11,9 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 export const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   // Shared by /login, /mfa/verify, /mfa/enable|disable, /change-password,
-  // /register, /set-password and tenant signup: one failure budget per IP.
+  // /register and /set-password: one failure budget per IP. Clinic signup has
+  // its own bucket (signupRateLimit) so a mistyped signup form doesn't lock
+  // the same person out of logging in.
   // AUTH_RATE_LIMIT_MAX overrides the default of 5 (read per request).
   max: () => Number(process.env.AUTH_RATE_LIMIT_MAX) || 5,
   standardHeaders: true, // Return rate-limit headers (RateLimit-*)
@@ -21,6 +23,23 @@ export const authRateLimit = rateLimit({
     error: 'Too many attempts. Please try again in 15 minutes.',
   },
   skipSuccessfulRequests: true, // Only count failed requests toward the limit
+})
+
+/**
+ * Clinic signup (POST /tenants/signup): 10 attempts per hour per IP,
+ * successful ones included — each success creates a whole tenant, so this
+ * caps how many clinics one address can create. SIGNUP_RATE_LIMIT_MAX
+ * overrides (raise it for a demo rehearsal).
+ */
+export const signupRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: () => Number(process.env.SIGNUP_RATE_LIMIT_MAX) || 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many sign-up attempts. Please try again in an hour.',
+  },
 })
 
 /**

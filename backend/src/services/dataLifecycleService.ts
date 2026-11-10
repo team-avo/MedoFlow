@@ -12,6 +12,10 @@
  *  - AuditLog rows are retained (6-year HIPAA window, enforced by a DB
  *    trigger). The users and clinic they reference are anonymised, not
  *    deleted, so the audit trail stays intact without carrying PHI.
+ *  - ClinicAgreement rows (the signed service agreement / BAA acknowledgement)
+ *    are retained for the same reason: HIPAA keeps policy and contract
+ *    documentation for 6 years. They hold no PHI, and the app role can only
+ *    insert them.
  *
  * The model list and deletion order are derived from the Prisma schema, so a
  * new clinic-scoped model is covered automatically (a test asserts it).
@@ -31,7 +35,14 @@ import { logAudit } from './auditService'
 type DMMFModel = (typeof Prisma.dmmf.datamodel.models)[number]
 
 /** Kept (anonymised or retained), never deleted by off-boarding. */
-const RETAINED_MODELS = new Set(['AuditLog', 'User', 'Clinic', 'Tenant', 'ScribeTemplate'])
+const RETAINED_MODELS = new Set([
+  'AuditLog',
+  'ClinicAgreement',
+  'User',
+  'Clinic',
+  'Tenant',
+  'ScribeTemplate',
+])
 
 export interface PlannedModel {
   model: string
@@ -178,6 +189,9 @@ export const exportTenantData = (tenantId: string) =>
       })
     }
     data.AuditLog = await prisma.auditLog.findMany({ where: { clinicId: { in: clinicIds } } })
+    data.ClinicAgreement = await prisma.clinicAgreement.findMany({
+      where: { clinicId: { in: clinicIds } },
+    })
     const users = await prisma.user.findMany({
       where: { id: { in: [...exclusiveUserIds, ...sharedPatientIds] } },
       select: USER_EXPORT_SELECT,

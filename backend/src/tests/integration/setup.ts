@@ -32,6 +32,7 @@ process.env.FILE_BLOB_SIGNING_SECRET = crypto.randomBytes(32).toString('hex')
 process.env.SESSION_IDLE_TIMEOUT_MINUTES = process.env.SESSION_IDLE_TIMEOUT_MINUTES ?? '15'
 // Suites make many deliberate failed logins; rateLimit.int.test.ts restores the real limits.
 process.env.AUTH_RATE_LIMIT_MAX = '1000'
+process.env.SIGNUP_RATE_LIMIT_MAX = '1000'
 process.env.REFRESH_RATE_LIMIT_MAX = '1000'
 process.env.PUBLIC_LOOKUP_RATE_LIMIT_MAX = '1000'
 process.env.PUBLIC_API_RATE_LIMIT_MAX = '100000'

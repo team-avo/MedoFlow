@@ -1,0 +1,196 @@
+/** Clinic onboarding — review banner, setup checklist and the practitioner list. */
+import { describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
+import React from 'react'
+import { VerificationBanner } from '@/components/onboarding/VerificationBanner'
+import { checklistItems, SetupChecklist } from '@/components/onboarding/SetupChecklist'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { PractitionersForm } from '@/components/onboarding/PractitionersForm'
+import type { OnboardingStatus } from '@/lib/onboardingApi'
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}))
+
+const savePractitioners = vi.fn()
+const getStatus = vi.fn()
+vi.mock('@/lib/onboardingApi', async (orig) => ({
+  ...(await orig<typeof import('@/lib/onboardingApi')>()),
+  onboardingApi: {
+    savePractitioners: (...a: unknown[]) => savePractitioners(...a),
+    getStatus: () => getStatus(),
+  },
+}))
+
+const owner = (tenant: Record<string, unknown>) => ({
+  role: 'SUPER_ADMIN' as const,
+  clinic: {
+    id: 'c1',
+    name: 'Clinic',
+    tenant: {
+      id: 't1',
+      name: 'Clinic',
+      onboardingCompletedAt: null,
+      onboardingStep: 0,
+      termsAcceptedAt: null,
+      termsVersion: null,
+      ...tenant,
+    },
+  },
+})
+
+describe('VerificationBanner', () => {
+  it('shows nothing once approved, or to anyone but the owner', () => {
+    const { container, rerender } = render(
+      <VerificationBanner user={owner({ verificationStatus: 'APPROVED' })} />
+    )
+    expect(container).toBeEmptyDOMElement()
+    rerender(
+      <VerificationBanner
+        user={{ ...owner({ verificationStatus: 'PENDING_REVIEW' }), role: 'FRONT_DESK' }}
+      />
+    )
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('under review, changes requested (with the note and a link) and rejected', () => {
+    const { rerender } = render(
+      <VerificationBanner
+        user={owner({ verificationStatus: 'PENDING_REVIEW', submittedForReviewAt: '2026-11-10' })}
+      />
+    )
+    expect(screen.getByText('Your clinic is under review')).toBeInTheDocument()
+
+    rerender(
+      <VerificationBanner
+        user={owner({ verificationStatus: 'CHANGES_REQUESTED', reviewNotes: 'Fix the NPI' })}
+      />
+    )
+    expect(screen.getByText(/Changes requested/)).toBeInTheDocument()
+    expect(screen.getByText(/Fix the NPI/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Update application' })).toHaveAttribute(
+      'href',
+      '/dashboard/clinic'
+    )
+
+    rerender(<VerificationBanner user={owner({ verificationStatus: 'REJECTED' })} />)
+    expect(screen.getByText(/was not approved/)).toBeInTheDocument()
+  })
+})
+
+describe('setup checklist', () => {
+  const status = (o: Partial<OnboardingStatus> = {}): OnboardingStatus => ({
+    completedAt: null,
+    step: 0,
+    termsAcceptedAt: null,
+    verification: { status: 'PENDING_REVIEW', submittedAt: null, reviewedAt: null, notes: null },
+    application: { practice: true, practitioners: true, agreement: false },
+    checklist: {
+      brand: true,
+      locations: true,
+      disciplines: true,
+      services: false,
+      providers: false,
+      availability: false,
+      website: false,
+    },
+    ...o,
+  })
+
+  it('lists application, review and setup items with deep links', () => {
+    const items = checklistItems(status())
+    expect(items.map((i) => [i.key, i.done])).toEqual([
+      ['application', false],
+      ['review', false],
+      ['brand', true],
+      ['locations', true],
+      ['services', false],
+      ['providers', false],
+      ['availability', false],
+      ['website', false],
+    ])
+    expect(items.every((i) => i.href.startsWith('/dashboard/'))).toBe(true)
+    const approved = checklistItems(
+      status({
+        application: { practice: true, practitioners: true, agreement: true },
+        verification: { status: 'APPROVED', submittedAt: null, reviewedAt: null, notes: null },
+      })
+    )
+    expect(approved.slice(0, 2).every((i) => i.done)).toBe(true)
+  })
+
+  const renderChecklist = () =>
+    render(
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
+        <SetupChecklist />
+      </QueryClientProvider>
+    )
+
+  it('renders the remaining items with progress', async () => {
+    getStatus.mockResolvedValue(status())
+    renderChecklist()
+    expect(await screen.findByText('2 of 8 done')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Publish your website/ })).toHaveAttribute(
+      'href',
+      '/dashboard/site'
+    )
+  })
+
+  it('renders nothing (instead of crashing the page) on a partial status', async () => {
+    getStatus.mockResolvedValue({})
+    const { container } = renderChecklist()
+    await vi.waitFor(() => expect(getStatus).toHaveBeenCalled())
+    expect(container).toBeEmptyDOMElement()
+  })
+})
+
+describe('PractitionersForm', () => {
+  it('starts with the owner, adds and removes rows, keeps one owner on record and validates NPI', async () => {
+    savePractitioners.mockResolvedValue({})
+    const onSaved = vi.fn()
+    render(
+      <PractitionersForm
+        application={null}
+        owner={{ name: 'Olivia Owner', email: 'olivia@example.test' }}
+        onSaved={onSaved}
+      />
+    )
+    expect(screen.getByLabelText(/Full name/)).toHaveValue('Olivia Owner')
+
+    fireEvent.click(screen.getByRole('button', { name: /Add practitioner/ }))
+    expect(screen.getAllByLabelText(/Full name/)).toHaveLength(2)
+    // Owner on record is a single choice.
+    const owners = screen.getAllByLabelText('Owner on record')
+    fireEvent.click(owners[1]!)
+    expect(owners[0]).not.toBeChecked()
+    expect(owners[1]).toBeChecked()
+    fireEvent.click(screen.getAllByRole('button', { name: /Remove/ })[1]!)
+    expect(screen.getAllByLabelText(/Full name/)).toHaveLength(1)
+
+    // The remaining row is no longer the owner and has no NPI: blocked.
+    fireEvent.click(screen.getByRole('button', { name: /Save & continue/ }))
+    expect(await screen.findByText(/exactly one practitioner as the owner/)).toBeInTheDocument()
+    expect(screen.getByText('NPI is required')).toBeInTheDocument()
+    expect(savePractitioners).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByLabelText('Owner on record'))
+    fireEvent.change(screen.getByLabelText(/Individual NPI/), { target: { value: '1234567893' } })
+    expect(screen.getByText(/NPI format and check digit look right/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Save & continue/ }))
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(savePractitioners).toHaveBeenCalledWith([
+      expect.objectContaining({
+        name: 'Olivia Owner',
+        npi: '1234567893',
+        isOwner: true,
+        isSelf: true,
+      }),
+    ])
+  })
+})

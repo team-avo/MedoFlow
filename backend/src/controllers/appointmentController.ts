@@ -4,6 +4,7 @@ import * as appointmentService from '../services/appointmentService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import type { ApiError } from '../types/errors'
+import * as clinicVerification from '../services/clinicVerification'
 import { BookingSource } from '@prisma/client'
 import type { AppointmentStatus } from '@prisma/client'
 
@@ -52,6 +53,8 @@ export const create = asyncHandler(
       err.statusCode = 400
       throw err
     }
+    // Patients can't book a clinic that isn't approved yet (clinic onboarding).
+    if (req.user!.role === 'PATIENT') await clinicVerification.assertClinicLive(clinicId)
     const { patientId, slotHoldId, patientPackageId, ...rest } = body as CreateAppointmentBody
     const resolvedPatientId = resolveBookingPatientId(req, patientId)
     const bookingSource =
@@ -83,6 +86,7 @@ export const createRecurring = asyncHandler(
       err.statusCode = 400
       throw err
     }
+    if (req.user!.role === 'PATIENT') await clinicVerification.assertClinicLive(clinicId)
     const recurringBody = body as CreateRecurringBody
     const resolvedPatientId = resolveBookingPatientId(req, recurringBody.patientId)
     const {

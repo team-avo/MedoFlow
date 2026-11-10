@@ -11,6 +11,7 @@
  */
 import type { Prisma, SitePageKind } from '@prisma/client'
 import prisma from '../../config/prisma'
+import { liveClinicWhere } from '../../services/clinicVerification'
 import { readSiteSettings, type SiteSettings } from '../content/settings'
 import { upgradeSections } from '../content/legacy'
 import type { Section } from '../content/sections'
@@ -441,7 +442,7 @@ async function locate(
   }
   if (!req.clinic) return { type: 'unknown' }
   const clinic = await prisma.clinic.findFirst({
-    where: { isActive: true, OR: [{ slug: req.clinic }, { id: req.clinic }] },
+    where: { ...liveClinicWhere, OR: [{ slug: req.clinic }, { id: req.clinic }] },
     select: { id: true },
   })
   return clinic ? { type: 'site', clinicId: clinic.id, viaHost: false } : { type: 'unknown' }
@@ -792,7 +793,7 @@ export async function sitemap(req: { host?: string; clinic?: string }) {
 /** Legacy GET /public/clinics/:id/pages/:slug — published page, id-or-slug clinic. */
 export async function publishedPageForClinic(idOrSlug: string, slug: string) {
   const clinic = await prisma.clinic.findFirst({
-    where: { isActive: true, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
+    where: { ...liveClinicWhere, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
     select: { id: true },
   })
   if (!clinic) return null

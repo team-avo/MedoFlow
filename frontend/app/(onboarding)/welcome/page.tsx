@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Sparkles, Layers, Users2, Palette, Calendar, Stethoscope } from 'lucide-react'
+import { Sparkles, Palette, Calendar, Stethoscope, ShieldCheck } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { OnboardingShell } from '@/components/onboarding/OnboardingShell'
 
@@ -49,6 +49,22 @@ export default function WelcomePage() {
           </div>
         ))}
       </div>
+
+      {user?.clinic?.tenant?.verificationStatus === 'PENDING_REVIEW' && (
+        <div
+          role="status"
+          className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <div>
+            <p className="font-semibold">Application submitted: under review</p>
+            <p className="mt-0.5">
+              We verify your NPI and licensing, usually within one business day. Set up your clinic
+              now; your website and online booking switch on as soon as you are approved.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
         <Sparkles className="h-4 w-4 text-indigo-600" />

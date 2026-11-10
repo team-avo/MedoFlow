@@ -2,13 +2,33 @@ import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../utils/asyncHandler'
 import { successResponse } from '../utils/apiResponse'
+import type { NextFunction, Request, Response } from 'express'
 import { protect } from '../middleware/auth'
 import { validateRequest } from '../middleware/validateRequest'
 import * as onboardingService from '../services/onboardingService'
+import * as clinicApplicationService from '../services/clinicApplicationService'
+import {
+  agreementSchema,
+  practiceDetailsSchema,
+  practitionersSchema,
+  type AgreementInput,
+  type PracticeDetailsInput,
+  type PractitionerInput,
+} from '../validation/onboardingSchemas'
 import type { ApiError } from '../types/errors'
-import prisma from '../config/prisma'
 
 const router = Router()
+
+/**
+ * Onboarding is the clinic owner's job: only a SUPER_ADMIN of the clinic may
+ * change it. Stricter than `authorize()`, which also admits break-glass staff.
+ */
+function ownerOnly(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.role === 'SUPER_ADMIN') return next()
+  const err = new Error('Only the clinic owner can do this') as ApiError
+  err.statusCode = 403
+  next(err)
+}
 
 const stepSchema = {
   body: z.object({
@@ -55,6 +75,7 @@ router.get(
 router.patch(
   '/step',
   protect,
+  ownerOnly,
   validateRequest(stepSchema),
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
@@ -67,6 +88,7 @@ router.patch(
 router.patch(
   '/brand',
   protect,
+  ownerOnly,
   validateRequest(brandSchema),
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
@@ -79,6 +101,7 @@ router.patch(
 router.post(
   '/complete',
   protect,
+  ownerOnly,
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
     await onboardingService.complete(clinicId)
@@ -86,51 +109,83 @@ router.post(
   })
 )
 
-const agreementSchema = {
-  body: z.object({
-    legalName: z.string().min(2).max(200),
-    taxId: z.string().min(2).max(50),
-    primaryContactName: z.string().min(2).max(200),
-    primaryContactEmail: z.string().email(),
-    mailingAddress: z.string().min(5).max(500),
-    estimatedSeats: z.number().int().min(1).max(1000),
-    confirmClinicName: z.string().min(1).max(200),
-    acknowledgements: z.object({
-      baa: z.boolean(),
-      hipaa: z.boolean(),
-      dataResidency: z.boolean(),
-      refundPolicy: z.boolean(),
-      authorizedSignatory: z.boolean(),
-    }),
-  }),
-}
+const actorOf = (req: Request) => ({
+  userId: req.user!.id,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get('user-agent') ?? null,
+})
 
+// ─── Practice application (clinic onboarding) ───────────────────────────────
+
+router.get(
+  '/application',
+  protect,
+  ownerOnly,
+  asyncHandler(async (req, res) => {
+    const clinicId = requireClinic(req.user?.clinicId)
+    const application = await clinicApplicationService.getApplication(clinicId)
+    successResponse(res, 200, 'Application', application)
+  })
+)
+
+router.put(
+  '/application/practice',
+  protect,
+  ownerOnly,
+  validateRequest(practiceDetailsSchema),
+  asyncHandler(async (req, res) => {
+    const clinicId = requireClinic(req.user?.clinicId)
+    const application = await clinicApplicationService.savePracticeDetails(
+      clinicId,
+      req.body as PracticeDetailsInput,
+      actorOf(req)
+    )
+    successResponse(res, 200, 'Practice details saved', application)
+  })
+)
+
+router.put(
+  '/application/practitioners',
+  protect,
+  ownerOnly,
+  validateRequest(practitionersSchema),
+  asyncHandler(async (req, res) => {
+    const clinicId = requireClinic(req.user?.clinicId)
+    const { practitioners } = req.body as { practitioners: PractitionerInput[] }
+    const application = await clinicApplicationService.savePractitioners(
+      clinicId,
+      practitioners,
+      actorOf(req)
+    )
+    successResponse(res, 200, 'Practitioners saved', application)
+  })
+)
+
+/** Sign the service agreement and submit the application for review. */
 router.post(
   '/agreement',
   protect,
+  ownerOnly,
   validateRequest(agreementSchema),
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
-    const userId = req.user!.id
-
-    // Confirmation modal requires the user to retype the clinic name; verify it
-    // matches the tenant on file before accepting.
-    const clinic = await prisma.clinic.findUnique({
-      where: { id: clinicId },
-      select: { tenant: { select: { name: true } } },
-    })
-    const expectedName = clinic?.tenant?.name?.trim().toLowerCase() ?? ''
-    const body = req.body as z.infer<typeof agreementSchema.body>
-    const provided = body.confirmClinicName.trim().toLowerCase()
-    if (!expectedName || expectedName !== provided) {
-      const err = new Error('Confirmation name does not match clinic on file') as ApiError
-      err.statusCode = 400
-      throw err
-    }
-
-    const { confirmClinicName: _confirm, ...input } = body
-    const result = await onboardingService.acceptTerms(clinicId, userId, input)
+    const result = await clinicApplicationService.signAgreement(
+      clinicId,
+      req.body as AgreementInput,
+      actorOf(req)
+    )
     successResponse(res, 200, 'Agreement accepted', result)
+  })
+)
+
+router.post(
+  '/application/resubmit',
+  protect,
+  ownerOnly,
+  asyncHandler(async (req, res) => {
+    const clinicId = requireClinic(req.user?.clinicId)
+    const result = await clinicApplicationService.resubmit(clinicId, actorOf(req))
+    successResponse(res, 200, 'Application resubmitted', result)
   })
 )
 

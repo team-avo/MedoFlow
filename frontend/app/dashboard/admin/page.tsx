@@ -47,6 +47,7 @@ import { cn } from '@/lib/utils'
 import { LaunchWebsiteModal } from '@/components/site/builder/LaunchWebsiteModal'
 import { siteApi } from '@/lib/site/siteApi'
 import { getClinic } from '@/lib/clinicApi'
+import { SetupChecklist } from '@/components/onboarding/SetupChecklist'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -131,6 +132,8 @@ function AdminDashboardContent() {
           </div>
         }
       />
+
+      <SetupChecklist />
 
       <LaunchWebsiteModal
         open={generatorOpen}

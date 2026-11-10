@@ -47,6 +47,7 @@ async function main() {
     create: {
       name: 'Demo Tenant',
       slug: 'demo',
+      verificationStatus: 'APPROVED',
     },
     update: {},
   })

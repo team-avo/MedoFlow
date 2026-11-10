@@ -11,6 +11,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { adminDb, api, login, startServer, type TestServer } from './helpers'
 import { SITE_ENTITLEMENTS } from '../../site/entitlements'
+import { createClinicFixture } from './fixtures'
 
 let server: TestServer
 const saved = process.env.BILLING_MODE
@@ -100,5 +101,65 @@ describe('demo mode (BILLING_MODE=demo)', () => {
     const site = await api(server.url, '/site', { token: accessToken })
     expect(site.status, JSON.stringify(site.body)).toBe(200)
     expect(site.body.data.entitlements).toEqual(SITE_ENTITLEMENTS.ENTERPRISE)
+  })
+})
+
+describe('what signup creates, and what it refuses', () => {
+  it('creates tenant (in review), brand, clinic, site address, owner and a main location', async () => {
+    const { sub, res } = signup('STARTER')
+    const r = await res
+    expect(r.status, JSON.stringify(r.body)).toBe(201)
+    expect(r.body.data.verificationStatus).toBe('PENDING_REVIEW')
+    const tenant = await adminDb.tenant.findUniqueOrThrow({
+      where: { id: r.body.data.tenantId },
+      include: { brand: true, clinics: { include: { locations: true, users: true } } },
+    })
+    expect(tenant.slug).toBe(sub)
+    expect(tenant.brand?.subdomain).toBe(sub)
+    const clinic = tenant.clinics[0]!
+    expect(clinic.slug).toBe(sub)
+    expect(clinic.users.map((u) => u.role)).toEqual(['SUPER_ADMIN'])
+    expect(clinic.locations.map((l) => l.name)).toEqual(['Main Location'])
+    const domain = await adminDb.siteDomain.findUniqueOrThrow({ where: { hostname: sub } })
+    expect(domain).toMatchObject({ clinicId: clinic.id, isPrimary: true, status: 'VERIFIED' })
+  })
+
+  it('refuses a duplicate owner email, a reserved or taken subdomain, and a label a site already holds', async () => {
+    const first = signup()
+    expect((await first.res).status).toBe(201)
+
+    const dupEmail = await api(server.url, '/tenants/signup', {
+      body: {
+        clinicName: 'Synthetic Dup Clinic',
+        clinicEmail: 'dup.clinic@example.test',
+        subdomain: `${first.sub}x`,
+        ownerName: 'Owner Synthetic',
+        ownerEmail: `owner.${first.sub}@example.test`,
+        password: PASSWORD,
+      },
+    })
+    expect(dupEmail.status).toBe(409)
+
+    const body = (subdomain: string) => ({
+      clinicName: 'Synthetic Conflict Clinic',
+      clinicEmail: `c.${subdomain}@example.test`,
+      subdomain,
+      ownerName: 'Owner Synthetic',
+      ownerEmail: `o.${subdomain}.${Date.now()}@example.test`,
+      password: PASSWORD,
+    })
+    expect((await api(server.url, '/tenants/signup', { body: body('admin') })).status).toBe(400)
+    expect((await api(server.url, '/tenants/signup', { body: body(first.sub) })).status).toBe(409)
+
+    // A site hostname holding the label (without a Brand) used to leave the
+    // new clinic with no website at all; now it is a clear 409.
+    const fx = await createClinicFixture('sdconf')
+    const label = `held${Date.now().toString(36)}`
+    await adminDb.siteDomain.create({
+      data: { clinicId: fx.clinicId, hostname: label, kind: 'SUBDOMAIN', status: 'VERIFIED' },
+    })
+    const held = await api(server.url, '/tenants/signup', { body: body(label) })
+    expect(held.status).toBe(409)
+    expect(await adminDb.tenant.count({ where: { slug: label } })).toBe(0)
   })
 })

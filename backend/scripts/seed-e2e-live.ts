@@ -43,6 +43,7 @@ async function main() {
       onboardingCompletedAt: done,
       termsAcceptedAt: done,
       termsVersion: '1',
+      verificationStatus: 'APPROVED',
     },
   })
   const clinic = await db.clinic.create({

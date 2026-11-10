@@ -38,12 +38,21 @@ async function lookup(host: string): Promise<ResolvedHost> {
       kind: true,
       status: true,
       isPrimary: true,
-      clinic: { select: { isActive: true, slug: true } },
+      clinic: {
+        select: { isActive: true, slug: true, tenant: { select: { verificationStatus: true } } },
+      },
     },
   })
   const kindMatches =
     row && (mode.mode === 'site-subdomain' ? row.kind === 'SUBDOMAIN' : row.kind === 'CUSTOM')
-  if (!row || !kindMatches || row.status !== 'VERIFIED' || !row.clinic.isActive) {
+  // A clinic still in review (clinic onboarding) has no public site yet.
+  if (
+    !row ||
+    !kindMatches ||
+    row.status !== 'VERIFIED' ||
+    !row.clinic.isActive ||
+    row.clinic.tenant.verificationStatus !== 'APPROVED'
+  ) {
     return { kind: 'unknown' }
   }
   if (row.isPrimary) {

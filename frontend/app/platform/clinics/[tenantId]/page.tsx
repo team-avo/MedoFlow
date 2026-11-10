@@ -6,6 +6,18 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, ShieldCheck, Mail, Loader2, Copy } from 'lucide-react'
 import api from '@/lib/api'
 import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
+import {
+  ClinicApplicationReview,
+  type ReviewApplication,
+} from '@/components/platform/ClinicApplicationReview'
+import type { VerificationStatus } from '@/lib/onboardingApi'
+
+const REVIEW_LABEL: Record<VerificationStatus, string> = {
+  PENDING_REVIEW: 'In review',
+  CHANGES_REQUESTED: 'Changes requested',
+  APPROVED: 'Approved — live',
+  REJECTED: 'Rejected',
+}
 
 interface ClinicDetail {
   id: string
@@ -18,6 +30,11 @@ interface ClinicDetail {
   termsVersion: string | null
   onboardingCompletedAt: string | null
   onboardingStep: number
+  verificationStatus: VerificationStatus
+  submittedForReviewAt: string | null
+  reviewedAt: string | null
+  reviewNotes: string | null
+  application: ReviewApplication | null
   createdAt: string
   brand: {
     subdomain: string
@@ -46,6 +63,7 @@ export default function ClinicDetailPage() {
     ownerEmail: string
   } | null>(null)
   const [copied, setCopied] = React.useState(false)
+  const [reloadKey, setReloadKey] = React.useState(0)
 
   React.useEffect(() => {
     if (!tenantId) return
@@ -71,7 +89,7 @@ export default function ClinicDetailPage() {
     return () => {
       cancelled = true
     }
-  }, [tenantId])
+  }, [tenantId, reloadKey])
 
   const onResendInvite = async () => {
     if (!tenantId || resending) return
@@ -163,7 +181,18 @@ export default function ClinicDetailPage() {
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <ClinicApplicationReview
+        tenantId={data.id}
+        status={data.verificationStatus}
+        submittedAt={data.submittedForReviewAt}
+        reviewNotes={data.reviewNotes}
+        termsAccepted={Boolean(data.termsAcceptedAt)}
+        application={data.application}
+        onReviewed={() => setReloadKey((k) => k + 1)}
+      />
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Stat label="Review" value={REVIEW_LABEL[data.verificationStatus]} />
         <Stat label="Status" value={data.status} />
         <Stat label="Plan" value={data.plan} />
         <Stat

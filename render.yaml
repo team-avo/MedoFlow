@@ -47,6 +47,11 @@ services:
       # Remove (or set to trial) for a real deployment.
       - key: BILLING_MODE
         value: demo
+      # Clinic onboarding: on the demo a submitted clinic application is
+      # approved at once (config/clinicReview.ts). Remove (or set to manual)
+      # for a real deployment so a platform admin verifies every clinic.
+      - key: CLINIC_REVIEW_MODE
+        value: auto
       # Frontend origin(s) allowed by CORS (comma-separated).
       # Component 8 cut-over (arh-agent-docs/cloudflare-custom-domains-setup-guide.md):
       # once app.<root> / api.<root> / *.<root> are live, set

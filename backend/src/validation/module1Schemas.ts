@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isValidNpi, normalizeNpi, US_STATE_CODES } from '../utils/practiceIds'
 
 const cuidSchema = z.string().min(1, 'ID is required')
 
@@ -104,6 +105,15 @@ export const locationUpsertSchema = {
   }),
 }
 
+/** PATCH /locations/:id — every field optional; whatever is sent is updated. */
+export const locationPatchSchema = {
+  params: z.object({ id: cuidSchema }),
+  body: locationUpsertSchema.body.omit({ id: true }).extend({
+    name: z.string().trim().min(1, 'Location name is required').optional(),
+    timezone: z.string().trim().min(1, 'Timezone is required').optional(),
+  }),
+}
+
 export const disciplineCreateSchema = {
   body: z.object({
     name: z.string().trim().min(1, 'Name is required'),
@@ -168,6 +178,17 @@ export const providerCreateSchema = {
         })
       )
       .min(1, 'At least one service is required'),
+    // Optional credentials (prefilled from the clinic application).
+    npi: z
+      .preprocess((v) => (v === null ? '' : v), z.string().trim().optional())
+      .refine((v) => !v || isValidNpi(v), 'Enter a valid 10-digit NPI')
+      .transform((v) => (v === undefined ? undefined : v ? normalizeNpi(v) : null)),
+    licenseNumber: z.string().trim().max(50).nullable().optional(),
+    licenseState: z
+      .preprocess((v) => (v === null ? '' : v), z.string().trim().optional())
+      .refine((v) => !v || US_STATE_CODES.includes(v.toUpperCase()), 'Choose a US state')
+      .transform((v) => (v === undefined ? undefined : v ? v.toUpperCase() : null)),
+    credentials: z.string().trim().max(30).nullable().optional(),
   }),
 }
 

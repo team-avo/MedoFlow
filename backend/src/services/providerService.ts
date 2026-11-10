@@ -23,7 +23,20 @@ export interface CreateProviderData {
   serviceIds?: string[]
   /** Services with optional price override (takes precedence over serviceIds) */
   services?: CreateProviderServiceInput[]
+  /** Credentials carried over from the clinic application (onboarding). */
+  npi?: string | null
+  licenseNumber?: string | null
+  licenseState?: string | null
+  credentials?: string | null
 }
+
+/** Only the credential fields that were actually sent. */
+const credentialFields = (data: CreateProviderData) => ({
+  ...(data.npi !== undefined ? { npi: data.npi } : {}),
+  ...(data.licenseNumber !== undefined ? { licenseNumber: data.licenseNumber } : {}),
+  ...(data.licenseState !== undefined ? { licenseState: data.licenseState } : {}),
+  ...(data.credentials !== undefined ? { credentials: data.credentials } : {}),
+})
 
 type ClinicWhere = { clinicId?: string } | Record<string, never>
 
@@ -143,6 +156,7 @@ async function reactivateAndUpdateProvider(
       lastName: data.lastName,
       email,
       phone: data.phone ?? null,
+      ...credentialFields(data),
     },
   })
 
@@ -319,6 +333,7 @@ export const createProvider = async (
       slug: await uniqueEntitySlug('provider', clinicId, `${data.firstName} ${data.lastName}`),
       email,
       phone: data.phone,
+      ...credentialFields(data),
       disciplines: {
         create: data.disciplineIds.map((disciplineId) => ({ disciplineId })),
       },

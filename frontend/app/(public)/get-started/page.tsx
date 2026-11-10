@@ -6,7 +6,7 @@
  *  1. Plan (preselected from ?plan=, changeable).
  *  2. Clinic and owner details, with a live check that the clinic's web
  *     address (<subdomain>.<root>) is free.
- *  3. POST /tenants/signup, sign the owner in, then /agreement → the
+ *  3. POST /tenants/signup, sign the owner in, then the clinic application (/practice) → the
  *     onboarding wizard (app/(onboarding)) → the dashboard.
  */
 import React, { useEffect, useState } from 'react'
@@ -150,7 +150,7 @@ function GetStartedInner() {
     try {
       await login(data.ownerEmail, data.password)
       // The onboarding gate takes it from here (terms, then the wizard).
-      router.push('/agreement')
+      router.push('/practice')
     } catch {
       router.push('/?auth=login')
     }

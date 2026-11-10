@@ -23,6 +23,7 @@ import {
   Inbox,
   LayoutTemplate,
   PenSquare,
+  Building2,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/common/BrandLogo'
 
@@ -89,6 +90,7 @@ const superAdminSections: SidebarSection[] = [
     items: [
       { href: '/dashboard/admin', label: 'Command Center', icon: LayoutDashboard },
       { href: '/dashboard/staff', label: 'Team', icon: Users },
+      { href: '/dashboard/clinic', label: 'Clinic profile', icon: Building2 },
     ],
   },
   {

@@ -9,6 +9,8 @@ import api from '@/lib/api'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { clientLog } from '@/lib/clientLog'
+import { apiErrorOf } from '@/lib/apiError'
+import { useAppToast } from '@/hooks/useAppToast'
 
 export const STEPS = [
   { key: 'welcome', path: '/welcome', title: 'Welcome' },
@@ -57,6 +59,7 @@ export function OnboardingShell({
   const { refetchUser } = useAuth()
   const [isSkipping, setIsSkipping] = React.useState(false)
   const [isAdvancing, setIsAdvancing] = React.useState(false)
+  const toast = useAppToast()
 
   const currentIndex = STEPS.findIndex((s) => s.key === stepKey)
   const totalSteps = STEPS.length - 1 // exclude "welcome" visual prefix? include all 7
@@ -84,6 +87,10 @@ export function OnboardingShell({
     setIsAdvancing(true)
     try {
       await onNext()
+    } catch (err) {
+      // A failed save must never leave the owner stuck on a silent button.
+      clientLog.warn('[OnboardingShell] step save failed', err)
+      toast.error(apiErrorOf(err).message)
     } finally {
       setIsAdvancing(false)
     }

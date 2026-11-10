@@ -146,7 +146,15 @@ const issueSessionAndRespond = async (
               onboardingStep: true,
               termsAcceptedAt: true,
               termsVersion: true,
+              // Clinic onboarding: review state drives the dashboard banner.
+              verificationStatus: true,
+              submittedForReviewAt: true,
+              reviewNotes: true,
             },
+          },
+          // Which application steps are done (the onboarding gate).
+          clinicProfile: {
+            select: { practiceCompletedAt: true, practitionersCompletedAt: true },
           },
         },
       },
@@ -583,7 +591,15 @@ export const me = asyncHandler(
                 onboardingStep: true,
                 termsAcceptedAt: true,
                 termsVersion: true,
+                // Clinic onboarding: review state drives the dashboard banner.
+                verificationStatus: true,
+                submittedForReviewAt: true,
+                reviewNotes: true,
               },
+            },
+            // Which application steps are done (the onboarding gate).
+            clinicProfile: {
+              select: { practiceCompletedAt: true, practitionersCompletedAt: true },
             },
           },
         },

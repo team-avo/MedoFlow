@@ -122,7 +122,12 @@ async function upsertClinic() {
     await prisma.tenant.upsert({
       where: { id: 'tenant_default' },
       update: {},
-      create: { id: 'tenant_default', name: 'Default Tenant', slug: 'default' },
+      create: {
+        id: 'tenant_default',
+        name: 'Default Tenant',
+        slug: 'default',
+        verificationStatus: 'APPROVED',
+      },
     })
     clinic = await prisma.clinic.create({
       data: {

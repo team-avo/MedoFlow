@@ -1,7 +1,7 @@
 /**
  * Demo feedback WS4 — the new-clinic path, in the browser (mocked API):
  * landing "Start free trial" → pricing → pick a plan → sign-up form (live
- * web-address check) → signed in → the onboarding gate (service agreement).
+ * web-address check) → signed in → the clinic application (practice details).
  * Plus the demo banner when the server runs BILLING_MODE=demo.
  */
 import { expect, test, type Page } from '@playwright/test'
@@ -109,8 +109,9 @@ test('landing → pricing → plan → sign up → signed in, on to onboarding',
   await page.getByLabel('Password').fill(STAFF_PASSWORD)
   await page.getByRole('button', { name: 'Create my clinic' }).click()
 
-  await expect(page).toHaveURL(/\/agreement$/)
-  await expect(page.getByRole('heading', { name: /service agreement/i })).toBeVisible()
+  // Signed in and held in the clinic application (clinic-onboarding.spec.ts).
+  await expect(page).toHaveURL(/\/practice$/)
+  await expect(page.getByRole('heading', { name: 'Tell us about your practice' })).toBeVisible()
   const signup = calls.find((c) => c.key === 'POST /tenants/signup')!
   expect(signup.body).toMatchObject({
     plan: 'STARTER',

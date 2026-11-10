@@ -11,6 +11,7 @@ import * as appointmentService from '../services/appointmentService'
 import * as webhookController from '../controllers/webhookController'
 import * as commissionService from '../services/commissionService'
 import * as emailService from '../services/emailService'
+import * as clinicVerification from '../services/clinicVerification'
 
 // Module namespace exports are getter-only; redefine instead of assigning.
 const restore = <T extends object, K extends keyof T>(object: T, key: K, value: T[K]) => {
@@ -878,10 +879,13 @@ test('appointment payment webhook is idempotent across repeated success events',
 
 test('appointment controller forwards patientPackageId into booking context', async () => {
   const originalCreateAppointment = appointmentService.createAppointment
+  const originalAssertClinicLive = clinicVerification.assertClinicLive
 
   let receivedContext: any = null
 
   try {
+    // Patients may only book approved clinics; this unit has no database.
+    restore(clinicVerification, 'assertClinicLive', (async () => {}) as any)
     restore(appointmentService, 'createAppointment', (async (
       _data: any,
       _clinicId: string,
@@ -922,6 +926,7 @@ test('appointment controller forwards patientPackageId into booking context', as
     assert.equal(receivedContext?.patientPackageId, 'package-use-1')
   } finally {
     restore(appointmentService, 'createAppointment', originalCreateAppointment)
+    restore(clinicVerification, 'assertClinicLive', originalAssertClinicLive)
   }
 })
 

@@ -222,6 +222,7 @@ export const linkAdminAsProvider = async (
       clinicId: true,
       role: true,
       name: true,
+      email: true,
       provider: { select: { id: true } },
     },
   })
@@ -242,6 +243,17 @@ export const linkAdminAsProvider = async (
   const firstName = nameParts[0] ?? user.name
   const lastName = nameParts.slice(1).join(' ') || firstName
 
+  // Carry the owner's NPI / license over from the clinic application, when
+  // they listed themselves as a practitioner ("This is me").
+  const profile = await prisma.clinicProfile.findUnique({
+    where: { clinicId },
+    select: { practitioners: true },
+  })
+  const self = ((profile?.practitioners ?? []) as Array<Record<string, unknown>>).find(
+    (p) => p['isSelf'] === true
+  )
+  const str = (v: unknown) => (typeof v === 'string' && v ? v : null)
+
   const provider = await prisma.provider.create({
     data: {
       firstName,
@@ -249,6 +261,12 @@ export const linkAdminAsProvider = async (
       slug: await uniqueEntitySlug('provider', clinicId, `${firstName} ${lastName}`),
       clinicId,
       userId,
+      email: user.email,
+      npi: str(self?.['npi']),
+      licenseNumber: str(self?.['licenseNumber']),
+      licenseState: str(self?.['licenseState']),
+      credentials: str(self?.['credentials']),
+      phone: str(self?.['phone']),
     },
     select: { id: true, firstName: true, lastName: true, userId: true },
   })
