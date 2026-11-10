@@ -77,6 +77,8 @@ export interface AIScribeSession {
 export interface ScribeCapabilities {
   available: boolean
   transcriptionAvailable: boolean
+  /** On-screen captions while recording (WS2). Older servers omit it. */
+  liveTranscription?: boolean
   draftingAvailable: boolean
   demoEnabled: boolean
   llm: { kind: string; preset: string; model: string; location: string }

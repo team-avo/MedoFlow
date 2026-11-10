@@ -11,6 +11,12 @@ import { useAudioRecorder } from '@/hooks/useAudioRecorder'
 import { useAppToast } from '@/hooks/useAppToast'
 import { useScribeCapabilities, useScribeSession } from '@/hooks/useScribeSession'
 import { JitsiVideoCall } from '@/components/consultation/JitsiVideoCall'
+import {
+  ConsultControls,
+  type RecordingControlState,
+} from '@/components/consultation/ConsultControls'
+import { LiveTranscriptPanel } from '@/components/consultation/LiveTranscriptPanel'
+import { useLiveTranscription } from '@/hooks/useLiveTranscription'
 import { ScribeWorkspace } from '@/components/aiScribe/ScribeWorkspace'
 
 // UI System Components
@@ -26,10 +32,7 @@ import { ManualNoteModal } from '@/components/visit/ManualNoteModal'
 import {
   ArrowLeft,
   Video,
-  Mic,
-  Square,
   Sparkles,
-  Upload,
   Copy,
   Lock,
   Activity,
@@ -133,6 +136,15 @@ export default function ConsultationRoomPage() {
   const scribeStatus = scribe.session?.status
 
   const showError = useCallback((err: unknown) => setError(apiErrorOf(err).message), [])
+
+  // ----- Live captions while recording (WS2) -----
+  const liveSessionId = session?.id
+  const live = useLiveTranscription({
+    stream: recorder.stream,
+    enabled:
+      !!liveSessionId && session?.consentStatus === 'GRANTED' && caps?.liveTranscription !== false,
+    transcribe: (segment, seq) => consultationApi.liveTranscript(liveSessionId!, segment, seq),
+  })
 
   // ----- Load or create session -----
   const initSession = useCallback(async () => {
@@ -253,12 +265,20 @@ export default function ConsultationRoomPage() {
   // default on any appointment booked with the consent checkbox on).
   const handleMeetingStarted = async () => {
     if (!session) return
+    // Say why the AI scribe did not start; the Start recording button stays
+    // available (with its reason) in the controls bar.
     if (session.consentStatus !== 'GRANTED') {
-      // Silently skip; "Waiting for patient consent" banner tells the
-      // provider to share the join link.
+      toast.info(
+        session.consentStatus === 'DECLINED'
+          ? 'Not recording: the patient declined AI recording'
+          : 'Not recording yet: waiting for the patient’s consent'
+      )
       return
     }
-    if (caps && !caps.available) return
+    if (caps && !caps.available) {
+      toast.info('Not recording: the AI scribe is not set up on this server')
+      return
+    }
     if (recorder.isRecording || session.recordingStatus === 'RECORDING') return
     try {
       const updated = await startConsultationRecordingFlow({
@@ -326,6 +346,10 @@ export default function ConsultationRoomPage() {
     }
   }
 
+  // The provider ends the call from our controls (Jitsi's own hang-up
+  // button reaches handleCallEnded through onCallEnded).
+  const handleEndVideoCall = () => handleCallEnded()
+
   // ----- Upload + Transcribe (manual recording) -----
   const handleUploadAndTranscribe = async () => {
     if (recorder.audioBlob) await uploadAndTranscribe(recorder.audioBlob)
@@ -383,6 +407,29 @@ export default function ConsultationRoomPage() {
 
   const hasVideoRoom = videoActive && videoRoom
 
+  // One state for the recording control, so it is never just hidden.
+  const recordingState: RecordingControlState = recorder.isRecording
+    ? 'recording'
+    : uploading
+      ? 'uploading'
+      : transcribing
+        ? 'transcribing'
+        : recorder.audioBlob && session.recordingStatus !== 'STORED'
+          ? 'recorded'
+          : session.recordingStatus === 'STORED' || session.aiScribeSessionId
+            ? 'done'
+            : 'idle'
+  const recordingBlockedReason =
+    session.consentStatus === 'DECLINED'
+      ? 'The patient declined AI recording. Document this visit manually.'
+      : session.consentStatus !== 'GRANTED'
+        ? 'Waiting for the patient’s consent. Share the join link; recording unlocks once they accept.'
+        : caps && !caps.available
+          ? 'The AI scribe is not set up on this server.'
+          : session.recordingStatus !== 'NOT_STARTED' && session.recordingStatus !== 'FAILED'
+            ? 'This visit’s recording has already finished.'
+            : null
+
   const overallStatusLabel = videoActive
     ? 'Live call'
     : recorder.isRecording
@@ -413,26 +460,6 @@ export default function ConsultationRoomPage() {
               <ArrowLeft className="h-4 w-4" />
               Back
             </button>
-            {!videoActive && (
-              <AppButton
-                onClick={handleStartVideoCall}
-                disabled={videoLoading}
-                size="sm"
-                className="rounded-full bg-white text-[#1E3A5F] shadow-sm hover:bg-white/90"
-              >
-                {videoLoading ? (
-                  <>
-                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-[#1E3A5F]/30 border-t-[#1E3A5F]" />
-                    Starting…
-                  </>
-                ) : (
-                  <>
-                    <Video className="mr-2 h-4 w-4" />
-                    Start Video Call
-                  </>
-                )}
-              </AppButton>
-            )}
           </div>
 
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -477,6 +504,24 @@ export default function ConsultationRoomPage() {
         </div>
       </div>
 
+      {/* Video + recording: both always visible, side by side (WS2) */}
+      <ConsultControls
+        video={{
+          active: videoActive,
+          loading: videoLoading,
+          onStart: () => void handleStartVideoCall(),
+          onEnd: handleEndVideoCall,
+        }}
+        recording={{
+          state: recordingState,
+          duration: recorder.duration,
+          blockedReason: recordingBlockedReason,
+          onStart: () => void handleStartRecording(),
+          onStop: () => void handleStopRecording(),
+          onUpload: () => void handleUploadAndTranscribe(),
+        }}
+      />
+
       {/* Error banner */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 mb-6">
@@ -516,7 +561,18 @@ export default function ConsultationRoomPage() {
               onRetry={() => void handleStartVideoCall()}
               onMeetingStarted={handleMeetingStarted}
               onCallEnded={handleCallEnded}
+              height="clamp(320px, 60vh, 640px)"
               className="w-full"
+            />
+          )}
+          {/* Captions sit below the call, never over its toolbar. */}
+          {hasVideoRoom && caps?.liveTranscription !== false && (
+            <LiveTranscriptPanel
+              variant="strip"
+              lines={live.lines}
+              active={live.active}
+              delayed={live.delayed}
+              error={live.error}
             />
           )}
 
@@ -663,78 +719,11 @@ export default function ConsultationRoomPage() {
               )}
             </AppCardHeader>
             <AppCardContent className="space-y-4 p-6">
-              {/* Primary action — always exactly one, sized big */}
-              {recorder.isRecording ? (
-                <AppButton
-                  onClick={handleStopRecording}
-                  size="lg"
-                  className="w-full rounded-2xl bg-slate-900 text-white shadow-md hover:bg-slate-800"
-                >
-                  <Square className="mr-2 h-4 w-4 fill-current" />
-                  Stop recording
-                </AppButton>
-              ) : recorder.audioBlob &&
-                !uploading &&
-                !transcribing &&
-                session.recordingStatus !== 'STORED' ? (
-                <AppButton
-                  onClick={handleUploadAndTranscribe}
-                  size="lg"
-                  className="w-full rounded-2xl bg-gradient-to-r from-[#0D9488] to-[#14B8A6] text-white shadow-md shadow-[#14B8A6]/30 hover:from-[#0F766E] hover:to-[#0D9488]"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  Upload &amp; transcribe
-                </AppButton>
-              ) : uploading ? (
-                <div className="flex w-full items-center justify-center gap-3 rounded-2xl bg-blue-50 p-4 text-blue-700 ring-1 ring-blue-100">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                  <span className="text-sm font-semibold">Uploading audio…</span>
-                </div>
-              ) : transcribing ? (
-                <div className="flex w-full items-center justify-center gap-3 rounded-2xl bg-amber-50 p-4 text-amber-700 ring-1 ring-amber-100">
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                  <span className="text-sm font-semibold">Transcribing &amp; analysing…</span>
-                </div>
-              ) : !hasVideoRoom &&
-                session.recordingStatus !== 'STOPPED' &&
-                session.recordingStatus !== 'STORED' ? (
-                <AppButton
-                  onClick={handleStartRecording}
-                  disabled={session.consentStatus !== 'GRANTED' || Boolean(caps && !caps.available)}
-                  size="lg"
-                  className={cn(
-                    'w-full rounded-2xl shadow-md',
-                    session.consentStatus === 'GRANTED' && caps?.available !== false
-                      ? 'bg-gradient-to-r from-red-500 to-red-600 text-white shadow-red-500/30 hover:from-red-600 hover:to-red-700'
-                      : 'bg-slate-200 text-slate-500'
-                  )}
-                >
-                  <Mic className="mr-2 h-4 w-4" />
-                  Start manual recording
-                </AppButton>
-              ) : null}
-
-              {/* Hints — only when idle / pre-recording */}
-              {hasVideoRoom && !recorder.isRecording && !uploading && !transcribing && (
-                <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 text-xs leading-relaxed text-emerald-900">
-                  <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                  <span>
-                    AI Scribe starts recording the moment you enter the call and automatically
-                    transcribes it when you leave. No button to press.
-                  </span>
-                </div>
-              )}
-              {!hasVideoRoom &&
-                !recorder.isRecording &&
-                session.recordingStatus !== 'STOPPED' &&
-                session.recordingStatus !== 'STORED' &&
-                !uploading &&
-                !transcribing && (
-                  <p className="text-xs leading-relaxed text-slate-500">
-                    Start the video call above and AI Scribe kicks in automatically, or record
-                    locally from your browser&apos;s mic as a fallback.
-                  </p>
-                )}
+              <p className="text-xs leading-relaxed text-slate-500">
+                Joining the video call starts recording automatically once the patient has
+                consented, and leaving it sends the audio to the AI Scribe. Use the controls above
+                to record or stop at any time.
+              </p>
 
               {caps && !caps.available && (
                 <p className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900">
@@ -809,6 +798,14 @@ export default function ConsultationRoomPage() {
 
         {/* Right Rail */}
         <div className={hasVideoRoom ? 'xl:col-span-2 space-y-6' : 'space-y-6'}>
+          {caps?.liveTranscription !== false && session.consentStatus !== 'DECLINED' && (
+            <LiveTranscriptPanel
+              lines={live.lines}
+              active={live.active}
+              delayed={live.delayed}
+              error={live.error}
+            />
+          )}
           {/* Patient context */}
           <AppCard className="overflow-hidden border border-[#E5E7EB] shadow-none">
             <AppCardHeader className="border-b border-[#E5E7EB] bg-gradient-to-r from-white to-[#F8FAFC] py-4">

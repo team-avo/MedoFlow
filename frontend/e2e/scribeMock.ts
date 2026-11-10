@@ -120,6 +120,7 @@ export async function installScribeMock(page: Page, opts: ScribeMockOptions = {}
         capabilities: {
           available,
           transcriptionAvailable: available,
+          liveTranscription: available,
           draftingAvailable: available,
           demoEnabled: true,
           llm: model(available ? 'mock' : 'disabled'),

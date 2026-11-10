@@ -8,6 +8,8 @@ export interface UseAudioRecorderReturn {
   duration: number // seconds
   error: string | null
   audioBlob: Blob | null
+  /** The live microphone stream while recording (live captions tap it). */
+  stream: MediaStream | null
   startRecording: () => Promise<void>
   stopRecording: () => void
   cancelRecording: () => void
@@ -42,6 +44,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
   const [duration, setDuration] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [stream, setStream] = useState<MediaStream | null>(null)
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -98,6 +101,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       })
 
       streamRef.current = micStream
+      setStream(micStream)
 
       const mimeType = getMimeType()
       const recorder = new MediaRecorder(micStream, { mimeType })
@@ -125,6 +129,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
           streamRef.current.getTracks().forEach((t) => t.stop())
           streamRef.current = null
         }
+        setStream(null)
 
         if (timerRef.current) {
           clearInterval(timerRef.current)
@@ -189,6 +194,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     duration,
     error,
     audioBlob,
+    stream,
     startRecording,
     stopRecording,
     cancelRecording,

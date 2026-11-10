@@ -57,6 +57,8 @@ export interface SiteTheme {
 export interface NavItem {
   label: string
   link: ResolvedLink
+  /** Header dropdown items (one level, WS3). */
+  children?: NavItem[]
 }
 
 export interface SiteSettings {
@@ -73,6 +75,8 @@ export interface SiteSettings {
     columns: { title: string; links: NavItem[] }[]
     text: string
   }
+  /** The homepage quick-links menu (WS3); older sites may not have it yet. */
+  homeMenu?: { items: NavItem[] }
   announcement: { enabled: boolean; text: string; link: ResolvedLink | null }
   social: Partial<
     Record<'facebook' | 'instagram' | 'x' | 'linkedin' | 'youtube' | 'tiktok', string>
@@ -91,6 +95,8 @@ export type SectionType =
   | 'faq'
   | 'pricing'
   | 'featured-products'
+  | 'medicine-store'
+  | 'quick-links'
   | 'locations-hours'
   | 'contact-form'
   | 'booking-cta'
@@ -134,6 +140,8 @@ export interface PublicProduct {
   description: string | null
   price: string
   inStock: boolean
+  /** OTC or supplement (WS3 Medicine store). Older payloads omit it. */
+  medicine?: boolean
 }
 
 export interface SectionData {

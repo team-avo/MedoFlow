@@ -219,3 +219,85 @@ describe('Domains screen', () => {
     expect(screen.queryByLabelText('Domain')).toBeNull()
   })
 })
+
+describe('WS3 Menus: header (with dropdowns), footer and homepage', () => {
+  // Imported lazily so the module mocks above apply.
+  const settingsFixture = () => ({
+    theme: {
+      colors: {
+        primary: '#0d9488',
+        secondary: '#0f766e',
+        accent: '#f59e0b',
+        background: '#ffffff',
+        surface: '#f8fafc',
+        text: '#0f172a',
+        muted: '#475569',
+      },
+      fontPair: 'modern' as const,
+      radius: 'md' as const,
+      buttonStyle: 'solid' as const,
+      density: 'comfortable' as const,
+    },
+    brand: { displayName: '', logo: null, favicon: null },
+    header: {
+      variant: 'classic' as const,
+      links: [{ label: 'Services', link: { kind: 'route' as const, route: 'services' as const } }],
+      cta: null,
+      sticky: true,
+    },
+    footer: { variant: 'simple' as const, columns: [], text: 'Footer words' },
+    homeMenu: { items: [] },
+    announcement: { enabled: false, text: '', link: null },
+    social: {},
+    seo: { titleSuffix: '', description: '', ogImage: null },
+  })
+
+  it('one tab per menu; header items take sub-items; the homepage menu edits homeMenu', async () => {
+    const { HeaderFooterEditor } = await import('@/components/site/builder/SettingsEditors')
+    const onChange = vi.fn()
+    const onAddSection = vi.fn()
+    wrap(
+      <HeaderFooterEditor
+        settings={settingsFixture() as never}
+        onChange={onChange}
+        homepage={{ isHomePage: true, hasSection: false, onAddSection }}
+      />
+    )
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent)
+    expect(tabs).toEqual(['Header', 'Footer', 'Homepage'])
+    expect(screen.queryByLabelText('Footer text')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /add sub-item/i }))
+    expect(onChange.mock.calls.at(-1)![0].header.links[0].children).toEqual([
+      { label: 'New link', link: { kind: 'route', route: 'services' } },
+    ])
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Footer' }))
+    expect(screen.getByLabelText('Footer text')).toHaveValue('Footer words')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Homepage' }))
+    fireEvent.click(screen.getByRole('button', { name: /add menu item/i }))
+    expect(onChange.mock.calls.at(-1)![0].homeMenu.items).toHaveLength(1)
+    fireEvent.click(screen.getByRole('button', { name: /add the menu to this page/i }))
+    expect(onAddSection).toHaveBeenCalledOnce()
+  })
+
+  it('sub-items cannot nest further, and the add-to-page button only shows when it is missing', async () => {
+    const { HeaderFooterEditor } = await import('@/components/site/builder/SettingsEditors')
+    const s = settingsFixture()
+    ;(s.header.links[0] as Record<string, unknown>).children = [
+      { label: 'Facials', link: { kind: 'route', route: 'services' } },
+    ]
+    wrap(
+      <HeaderFooterEditor
+        settings={s as never}
+        onChange={vi.fn()}
+        homepage={{ isHomePage: true, hasSection: true, onAddSection: vi.fn() }}
+      />
+    )
+    // One "Add sub-item" (for the top-level item), none inside the dropdown.
+    expect(screen.getAllByRole('button', { name: /add sub-item/i })).toHaveLength(1)
+    fireEvent.click(screen.getByRole('tab', { name: 'Homepage' }))
+    expect(screen.queryByRole('button', { name: /add the menu to this page/i })).toBeNull()
+  })
+})

@@ -710,3 +710,108 @@ describe('B8.7 plan limits', () => {
 })
 
 afterAll(() => invalidateHostCache())
+
+describe('WS3 Products, Medicine store and the homepage menu', () => {
+  it('store data flags OTC / supplements as medicines and never carries Rx products', async () => {
+    const mk = (name: string, fulfillmentClass: string) =>
+      adminDb.product.create({
+        data: {
+          clinicId: A.clinicId,
+          name,
+          slug: name.toLowerCase().replace(/\s+/g, '-'),
+          price: new Prisma.Decimal(12),
+          fulfillmentClass: fulfillmentClass as never,
+        },
+      })
+    await mk('Ws3 Arnica Gel', 'OTC')
+    await mk('Ws3 Magnesium', 'SUPPLEMENT')
+    await mk('Ws3 Retinol Serum', 'AESTHETIC')
+    await mk('Ws3 Tramadol', 'RX_SCHEDULED')
+    await mk('Ws3 Amoxicillin', 'RX_NON_SCHEDULED')
+
+    const store = await render({ host: hostA, path: '/store' })
+    expect(store.status).toBe(200)
+    const byName = new Map(
+      (store.body.data.data.products as { name: string; medicine: boolean }[]).map((p) => [
+        p.name,
+        p.medicine,
+      ])
+    )
+    expect(byName.get('Ws3 Arnica Gel')).toBe(true)
+    expect(byName.get('Ws3 Magnesium')).toBe(true)
+    expect(byName.get('Ws3 Retinol Serum')).toBe(false)
+    expect(byName.has('Ws3 Tramadol')).toBe(false)
+    expect(byName.has('Ws3 Amoxicillin')).toBe(false)
+  })
+
+  it('an installed template puts Products then Medicine store right after Treatments, and Products in the menus', async () => {
+    // Earlier suites filled the FREE plan's 8 pages; a template install needs room.
+    await adminDb.tenant.update({ where: { id: A.tenantId }, data: { plan: 'GROWTH' } })
+    const inst = await api(server.url, '/site/templates/heritage/install', {
+      token: t.aAdmin,
+      body: { mode: 'replace' },
+    })
+    expect(inst.status, JSON.stringify(inst.body)).toBe(200)
+    const pub = await api(server.url, '/site/publish', {
+      token: t.aAdmin,
+      body: { pageIds: 'all' },
+    })
+    expect(pub.status, JSON.stringify(pub.body)).toBe(200)
+
+    const home = await render({ host: hostA, path: '/' })
+    expect(home.status).toBe(200)
+    const types = (home.body.data.page.sections as { type: string }[]).map((s) => s.type)
+    const at = types.indexOf('service-grid')
+    expect(types.slice(at, at + 3)).toEqual(['service-grid', 'featured-products', 'medicine-store'])
+    expect(types).toContain('quick-links')
+    // The section data the Medicine store reads comes with the page.
+    const medicines = (home.body.data.data.products as { medicine: boolean }[]).filter(
+      (p) => p.medicine
+    )
+    expect(medicines.length).toBeGreaterThanOrEqual(2)
+
+    const settings = home.body.data.site.settings
+    const productsLink = settings.header.links.find(
+      (l: { label: string }) => l.label === 'Products'
+    )
+    expect(productsLink.link.href).toBe('/store') // the clinic has products → a live link
+    expect(settings.homeMenu.items.map((i: { label: string }) => i.label)).toContain('Products')
+  })
+
+  it('menus accept one level of dropdown items and a homepage menu; deeper nesting is refused', async () => {
+    const cur = await api(server.url, '/site', { token: t.aAdmin })
+    const settings = cur.body.data.settings
+    expect(settings).toBeTruthy()
+    const withDropdown = {
+      ...settings,
+      header: {
+        ...settings.header,
+        links: [
+          {
+            label: 'Treatments',
+            link: { kind: 'route', route: 'services' },
+            children: [{ label: 'Products', link: { kind: 'route', route: 'store' } }],
+          },
+        ],
+      },
+      homeMenu: { items: [{ label: 'Book', link: { kind: 'booking' } }] },
+    }
+    const ok = await api(server.url, '/site/settings', {
+      token: t.aAdmin,
+      method: 'PUT',
+      body: { settings: withDropdown },
+    })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+
+    const nested = structuredClone(withDropdown)
+    nested.header.links[0].children[0].children = [
+      { label: 'Too deep', link: { kind: 'route', route: 'store' } },
+    ]
+    const bad = await api(server.url, '/site/settings', {
+      token: t.aAdmin,
+      method: 'PUT',
+      body: { settings: nested },
+    })
+    expect(bad.status).toBe(422)
+  })
+})

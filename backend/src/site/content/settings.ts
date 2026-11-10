@@ -32,8 +32,16 @@ export const themeSchema = z
   .strict()
 export type SiteTheme = z.infer<typeof themeSchema>
 
-const navItemSchema = z
+const navLeafSchema = z
   .object({ label: z.string().trim().min(1).max(40), link: siteLinkSchema })
+  .strict()
+
+/**
+ * A menu item. Header items may carry one level of sub-items (a dropdown,
+ * WS3); sub-items cannot nest further.
+ */
+const navItemSchema = navLeafSchema
+  .extend({ children: z.array(navLeafSchema).max(8).optional() })
   .strict()
 
 export const siteSettingsSchema = z
@@ -71,6 +79,11 @@ export const siteSettingsSchema = z
         text: z.string().max(500).default(''),
       })
       .strict(),
+    /** The homepage quick-links menu, shown by a `quick-links` section (WS3). */
+    homeMenu: z
+      .object({ items: z.array(navLeafSchema).max(12).default([]) })
+      .strict()
+      .default({ items: [] }),
     announcement: z
       .object({
         enabled: z.boolean().default(false),
@@ -116,6 +129,14 @@ export const DEFAULT_THEME: SiteTheme = {
   density: 'comfortable',
 }
 
+/** The homepage quick links every template starts with (WS3). */
+export const DEFAULT_HOME_MENU: SiteSettings['homeMenu']['items'] = [
+  { label: 'Treatments', link: { kind: 'route', route: 'services' } },
+  { label: 'Products', link: { kind: 'route', route: 'store' } },
+  { label: 'Book a visit', link: { kind: 'booking' } },
+  { label: 'Contact us', link: { kind: 'route', route: 'contact' } },
+]
+
 /** Settings for a site no one has customised yet (brand colour carried over). */
 export function defaultSiteSettings(primary?: string | null): SiteSettings {
   const color = primary && /^#[0-9a-fA-F]{6}$/.test(primary) ? primary.toLowerCase() : null
@@ -128,6 +149,8 @@ export function defaultSiteSettings(primary?: string | null): SiteSettings {
       variant: 'classic',
       links: [
         { label: 'Services', link: { kind: 'route', route: 'services' } },
+        // Hidden automatically while the clinic has no public products.
+        { label: 'Products', link: { kind: 'route', route: 'store' } },
         { label: 'Our team', link: { kind: 'route', route: 'team' } },
         { label: 'Contact', link: { kind: 'route', route: 'contact' } },
       ],
@@ -135,6 +158,7 @@ export function defaultSiteSettings(primary?: string | null): SiteSettings {
       sticky: true,
     },
     footer: { variant: 'simple', columns: [], text: '' },
+    homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: { enabled: false, text: '', link: null },
     social: {},
     seo: { titleSuffix: '', description: '', ogImage: null },

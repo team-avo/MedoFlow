@@ -1,38 +1,35 @@
 'use client'
 
 import React, { useState, useCallback } from 'react'
-import { useParams, useSearchParams, useRouter } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import Link from 'next/link'
 import { getClinic } from '@/lib/clinicApi'
 import { getClinicServices } from '@/lib/serviceApi'
 import { getClinicProviders, getAvailability } from '@/lib/providerApi'
 import {
   getClinicLocations,
-  checkPatientExists,
   createAppointment,
   createSlotHold,
   releaseSlotHold,
 } from '@/lib/appointmentApi'
 import { getMyEntitlements } from '@/lib/patientApi'
-import { createRecurringSeries, type RecurringConflict } from '@/lib/recurringApi'
 import {
   AppCard,
-  AppCardHeader,
   AppCardContent,
   AppButton,
   AppInput,
-  AppFormField,
   StickySummaryPanel,
   AppCalendar,
 } from '@/components/ui-system'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAuthModal } from '@/components/auth/AuthModal'
 import { useAppToast } from '@/hooks/useAppToast'
+import { useSessionHandoff } from '@/hooks/useSessionHandoff'
+import { AppointmentPayment } from '@/components/booking/AppointmentPayment'
+import { BookingSignInGate, YourDetailsCard } from '@/components/booking/BookingIdentity'
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -41,13 +38,11 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle2,
-  ShieldCheck,
   Search,
   Package as PackageIcon,
-  CreditCard,
   ChevronRight,
-  ChevronLeft,
   Sparkles,
+  ClipboardList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -69,15 +64,6 @@ import { cancellationTerms, describeCancellationPolicy } from '@/lib/cancellatio
 
 const ONLINE_LOCATION_NAMES = ['online', 'virtual']
 
-const patientSchema = z.object({
-  name: z.string().min(1, 'Full name is required'),
-  email: z.string().email('Valid email is required'),
-  phone: z.string().min(10, 'Phone number is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-})
-
-type PatientFormData = z.infer<typeof patientSchema>
-
 type TimeSlot = {
   providerId: string
   locationId: string | null
@@ -87,15 +73,25 @@ type TimeSlot = {
   end: string
 }
 
-const STEPS = ['Select Provider', 'Choose Time', 'Your Details', 'Review']
+/**
+ * Demo feedback WS1: four steps, no "your details" form. The patient's name,
+ * email and phone come from their profile and are shown on Review; payment
+ * happens inline as the last step. Step 4 (not in the stepper) is the
+ * confirmation.
+ */
+const STEPS = ['Select Provider', 'Choose Time', 'Review', 'Payment']
+const STEP = { provider: 0, time: 1, review: 2, payment: 3, confirmed: 4 } as const
 
 function BookingPageContent() {
   const params = useParams()
   const searchParams = useSearchParams()
-  const router = useRouter()
   const queryClient = useQueryClient()
-  const { login, isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+  const { openLogin, openSignup } = useAuthModal()
   const toast = useAppToast()
+  // A patient signed in on the app host arrives here signed in too, even on
+  // the clinic's own domain (lib/authHandoff).
+  const { pending: handoffPending } = useSessionHandoff()
 
   const serviceId = params.serviceId as string
   const clinicId = searchParams.get('clinicId') || ''
@@ -107,8 +103,6 @@ function BookingPageContent() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null)
   const [pendingSlot, setPendingSlot] = useState<TimeSlot | null>(null)
-  const [patientExists, setPatientExists] = useState<boolean | null>(null)
-  const [checkingEmail, setCheckingEmail] = useState(false)
   const [slotHoldId, setSlotHoldId] = useState<string | null>(null)
   const [holdingSlot, setHoldingSlot] = useState(false)
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
@@ -180,28 +174,6 @@ function BookingPageContent() {
     enabled: !!clinicId && !!serviceId && !!selectedDateStr,
   })
 
-  const {
-    register,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<PatientFormData>({
-    resolver: zodResolver(patientSchema),
-    defaultValues: { name: user?.name || '', email: user?.email || '', phone: '', password: '' },
-  })
-
-  const checkEmail = async () => {
-    const email = watch('email')
-    if (!email || !z.string().email().safeParse(email).success) return
-    setCheckingEmail(true)
-    try {
-      const exists = await checkPatientExists(email)
-      setPatientExists(exists)
-    } finally {
-      setCheckingEmail(false)
-    }
-  }
-
   const releaseCurrentHold = async () => {
     if (slotHoldId) {
       try {
@@ -219,7 +191,7 @@ function BookingPageContent() {
     setSlotHoldId(null)
     setSlotTaken(true)
     void queryClient.invalidateQueries({ queryKey: ['availability', clinicId, serviceId] })
-    setStep(1)
+    setStep(STEP.time)
   }
 
   const handleSlotSelect = async (slot: TimeSlot) => {
@@ -240,11 +212,7 @@ function BookingPageContent() {
         setSlotHoldId(hold.id)
         setSelectedSlot(slot)
         setSlotTaken(false)
-        if (isAuthenticated) {
-          setStep(3)
-        } else {
-          setStep(2)
-        }
+        setStep(STEP.review)
       } catch (err) {
         if (isSlotUnavailableError(err)) recoverFromTakenSlot()
         else toast.error('Could not reserve that time. Please try again.')
@@ -256,40 +224,25 @@ function BookingPageContent() {
     }
   }
 
-  const handlePatientFormSubmit = async (data: PatientFormData) => {
-    if (patientExists === true) {
-      try {
-        const result = await login(data.email, data.password)
-        if (result.mfaRequired) {
-          // Two-step verification is a staff feature; finish it in the sign-in dialog.
-          toast.error(
-            'This account uses two-step verification. Please sign in from the main sign-in page.'
-          )
-          return
-        }
-        setStep(3)
-      } catch (err) {
-        toast.error('Invalid password. Please try again.')
-      }
-    } else {
-      setStep(3)
-    }
-  }
-
-  // Track the just-confirmed appointment so we can render a themed
-  // celebration card without leaving the clinic site. Replaces the old
-  // `router.push('/?view=appointments')` bounce that dropped patients
-  // back onto the Medoflow marketing root.
+  // Track the just-created appointment so payment and the themed
+  // confirmation happen without leaving the clinic's booking page.
   const [confirmedAppointmentId, setConfirmedAppointmentId] = useState<string | null>(null)
+  const [booking, setBooking] = useState(false)
+
+  // The booking is for the signed-in patient; their profile needs a phone.
+  const missingPhone = !!user && !user.phone
+  const canConfirm = isAuthenticated && !missingPhone && !!selectedSlot && !booking
 
   const handleBooking = async () => {
+    if (!canConfirm) return
+    setBooking(true)
     try {
+      // No patientId: patients book for themselves (the API uses the caller).
       const { appointment, clientSecret } = await createAppointment({
         clinicId,
         locationId: selectedSlot?.locationId || locations?.[0]?.id || '',
         providerId: selectedSlot!.providerId,
         serviceId,
-        patientId: user?.id || '',
         startTime: selectedSlot!.start,
         endTime: selectedSlot!.end,
         slotHoldId: slotHoldId || undefined,
@@ -297,20 +250,34 @@ function BookingPageContent() {
         aiScribeConsent,
       })
 
-      if (clientSecret) {
-        router.push(`/payment/${appointment.id}`) // the page loads its own PaymentIntent; no secret in the URL
-      } else {
-        setConfirmedAppointmentId(appointment.id)
-        setStep(4)
-      }
+      setConfirmedAppointmentId(appointment.id)
+      // A prepaid visit pays inline (the step loads its own PaymentIntent;
+      // the secret is never put in a URL). PENDING_PAYMENT without a secret
+      // (Stripe not configured, e.g. a demo) still pays there: the step then
+      // offers the demo / manual confirm. Otherwise it is already booked.
+      const needsPayment = !!clientSecret || appointment.status === 'PENDING_PAYMENT'
+      setStep(needsPayment ? STEP.payment : STEP.confirmed)
     } catch (err) {
       if (isSlotUnavailableError(err)) recoverFromTakenSlot()
       else toast.error(bookingErrorMessage(err, 'Booking failed. Please try again.'))
+    } finally {
+      setBooking(false)
     }
   }
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 3))
-  const prevStep = () => setStep((s) => Math.max(s - 1, 0))
+  // The payment was cancelled or its hold expired: the slot is gone, so go
+  // back to the time picker with fresh availability.
+  const restartFromTimePicker = () => {
+    setConfirmedAppointmentId(null)
+    setSelectedSlot(null)
+    setPendingSlot(null)
+    setSlotHoldId(null)
+    void queryClient.invalidateQueries({ queryKey: ['availability', clinicId, serviceId] })
+    setStep(STEP.time)
+  }
+
+  const nextStep = () => setStep((s) => Math.min(s + 1, STEP.payment))
+  const prevStep = () => setStep((s) => Math.max(s - 1, STEP.provider))
 
   if (!clinicId) {
     return (
@@ -327,7 +294,7 @@ function BookingPageContent() {
 
   // Until the clinic and its services arrive the title, price and steps
   // would render with fallbacks ("Book Consultation", no price).
-  if (clinicLoading || servicesLoading) {
+  if (clinicLoading || servicesLoading || handoffPending) {
     return (
       <div
         className="container mx-auto px-4 py-12 lg:px-8"
@@ -362,11 +329,31 @@ function BookingPageContent() {
               >
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to clinic
               </Link>
+              {/* The Medoflow nav is hidden on /book, so sign-in lives here. */}
+              <div className="float-right text-sm text-slate-500" data-testid="booking-account">
+                {user ? (
+                  <span>
+                    Signed in as <strong className="text-slate-700">{user.name}</strong>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openLogin}
+                    className="font-semibold hover:underline"
+                    style={{ color: themeColor }}
+                  >
+                    Sign in
+                  </button>
+                )}
+              </div>
               <h1 className="text-3xl font-black text-slate-900">
                 Book {service?.name || 'Consultation'}
               </h1>
 
-              <div className={cn('flex items-center gap-4 pt-4', step === 4 && 'hidden')}>
+              <div
+                className={cn('flex items-center gap-4 pt-4', step === STEP.confirmed && 'hidden')}
+                data-testid="booking-steps"
+              >
                 {STEPS.map((s, i) => (
                   <React.Fragment key={s}>
                     <div className="flex items-center gap-2">
@@ -629,100 +616,7 @@ function BookingPageContent() {
                   </div>
                 )}
 
-                {step === 2 && (
-                  <div className="space-y-8 animate-in fade-in">
-                    <h2 className="text-xl font-bold text-slate-900">Patient Information</h2>
-                    <form
-                      onSubmit={handleSubmit(handlePatientFormSubmit)}
-                      className="space-y-6 max-w-lg mx-auto"
-                    >
-                      <AppFormField label="Full Name" error={errors.name?.message}>
-                        <AppInput
-                          {...register('name')}
-                          placeholder="e.g. John Doe"
-                          className="rounded-xl h-12"
-                        />
-                      </AppFormField>
-                      <AppFormField label="Email Address" error={errors.email?.message}>
-                        <AppInput
-                          {...register('email')}
-                          type="email"
-                          placeholder="john@example.com"
-                          className="rounded-xl h-12"
-                          onBlur={checkEmail}
-                        />
-                      </AppFormField>
-                      <AppFormField label="Phone Number" error={errors.phone?.message}>
-                        <AppInput
-                          {...register('phone')}
-                          placeholder="+1 (555) 000-0000"
-                          className="rounded-xl h-12"
-                        />
-                      </AppFormField>
-
-                      {patientExists !== null && (
-                        <div
-                          className={cn(
-                            'p-4 rounded-2xl border text-sm',
-                            patientExists
-                              ? 'bg-blue-50 border-blue-100 text-blue-800'
-                              : 'bg-emerald-50 border-emerald-100 text-emerald-800'
-                          )}
-                        >
-                          {patientExists ? (
-                            <div className="flex gap-3">
-                              <ShieldCheck className="h-5 w-5 shrink-0" />
-                              <p>
-                                <strong>Welcome back!</strong> We found an existing account. Enter
-                                your password to continue.
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="flex gap-3">
-                              <User className="h-5 w-5 shrink-0" />
-                              <p>
-                                <strong>New Account:</strong> We'll create a clinical profile for
-                                you. Please set a password.
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <AppFormField
-                        label={patientExists ? 'Account Password' : 'Set Profile Password'}
-                        error={errors.password?.message}
-                      >
-                        <AppInput
-                          {...register('password')}
-                          type="password"
-                          placeholder="••••••••"
-                          className="rounded-xl h-12"
-                        />
-                      </AppFormField>
-
-                      <div className="flex items-center gap-4 pt-4">
-                        <AppButton
-                          variant="outline"
-                          type="button"
-                          onClick={prevStep}
-                          className="flex-1 rounded-full h-12"
-                        >
-                          Back
-                        </AppButton>
-                        <AppButton
-                          type="submit"
-                          className="flex-1 rounded-full h-12 shadow-lg text-white border-0"
-                          style={{ backgroundColor: themeColor }}
-                        >
-                          Continue <ArrowRight className="ml-2 h-4 w-4" />
-                        </AppButton>
-                      </div>
-                    </form>
-                  </div>
-                )}
-
-                {step === 3 && (
+                {step === STEP.review && (
                   <div className="space-y-8 animate-in fade-in text-center">
                     <div
                       className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"
@@ -738,6 +632,16 @@ function BookingPageContent() {
                       Please review your appointment details. By confirming, you agree to our
                       clinic's cancellation policy.
                     </p>
+
+                    {user ? (
+                      <YourDetailsCard user={user} themeColor={themeColor} />
+                    ) : (
+                      <BookingSignInGate
+                        onSignIn={openLogin}
+                        onCreateAccount={openSignup}
+                        themeColor={themeColor}
+                      />
+                    )}
                     {service && selectedSlot && (
                       <p
                         data-testid="booking-policy"
@@ -823,10 +727,16 @@ function BookingPageContent() {
                       </span>
                     </label>
 
+                    {missingPhone && (
+                      <p className="text-xs text-amber-700" role="status">
+                        Add your phone number above to confirm.
+                      </p>
+                    )}
+
                     <div className="flex flex-col sm:flex-row items-center gap-4 justify-center pt-6">
                       <AppButton
                         variant="outline"
-                        onClick={prevStep}
+                        onClick={() => setStep(STEP.time)}
                         className="w-full sm:w-auto px-10 rounded-full h-14"
                       >
                         Back
@@ -835,6 +745,7 @@ function BookingPageContent() {
                         className="w-full sm:w-auto px-12 rounded-full h-14 text-lg font-bold shadow-lg text-white border-0"
                         style={{ backgroundColor: themeColor }}
                         onClick={handleBooking}
+                        disabled={!canConfirm}
                       >
                         {selectedPackageId
                           ? 'Confirm with Package'
@@ -845,7 +756,20 @@ function BookingPageContent() {
                   </div>
                 )}
 
-                {step === 4 && confirmedAppointmentId && (
+                {step === STEP.payment && confirmedAppointmentId && (
+                  <div className="space-y-6 animate-in fade-in">
+                    <h2 className="text-xl font-bold text-slate-900">Payment</h2>
+                    <AppointmentPayment
+                      appointmentId={confirmedAppointmentId}
+                      showSummary={false}
+                      onPaid={() => setStep(STEP.confirmed)}
+                      onCancelled={restartFromTimePicker}
+                      onPickNewTime={restartFromTimePicker}
+                    />
+                  </div>
+                )}
+
+                {step === STEP.confirmed && confirmedAppointmentId && (
                   <BookingConfirmation
                     themeColor={themeColor}
                     clinic={clinic}
@@ -863,6 +787,7 @@ function BookingPageContent() {
                     }
                     backHref={backHref}
                     patientFirstName={user?.name?.split(' ')[0] ?? 'there'}
+                    intakeHref={`/intake/${confirmedAppointmentId}`}
                   />
                 )}
               </AppCardContent>
@@ -947,6 +872,7 @@ function BookingConfirmation({
   locationName,
   backHref,
   patientFirstName,
+  intakeHref,
 }: {
   themeColor: string
   clinic?: { name?: string } | null | undefined
@@ -956,6 +882,7 @@ function BookingConfirmation({
   locationName: string | null
   backHref: string
   patientFirstName: string
+  intakeHref: string
 }) {
   // Build a downloadable .ics file inline so patients can drop the
   // visit straight onto their calendar — the single highest-leverage
@@ -1060,6 +987,13 @@ function BookingConfirmation({
             Add to calendar
           </a>
         )}
+        <Link
+          href={intakeHref}
+          className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+        >
+          <ClipboardList className="h-4 w-4" />
+          Complete intake form
+        </Link>
         <Link
           href={backHref}
           className="inline-flex h-12 items-center rounded-full border border-slate-200 bg-white px-6 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"

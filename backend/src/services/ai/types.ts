@@ -37,6 +37,11 @@ export interface TranscriptionInput {
   mimeType: string
   /** BCP-47 / ISO-639-1 hint, e.g. 'en'. */
   language?: string
+  /**
+   * Index of a live-caption segment (WS2). Real providers ignore it; the mock
+   * uses it to return one line of its synthetic conversation per segment.
+   */
+  segment?: number
 }
 
 export interface TranscriptionResult {

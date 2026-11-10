@@ -107,12 +107,16 @@ const PUBLIC_PRODUCT_WHERE = {
   fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
 } satisfies Prisma.ProductWhereInput
 
+/** Non-prescription medicines (WS3 "Medicine store"); everything else is "other". */
+const MEDICINE_CLASSES = new Set(['OTC', 'SUPPLEMENT'])
+
 const PRODUCT_SELECT = {
   id: true,
   slug: true,
   name: true,
   description: true,
   price: true,
+  fulfillmentClass: true,
   inventoryItem: { select: { quantityInStock: true } },
 } satisfies Prisma.ProductSelect
 
@@ -145,6 +149,8 @@ export interface PublicProduct {
   description: string | null
   price: string
   inStock: boolean
+  /** OTC or supplement: shown by the Medicine store section and store filter. */
+  medicine: boolean
 }
 
 const toService = (s: ServiceRow): PublicService => ({
@@ -172,6 +178,7 @@ const toProduct = (p: ProductRow): PublicProduct => ({
   description: p.description,
   price: p.price.toFixed(2),
   inStock: (p.inventoryItem?.quantityInStock ?? 1) > 0,
+  medicine: MEDICINE_CLASSES.has(p.fulfillmentClass),
 })
 
 export interface SectionData {
@@ -249,7 +256,7 @@ async function loadSectionData(
         .then((r) => void (data.providers = r.map(toProvider)))
     )
   }
-  if (types.has('featured-products') || extra.products) {
+  if (types.has('featured-products') || types.has('medicine-store') || extra.products) {
     jobs.push(
       prisma.product
         .findMany({

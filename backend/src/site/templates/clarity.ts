@@ -1,4 +1,5 @@
 import type { SiteTemplate } from './types'
+import { DEFAULT_HOME_MENU } from '../content/settings'
 import { templatePageRef } from './types'
 import {
   bookCta,
@@ -41,6 +42,7 @@ export const clarity: SiteTemplate = {
       variant: 'classic',
       links: [
         { label: 'Services', link: { kind: 'route', route: 'services' } },
+        { label: 'Products', link: { kind: 'route', route: 'store' } },
         { label: 'Our doctors', link: { kind: 'route', route: 'team' } },
         { label: 'About', link: templatePageRef('about') },
         { label: 'Contact', link: { kind: 'route', route: 'contact' } },
@@ -54,6 +56,7 @@ export const clarity: SiteTemplate = {
         {
           title: 'Care',
           links: [
+            { label: 'Products', link: { kind: 'route', route: 'store' } },
             { label: 'All services', link: { kind: 'route', route: 'services' } },
             { label: 'Book a visit', link: { kind: 'booking' } },
           ],
@@ -69,6 +72,7 @@ export const clarity: SiteTemplate = {
       ],
       text: 'Same-week appointments, in person or by video. In an emergency, call 911.',
     },
+    homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: {
       enabled: true,
       text: 'Now booking flu and seasonal vaccinations — walk-ins welcome on weekday mornings.',
@@ -98,6 +102,7 @@ export const clarity: SiteTemplate = {
           secondaryCta: routeCta('Explore services', 'services'),
           image: { src: '/site-samples/hero-clarity.svg', alt: 'A bright, welcoming clinic' },
         }),
+        sec('quick-links', 'pills', { heading: '' }),
         sec('trust-bar', 'stats', {
           heading: '',
           stats: [
@@ -114,6 +119,17 @@ export const clarity: SiteTemplate = {
           maxItems: 6,
           showPrices: true,
           showDuration: true,
+        }),
+        sec('featured-products', 'grid', {
+          heading: 'Products from the practice',
+          intro: 'Everyday health essentials our doctors recommend.',
+          maxItems: 4,
+          excludeMedicines: true,
+        }),
+        sec('medicine-store', 'grid', {
+          heading: 'Medicine store',
+          intro: 'Over-the-counter remedies and supplements, ready to collect or ship.',
+          maxItems: 4,
         }),
         sec('steps', 'numbered', {
           heading: 'Getting care is easy',

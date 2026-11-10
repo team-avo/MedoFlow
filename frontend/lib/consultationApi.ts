@@ -189,6 +189,26 @@ export const uploadRecording = async (
   return data.data.session
 }
 
+/**
+ * POST /consultations/:id/live-transcript — one live-caption segment while
+ * recording (WS2). The text is a preview; nothing is stored server-side.
+ */
+export const liveTranscript = async (
+  sessionId: string,
+  segment: Blob,
+  seq: number
+): Promise<string> => {
+  const formData = new FormData()
+  formData.append('segment', String(seq))
+  formData.append('audio', segment, 'segment.webm')
+  const { data } = await api.post<ApiRes<{ text: string; segment: number }>>(
+    `/consultations/${sessionId}/live-transcript`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } }
+  )
+  return data.data.text
+}
+
 /** POST /consultations/:id/transcribe */
 export const startTranscription = async (
   sessionId: string,

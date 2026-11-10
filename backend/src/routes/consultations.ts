@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import * as consultationController from '../controllers/consultationController'
 import { protect, authorize, optionalProtect } from '../middleware/auth'
-import { audioUpload } from '../config/audioUpload'
+import { audioUpload, liveSegmentUpload } from '../config/audioUpload'
+import { liveTranscriptRateLimit } from '../middleware/rateLimit'
 import { requireClinic } from '../middleware/requireClinic'
 import { Role } from '@prisma/client'
 
@@ -53,6 +54,16 @@ router.post(
   authorize(Role.PROVIDER),
   audioUpload.single('audio'),
   consultationController.uploadRecording
+)
+
+// --- Live captions while recording (WS2): nothing is stored ---
+router.post(
+  '/:id/live-transcript',
+  requireClinic,
+  authorize(Role.PROVIDER),
+  liveTranscriptRateLimit,
+  liveSegmentUpload.single('audio'),
+  consultationController.liveTranscript
 )
 
 // --- Transcription ---

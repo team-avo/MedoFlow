@@ -13,6 +13,8 @@ import * as auditService from './auditService'
 import * as storageService from './storageService'
 import * as aiScribeService from './aiScribeService'
 import * as visitService from './visitService'
+import { getScribeAi, getScribeAiConfig } from './ai/registry'
+import { isAiError } from './ai/errors'
 
 // ---------------------------------------------------------------------------
 // State machine helpers
@@ -421,6 +423,58 @@ export const startRecording = async (
   })
 
   return updated
+}
+
+/** A live caption must come back while it is still "live". */
+export const LIVE_SEGMENT_TIMEOUT_MS = 20_000
+
+/**
+ * Live captions (WS2): transcribe one short, self-contained audio segment
+ * while the consultation is being recorded and hand the text straight back
+ * to the provider's screen.
+ *
+ *  - Same consent gate as recording: GRANTED, and the recording is running.
+ *  - Same speech-to-text provider (and so the same PHI-egress / BAA gate,
+ *    ADR 0006) as the final transcript.
+ *  - Nothing is stored and the text is never logged: the clinical
+ *    transcript is still produced from the whole recording by the scribe
+ *    pipeline. These captions are a preview only.
+ */
+export const transcribeLiveSegment = async (
+  sessionId: string,
+  providerId: string,
+  audio: Buffer,
+  mimeType: string,
+  segment: number
+): Promise<{ text: string; segment: number }> => {
+  const session = await prisma.consultationSession.findUnique({
+    where: { id: sessionId, ...clinicScope() },
+    select: { providerId: true, consentStatus: true, recordingStatus: true },
+  })
+  if (!session) throwApi('Session not found', 404)
+  if (session.providerId !== providerId) throwApi('Access denied', 403, 'forbidden')
+  if (session.consentStatus !== ConsentStatus.GRANTED) {
+    throwApi("Live captions need the patient's consent", 400, 'consent_required')
+  }
+  if (session.recordingStatus !== RecordingStatus.RECORDING) {
+    throwApi('Live captions run only while recording', 409, 'not_recording')
+  }
+  if (audio.length === 0) throwApi('Empty audio segment', 400, 'empty_segment')
+
+  try {
+    const result = await getScribeAi().stt.transcribe(
+      { audio, mimeType, language: getScribeAiConfig().language, segment },
+      { signal: AbortSignal.timeout(LIVE_SEGMENT_TIMEOUT_MS) }
+    )
+    return { text: result.text.trim(), segment }
+  } catch (err) {
+    if (isAiError(err)) throwApi(err.message, err.retryable ? 503 : 502, err.code)
+    // AbortSignal.timeout rejects with a DOMException, not an AiError.
+    if ((err as Error)?.name === 'TimeoutError' || (err as Error)?.name === 'AbortError') {
+      throwApi('Live captions timed out', 503, 'ai_timeout')
+    }
+    throw err
+  }
 }
 
 export const stopRecording = async (

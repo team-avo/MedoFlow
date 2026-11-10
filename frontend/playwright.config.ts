@@ -14,7 +14,8 @@ import { defineConfig, devices } from '@playwright/test'
  *   pnpm test:e2e                     build + start on :4310, run (CI, Linux/macOS)
  *   E2E_SKIP_BUILD=1 pnpm test:e2e    reuse the last e2e build
  *   Windows: Playwright cannot stop its server there, so run it yourself —
- *     terminal 1: NEXT_PUBLIC_API_URL=http://127.0.0.1:3999 pnpm run build && pnpm test:e2e:serve
+ *     terminal 1: NEXT_PUBLIC_API_URL=http://127.0.0.1:3999 NEXT_PUBLIC_APP_URL=http://127.0.0.1:4310 \
+ *                 pnpm run build && pnpm test:e2e:serve
  *     terminal 2: E2E_EXTERNAL_SERVER=1 pnpm test:e2e
  */
 const PORT = 4310
@@ -50,6 +51,12 @@ export default defineConfig({
         // Never reuse: a stale server would test an old build.
         reuseExistingServer: false,
         gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },
-        env: { NEXT_PUBLIC_API_URL: E2E_API_URL, NEXT_TELEMETRY_DISABLED: '1' },
+        // NEXT_PUBLIC_APP_URL: clinic hosts (<label>.localhost:4310) bounce
+        // through the app origin for the session handoff (booking-handoff.spec).
+        env: {
+          NEXT_PUBLIC_API_URL: E2E_API_URL,
+          NEXT_PUBLIC_APP_URL: `http://127.0.0.1:${PORT}`,
+          NEXT_TELEMETRY_DISABLED: '1',
+        },
       },
 })

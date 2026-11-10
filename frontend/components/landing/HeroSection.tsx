@@ -9,11 +9,8 @@ import React from 'react'
 import Link from 'next/link'
 import { ArrowRight, Sparkles, ChevronDown } from 'lucide-react'
 import { BrandGradient } from './BrandGradient'
-import { useAuthModal } from '@/components/auth/AuthModal'
 
 export function HeroSection() {
-  const { openLogin } = useAuthModal()
-
   return (
     <section className="relative min-h-[640px] w-full overflow-hidden bg-[#0B1E35] md:h-[100vh] md:min-h-[720px]">
       <BrandGradient variant="navy" />
@@ -64,14 +61,13 @@ export function HeroSection() {
             </p>
 
             <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={openLogin}
+              <Link
+                href="/pricing"
                 className="group inline-flex items-center gap-2 rounded-full bg-white px-7 py-3.5 text-[15px] font-semibold text-[#0B1E35] shadow-[0_10px_40px_-10px_rgba(94,234,212,0.6)] transition-shadow hover:shadow-[0_14px_50px_-10px_rgba(94,234,212,0.8)]"
               >
                 Start free trial
                 <ArrowRight className="h-4 w-4 transition-transform" />
-              </button>
+              </Link>
 
               <Link
                 href="#how-it-works"

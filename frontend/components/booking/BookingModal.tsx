@@ -51,6 +51,8 @@ import {
 } from '@/lib/appointmentApi'
 import type { Service, Provider, TimeSlot, Location } from '@/lib/types/booking'
 import { clientLog } from '@/lib/clientLog'
+import type { User } from '@/lib/types'
+import { YourDetailsCard } from '@/components/booking/BookingIdentity'
 import {
   SLOT_TAKEN_MESSAGE,
   bookingErrorMessage,
@@ -202,7 +204,6 @@ function BookingModal({
         locationId: flow.locationId ?? undefined,
         providerId: flow.slot.providerId,
         serviceId: flow.service.id,
-        patientId: user.id,
         startTime: flow.slot.start,
         endTime: flow.slot.end,
         slotHoldId: flow.hold?.id,
@@ -321,7 +322,12 @@ function BookingModal({
                 onJoinWaitlist={() => onOpenChange(false)}
               />
             ) : step === 'review' && flow.service && flow.slot ? (
-              <ReviewStep flow={flow} submitting={submitting} onConfirm={handleConfirm} />
+              <ReviewStep
+                flow={flow}
+                user={user}
+                submitting={submitting}
+                onConfirm={handleConfirm}
+              />
             ) : step === 'success' && confirmedId ? (
               <SuccessState
                 appointmentId={confirmedId}
@@ -732,13 +738,17 @@ function ScheduleStep({
 
 function ReviewStep({
   flow,
+  user,
   submitting,
   onConfirm,
 }: {
   flow: FlowState
+  user: User | null
   submitting: boolean
   onConfirm: () => void
 }) {
+  // Self-booking only: the details come from the profile (WS1).
+  const missingPhone = !!user && !user.phone
   const svc = flow.service!
   const slot = flow.slot!
   const price = Number(svc.defaultPrice)
@@ -771,6 +781,8 @@ function ReviewStep({
         </dl>
       </div>
 
+      {user && <YourDetailsCard user={user} />}
+
       <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-5">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
@@ -786,7 +798,7 @@ function ReviewStep({
       <button
         type="button"
         onClick={onConfirm}
-        disabled={submitting}
+        disabled={submitting || missingPhone}
         className="flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {submitting ? (

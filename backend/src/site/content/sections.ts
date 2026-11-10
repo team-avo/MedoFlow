@@ -147,8 +147,27 @@ export const SECTION_SETTINGS = {
         intro: longText(600),
         productIds: ids(24),
         maxItems: count(1, 24, 4),
+        /** Leave OTC medicines and supplements to the Medicine store section (WS3). */
+        excludeMedicines: z.boolean().default(false),
       })
       .strict(),
+  },
+  /** Non-prescription medicines only: OTC and supplements (WS3; Rx stays off, ADR 0003). */
+  'medicine-store': {
+    variants: ['grid', 'row'],
+    settings: z
+      .object({
+        heading: shortText(),
+        intro: longText(600),
+        productIds: ids(24),
+        maxItems: count(1, 24, 4),
+      })
+      .strict(),
+  },
+  /** The homepage menu (settings.homeMenu) as tiles or pills (WS3). */
+  'quick-links': {
+    variants: ['tiles', 'pills'],
+    settings: z.object({ heading: shortText(), intro: longText(300) }).strict(),
   },
   'locations-hours': {
     variants: ['cards', 'split'],

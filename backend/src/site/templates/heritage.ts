@@ -1,4 +1,5 @@
 import type { SiteTemplate } from './types'
+import { DEFAULT_HOME_MENU } from '../content/settings'
 import { templatePageRef } from './types'
 import {
   bookCta,
@@ -40,6 +41,7 @@ export const heritage: SiteTemplate = {
       variant: 'classic',
       links: [
         { label: 'Services', link: { kind: 'route', route: 'services' } },
+        { label: 'Products', link: { kind: 'route', route: 'store' } },
         { label: 'Meet us', link: { kind: 'route', route: 'team' } },
         { label: 'New patients', link: templatePageRef('new-patients') },
         { label: 'Contact', link: { kind: 'route', route: 'contact' } },
@@ -53,6 +55,7 @@ export const heritage: SiteTemplate = {
         {
           title: 'Patients',
           links: [
+            { label: 'Products', link: { kind: 'route', route: 'store' } },
             { label: 'New patients', link: templatePageRef('new-patients') },
             { label: 'Services', link: { kind: 'route', route: 'services' } },
             { label: 'Book a visit', link: { kind: 'booking' } },
@@ -69,6 +72,7 @@ export const heritage: SiteTemplate = {
       ],
       text: 'Gentle care for every member of the family — from first visits to grandparents.',
     },
+    homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: {
       enabled: true,
       text: 'Welcoming new families — first check-ups for kids under 3 are free.',
@@ -98,12 +102,24 @@ export const heritage: SiteTemplate = {
           secondaryCta: { label: 'New patient guide', link: templatePageRef('new-patients') },
           image: { src: '/site-samples/hero-heritage.svg', alt: 'A smiling family' },
         }),
+        sec('quick-links', 'pills', { heading: '' }),
         sec('service-grid', 'cards', {
           heading: 'Care for all ages',
           intro: 'Check-ups, cleanings, treatments and advice — under one friendly roof.',
           maxItems: 6,
           showPrices: false,
           showDuration: true,
+        }),
+        sec('featured-products', 'grid', {
+          heading: 'From our shelves',
+          intro: 'Trusted family-care products, recommended by our team.',
+          maxItems: 4,
+          excludeMedicines: true,
+        }),
+        sec('medicine-store', 'grid', {
+          heading: 'Medicine store',
+          intro: 'Over-the-counter medicines and supplements for the whole family.',
+          maxItems: 4,
         }),
         sec('image-with-text', 'image-right', {
           heading: 'Nervous? You’re in good hands',

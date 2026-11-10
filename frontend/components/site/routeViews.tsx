@@ -5,13 +5,14 @@
  * detail, the store, the booking picker and the branded 404. One component
  * per route kind (see lib/site/routes.ts).
  */
+import React from 'react'
 import { Clock, Globe2, ShoppingBag } from 'lucide-react'
 import type { PublicProduct, PublicProvider, PublicService } from '@/lib/site/types'
 import { trySitePath, withSiteBase } from '@/lib/site/routes'
 import { buttonClass } from '@/lib/site/theme'
 import { useSite } from './SiteContext'
 import { bookingHref, formatPrice, initials } from './primitives'
-import { ProductCard, ProviderCard, ServiceCard } from './sections/clinic'
+import { ProductCard, ProviderCard, ServiceCard, isMedicine } from './sections/clinic'
 
 function Crumb({ label, routeKey }: { label: string; routeKey: 'services' | 'team' | 'store' }) {
   const { base } = useSite()
@@ -147,15 +148,60 @@ export function ProviderView({ provider }: { provider: PublicProvider }) {
   )
 }
 
+type StoreFilter = 'all' | 'medicines' | 'other'
+const STORE_FILTERS: { value: StoreFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'medicines', label: 'Medicines' },
+  { value: 'other', label: 'Other products' },
+]
+
+/**
+ * The store. When the clinic sells both kinds, tabs split OTC medicines and
+ * supplements from everything else; `?type=medicines` (the Medicine store
+ * section's link) opens on Medicines.
+ */
 export function StoreView() {
   const { data } = useSite()
+  const [filter, setFilter] = React.useState<StoreFilter>('all')
+  React.useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get('type')
+    if (t === 'medicines' || t === 'other') setFilter(t)
+  }, [])
+  const medicines = data.products.filter(isMedicine)
+  const showTabs = medicines.length > 0 && medicines.length < data.products.length
+  const shown =
+    !showTabs || filter === 'all'
+      ? data.products
+      : data.products.filter((p) => (filter === 'medicines') === isMedicine(p))
   return (
     <section className="mf-section">
       <div className="mf-container">
-        <h1 className="mf-section-title">Shop</h1>
-        <p className="mf-section-intro">Products recommended by our clinicians.</p>
+        <h1 className="mf-section-title">Products</h1>
+        <p className="mf-section-intro">
+          Products and over-the-counter medicines recommended by our clinicians.
+        </p>
+        {showTabs && (
+          <div
+            role="tablist"
+            aria-label="Filter products"
+            style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}
+          >
+            {STORE_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                role="tab"
+                aria-selected={filter === f.value}
+                onClick={() => setFilter(f.value)}
+                className={`mf-btn mf-btn-sm ${filter === f.value ? '' : 'mf-btn-outline'}`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="mf-grid mf-grid-4">
-          {data.products.map((p) => (
+          {shown.map((p) => (
             <ProductCard key={p.id} product={p} />
           ))}
         </div>
@@ -183,7 +229,7 @@ export function ProductView({ product }: { product: PublicProduct }) {
           <ShoppingBag size={72} />
         </div>
         <div>
-          <Crumb label="Shop" routeKey="store" />
+          <Crumb label="Products" routeKey="store" />
           <h1 className="mf-hero-title" style={{ fontSize: 'clamp(2rem, 1.5rem + 2cqw, 2.75rem)' }}>
             {product.name}
           </h1>

@@ -7,6 +7,8 @@ export interface RegisterBody {
   name: string
   email: string
   password: string
+  /** Optional, already validated (phoneSchema). */
+  phone?: string
   // Optional. Carried through from the clinic page (`/clinic/[idOrSlug]`)
   // so a new patient is auto-linked to the clinic they signed up from.
   // Can be either a cuid or a slug; we resolve to the canonical cuid.
@@ -59,6 +61,7 @@ export const registerUser = async (body: RegisterBody) => {
       name: body.name.trim(),
       email: body.email.trim().toLowerCase(),
       password: hashedPassword,
+      phone: body.phone ?? null,
       role: 'PATIENT',
       clinicId: resolvedClinicId,
     },

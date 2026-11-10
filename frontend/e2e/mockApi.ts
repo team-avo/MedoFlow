@@ -60,8 +60,21 @@ export interface MockState {
   secret: string | null
   pendingSecret: string | null
   sessionLive: boolean
+  /**
+   * Page origins holding a refresh cookie. A real browser keeps the cookie per
+   * top-level site (Partitioned / SameSite), so a clinic's own domain starts
+   * without one even while the app origin is signed in (WS1 handoff).
+   */
+  cookieOrigins: Set<string>
+  /** The patient's profile phone (PATCH /auth/me changes it). */
+  phone: string | null
   calls: string[]
 }
+
+/** The app origin the e2e build is served on (or E2E_BASE_URL's). */
+export const E2E_APP_ORIGIN = new URL(process.env.E2E_BASE_URL ?? 'http://127.0.0.1:4310').origin
+/** The one-time code the handoff mock hands out. */
+export const E2E_HANDOFF_CODE = 'handoff-code-e2e-0123456789'
 
 export const ok = (route: Route, data: unknown, extra: Record<string, string> = {}) =>
   route.fulfill({
@@ -121,6 +134,10 @@ export async function installMockApi(
     signedIn?: boolean
     /** Override the signed-in name/email/clinic name, e.g. long values for layout checks. */
     identity?: { name?: string; email?: string; clinicName?: string }
+    /** The patient's phone on file (default 555-0142; null = none yet). */
+    phone?: string | null
+    /** A just-signed-up clinic: onboarding and terms not done yet (WS4). */
+    newClinic?: boolean
   } = {}
 ) {
   const state: MockState = {
@@ -128,6 +145,8 @@ export async function installMockApi(
     secret: null,
     pendingSecret: null,
     sessionLive: opts.signedIn ?? false,
+    cookieOrigins: new Set(opts.signedIn ? [E2E_APP_ORIGIN] : []),
+    phone: opts.phone === undefined ? '555-0142' : opts.phone,
     calls: [],
   }
   const idleTimeoutMinutes = opts.idleTimeoutMinutes ?? 15
@@ -136,6 +155,7 @@ export async function installMockApi(
     ...MOCK_USERS[role],
     ...(opts.identity?.name ? { name: opts.identity.name } : {}),
     ...(opts.identity?.email ? { email: opts.identity.email } : {}),
+    ...(role === 'PATIENT' ? { phone: state.phone } : {}),
     role,
     clinicId: 'clinic-e2e',
     permissions: [],
@@ -150,15 +170,16 @@ export async function installMockApi(
       tenant: {
         id: 'tenant-e2e',
         name: 'Synthetic Tenant',
-        onboardingCompletedAt: '2026-01-01T00:00:00.000Z',
-        onboardingStep: 9,
-        termsAcceptedAt: '2026-01-01T00:00:00.000Z',
+        onboardingCompletedAt: opts.newClinic ? null : '2026-01-01T00:00:00.000Z',
+        onboardingStep: opts.newClinic ? 0 : 9,
+        termsAcceptedAt: opts.newClinic ? null : '2026-01-01T00:00:00.000Z',
         termsVersion: '1',
       },
     },
   })
   const issue = (route: Route) => {
     state.sessionLive = true
+    state.cookieOrigins.add(route.request().headers()['origin'] ?? E2E_APP_ORIGIN)
     return ok(
       route,
       { accessToken: `access-${Date.now()}`, user: user() },
@@ -192,12 +213,28 @@ export async function installMockApi(
       case 'POST /auth/refresh-token':
         if (!req.headers()['x-medoflow-client'])
           return fail(route, 403, 'client_header_required', 'Missing client header')
-        return state.sessionLive
+        return state.sessionLive &&
+          state.cookieOrigins.has(req.headers()['origin'] ?? E2E_APP_ORIGIN)
           ? ok(route, { accessToken: `access-${Date.now()}` })
           : fail(route, 401, 'session_revoked', 'Session ended')
       case 'POST /auth/logout':
         state.sessionLive = false
+        state.cookieOrigins.clear()
         return ok(route, {})
+      case 'PATCH /auth/me':
+        if (!authed) return fail(route, 401, 'unauthorized', 'Not authenticated')
+        if ('phone' in body) state.phone = body.phone || null
+        return ok(route, { user: user() })
+      // WS1 session handoff (backend services/authHandoffService.ts).
+      case 'POST /auth/handoff/start': {
+        const back = new URL(String(body.returnUrl))
+        back.searchParams.set('handoff', authed && role === 'PATIENT' ? E2E_HANDOFF_CODE : 'none')
+        return ok(route, { redirectUrl: back.toString() })
+      }
+      case 'POST /auth/handoff/exchange':
+        if (body.code !== E2E_HANDOFF_CODE || role !== 'PATIENT')
+          return fail(route, 401, 'handoff_invalid', 'Invalid or expired sign-in link')
+        return issue(route)
       case 'GET /auth/me':
         return authed
           ? ok(route, { user: user(), session: { idleTimeoutMinutes } })

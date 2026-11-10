@@ -83,6 +83,8 @@ export interface ScribeCapabilities {
   /** Recording + transcription + drafting all work. */
   available: boolean
   transcriptionAvailable: boolean
+  /** On-screen captions while recording (WS2): needs speech-to-text only. */
+  liveTranscription: boolean
   draftingAvailable: boolean
   demoEnabled: boolean
   stt: Pick<ProviderDescriptor, 'kind' | 'preset' | 'model' | 'location'>
@@ -106,6 +108,7 @@ export function scribeCapabilities(): ScribeCapabilities {
   return {
     available: transcriptionAvailable && draftingAvailable,
     transcriptionAvailable,
+    liveTranscription: transcriptionAvailable,
     draftingAvailable,
     demoEnabled: isScribeDemoEnabled(),
     stt: publicView(s),

@@ -10,7 +10,9 @@ import type { Section, SectionType } from '@/lib/site/types'
 import { SECTION_BY_TYPE } from '@/lib/site/sections'
 import { useSite } from '../SiteContext'
 import { HeroSection, TrustBarSection } from './intro'
+import { QuickLinksSection } from './quickLinks'
 import {
+  MedicineStoreSection,
   FeaturedProductsSection,
   LocationsHoursSection,
   PricingSection,
@@ -42,6 +44,8 @@ export const SECTION_COMPONENTS: Record<SectionType, SectionComponent> = {
   faq: FaqSection,
   pricing: PricingSection,
   'featured-products': FeaturedProductsSection,
+  'medicine-store': MedicineStoreSection,
+  'quick-links': QuickLinksSection,
   'locations-hours': LocationsHoursSection,
   'contact-form': ContactFormSection,
   'booking-cta': BookingCtaSection,

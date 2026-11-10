@@ -1,4 +1,5 @@
 import type { SiteTemplate } from './types'
+import { DEFAULT_HOME_MENU } from '../content/settings'
 import { templatePageRef } from './types'
 import {
   bookCta,
@@ -41,6 +42,7 @@ export const vitality: SiteTemplate = {
       links: [
         { label: 'Conditions', link: templatePageRef('conditions') },
         { label: 'Treatments', link: { kind: 'route', route: 'services' } },
+        { label: 'Products', link: { kind: 'route', route: 'store' } },
         { label: 'Team', link: { kind: 'route', route: 'team' } },
         { label: 'Contact', link: { kind: 'route', route: 'contact' } },
       ],
@@ -53,6 +55,7 @@ export const vitality: SiteTemplate = {
         {
           title: 'Get moving',
           links: [
+            { label: 'Products', link: { kind: 'route', route: 'store' } },
             { label: 'Conditions we treat', link: templatePageRef('conditions') },
             { label: 'Treatments', link: { kind: 'route', route: 'services' } },
             { label: 'Book assessment', link: { kind: 'booking' } },
@@ -69,6 +72,7 @@ export const vitality: SiteTemplate = {
       ],
       text: 'Evidence-based rehab that gets you back to the things you love.',
     },
+    homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: { enabled: false, text: '', link: null },
     social: {},
     seo: {
@@ -96,6 +100,7 @@ export const vitality: SiteTemplate = {
           secondaryCta: { label: 'Conditions we treat', link: templatePageRef('conditions') },
           image: { src: '/site-samples/hero-vitality.svg', alt: 'An athlete stretching' },
         }),
+        sec('quick-links', 'pills', { heading: '' }),
         sec('trust-bar', 'stats', {
           heading: '',
           stats: [
@@ -118,6 +123,17 @@ export const vitality: SiteTemplate = {
           maxItems: 6,
           showPrices: true,
           showDuration: true,
+        }),
+        sec('featured-products', 'grid', {
+          heading: 'Gear up',
+          intro: 'Recovery and performance products our physios trust.',
+          maxItems: 4,
+          excludeMedicines: true,
+        }),
+        sec('medicine-store', 'grid', {
+          heading: 'Medicine store',
+          intro: 'Pain relief, recovery aids and supplements — no prescription needed.',
+          maxItems: 4,
         }),
         sec('gallery', 'grid', {
           heading: 'Inside the clinic',

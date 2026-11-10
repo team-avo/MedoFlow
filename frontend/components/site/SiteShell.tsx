@@ -2,7 +2,7 @@
 
 /** Announcement bar, header (3 variants), footer (2 variants) of a clinic site. */
 import React from 'react'
-import { Menu, ShoppingBag, UserRound, X } from 'lucide-react'
+import { ChevronDown, Menu, ShoppingBag, UserRound, X } from 'lucide-react'
 import type { NavItem } from '@/lib/site/types'
 import { withSiteBase } from '@/lib/site/routes'
 import { useSite } from './SiteContext'
@@ -35,6 +35,113 @@ function Brand() {
   )
 }
 
+/**
+ * Menu items that lead somewhere right now. A link resolves to no address
+ * when its target is gone (e.g. Products while the clinic sells nothing):
+ * the live site leaves it out; the builder canvas keeps it so it can be edited.
+ */
+export function visibleNavItems(items: NavItem[], mode: string): NavItem[] {
+  if (mode === 'editor') return items
+  const live = (i: NavItem) => i.link?.href !== null
+  return items
+    .map((i) => (i.children ? { ...i, children: i.children.filter(live) } : i))
+    .filter((i) => live(i) || (i.children?.length ?? 0) > 0)
+}
+
+/** A header item with sub-items: hover / click opens it, Esc and outside clicks close it. */
+function NavDropdown({
+  item,
+  vertical,
+  onNavigate,
+}: {
+  item: NavItem
+  vertical: boolean
+  onNavigate?: () => void
+}) {
+  const [open, setOpen] = React.useState(false)
+  const ref = React.useRef<HTMLLIElement>(null)
+  const id = React.useId()
+  React.useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+  return (
+    <li
+      ref={ref}
+      style={{ position: 'relative' }}
+      onMouseEnter={vertical ? undefined : () => setOpen(true)}
+      onMouseLeave={vertical ? undefined : () => setOpen(false)}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setOpen(false)
+      }}
+    >
+      <button
+        type="button"
+        className="mf-nav-link"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          background: 'none',
+          border: 0,
+          padding: 0,
+          font: 'inherit',
+          cursor: 'pointer',
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.25rem',
+        }}
+      >
+        {item.label}
+        <ChevronDown size={14} aria-hidden />
+      </button>
+      {open && (
+        <ul
+          id={id}
+          className={vertical ? undefined : 'mf-card'}
+          style={{
+            listStyle: 'none',
+            margin: 0,
+            padding: vertical ? '0.25rem 0 0 1rem' : '0.5rem',
+            display: 'grid',
+            gap: '0.25rem',
+            ...(vertical
+              ? {}
+              : {
+                  position: 'absolute',
+                  top: '100%',
+                  left: '-0.75rem',
+                  minWidth: '12rem',
+                  zIndex: 40,
+                  background: 'var(--site-background)',
+                  boxShadow: '0 12px 30px -12px rgba(15, 23, 42, 0.25)',
+                }),
+          }}
+        >
+          {item.link?.href !== null && item.link && (
+            <li>
+              <SiteLinkAnchor link={item.link} className="mf-nav-link" onClick={onNavigate}>
+                {item.label}
+              </SiteLinkAnchor>
+            </li>
+          )}
+          {item.children!.map((c, j) => (
+            <li key={j}>
+              <SiteLinkAnchor link={c.link} className="mf-nav-link" onClick={onNavigate}>
+                {c.label}
+              </SiteLinkAnchor>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  )
+}
+
 function NavLinks({
   links,
   vertical = false,
@@ -44,6 +151,8 @@ function NavLinks({
   vertical?: boolean
   onNavigate?: () => void
 }) {
+  const { mode } = useSite()
+  const items = visibleNavItems(links, mode)
   return (
     <nav aria-label="Main">
       <ul
@@ -56,13 +165,17 @@ function NavLinks({
           padding: 0,
         }}
       >
-        {links.map((l, i) => (
-          <li key={i}>
-            <SiteLinkAnchor link={l.link} className="mf-nav-link" onClick={onNavigate}>
-              {l.label}
-            </SiteLinkAnchor>
-          </li>
-        ))}
+        {items.map((l, i) =>
+          l.children?.length ? (
+            <NavDropdown key={i} item={l} vertical={vertical} onNavigate={onNavigate} />
+          ) : (
+            <li key={i}>
+              <SiteLinkAnchor link={l.link} className="mf-nav-link" onClick={onNavigate}>
+                {l.label}
+              </SiteLinkAnchor>
+            </li>
+          )
+        )}
       </ul>
     </nav>
   )
@@ -209,7 +322,7 @@ const SOCIAL_LABEL: Record<string, string> = {
 }
 
 export function SiteFooter({ showBadge }: { showBadge: boolean }) {
-  const { settings, clinicName } = useSite()
+  const { settings, clinicName, mode } = useSite()
   const f = settings.footer
   const name = settings.brand.displayName || clinicName
   const social = Object.entries(settings.social).filter(([, v]) => typeof v === 'string' && v)
@@ -270,7 +383,7 @@ export function SiteFooter({ showBadge }: { showBadge: boolean }) {
                     gap: '0.45rem',
                   }}
                 >
-                  {col.links.map((l, j) => (
+                  {visibleNavItems(col.links, mode).map((l, j) => (
                     <li key={j}>
                       <SiteLinkAnchor link={l.link}>{l.label}</SiteLinkAnchor>
                     </li>

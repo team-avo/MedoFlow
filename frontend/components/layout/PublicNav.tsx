@@ -98,8 +98,17 @@ export function PublicNav() {
             <BrandLogo size="md" tone={translucent ? 'light' : 'dark'} />
           </Link>
           <nav className="hidden items-center gap-7 lg:flex">
-            {/* Guests see no section links — only the Log in CTA on the right.
-                Logged-in patients get Store. */}
+            {/* Guests: the product and pricing (WS4). Logged-in patients get Store. */}
+            {!isLoading && !isAuthenticated && (
+              <>
+                <Link href="/#features" className={linkCls}>
+                  Features
+                </Link>
+                <Link href="/pricing" className={linkCls}>
+                  Pricing
+                </Link>
+              </>
+            )}
             {isAuthenticated && isPatient && (
               <Link href="/store" className={linkCls}>
                 Store
@@ -144,13 +153,21 @@ export function PublicNav() {
               </Link>
             )
           ) : (
-            <button
-              type="button"
-              onClick={openLogin}
-              className={`mf-btn mf-btn-sm ${translucent ? 'mf-btn-primary' : 'mf-btn-outline'} whitespace-nowrap`}
-            >
-              Clinic login
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={openLogin}
+                className={`mf-btn mf-btn-sm ${translucent ? 'mf-btn-primary' : 'mf-btn-outline'} whitespace-nowrap`}
+              >
+                Clinic login
+              </button>
+              <Link
+                href="/pricing"
+                className="mf-btn mf-btn-sm mf-btn-primary hidden whitespace-nowrap sm:inline-flex"
+              >
+                Start free trial
+              </Link>
+            </>
           )}
 
           {/* Hamburger — only meaningful for logged-in patients on phones.

@@ -8,6 +8,7 @@ import * as passwordSetupService from '../services/passwordSetupService'
 import * as sessionService from '../services/sessionService'
 import * as mfaService from '../services/mfaService'
 import * as breakGlassService from '../services/breakGlassService'
+import * as authHandoffService from '../services/authHandoffService'
 import { hashEmail, logAuthEvent, logAudit, requestMeta } from '../services/auditService'
 import { recordFailedAuth } from '../services/securityMonitorService'
 import {
@@ -19,6 +20,7 @@ import {
   getRefreshTokenExpiry,
 } from '../utils/tokenUtils'
 import type { ApiError } from '../types/errors'
+import { phoneSchema } from '../validation/module1Schemas'
 
 const REFRESH_TOKEN_COOKIE = 'refreshToken'
 const MIN_PASSWORD_LENGTH = 8
@@ -108,7 +110,7 @@ const issueSessionAndRespond = async (
   req: Request,
   res: Response,
   userId: string,
-  opts: { mfaVerified: boolean; message: string }
+  opts: { mfaVerified: boolean; message: string; handoff?: boolean }
 ): Promise<void> => {
   const session = await sessionService.createSession({
     userId,
@@ -122,6 +124,7 @@ const issueSessionAndRespond = async (
       id: true,
       name: true,
       email: true,
+      phone: true,
       role: true,
       clinicId: true,
       customRoleId: true,
@@ -178,7 +181,11 @@ const issueSessionAndRespond = async (
   }
 
   await logAuthEvent({
-    action: opts.mfaVerified && user.mfaEnabled ? 'MFA_CHALLENGE_SUCCESS' : 'LOGIN_SUCCESS',
+    action: opts.handoff
+      ? 'SESSION_HANDOFF'
+      : opts.mfaVerified && user.mfaEnabled
+        ? 'MFA_CHALLENGE_SUCCESS'
+        : 'LOGIN_SUCCESS',
     userId: user.id,
     clinicId: user.clinicId,
     req,
@@ -348,6 +355,39 @@ export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): 
     })
   }
   await issueSessionAndRespond(req, res, userId, { mfaVerified: true, message: 'Login successful' })
+})
+
+/**
+ * POST /auth/handoff/start — called by the app host's /auth/handoff page.
+ * Returns where to send the browser: back to the clinic page with a one-time
+ * code (signed-in patient) or with `handoff=none` (anyone else).
+ */
+export const handoffStart = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { returnUrl } = (req.body ?? {}) as { returnUrl?: unknown }
+  const caller = req.user ? { id: req.user.id, role: req.user.role } : undefined
+  const result = await authHandoffService.startHandoff(returnUrl, caller)
+  successResponse(res, 200, 'Handoff ready', { redirectUrl: result.redirectUrl })
+})
+
+/**
+ * POST /auth/handoff/exchange — called from the clinic origin. Trades a
+ * one-time code for a session there (the refresh cookie set on this response
+ * lands in the clinic site's cookie partition).
+ */
+export const handoffExchange = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const { code } = (req.body ?? {}) as { code?: unknown }
+  let userId: string
+  try {
+    userId = await authHandoffService.consumeHandoff(code, req.get('origin'))
+  } catch (err) {
+    recordFailedAuth(req.ip ?? null)
+    throw err
+  }
+  await issueSessionAndRespond(req, res, userId, {
+    mfaVerified: false,
+    handoff: true,
+    message: 'Signed in',
+  })
 })
 
 export const markPatientTourSeen = asyncHandler(
@@ -521,6 +561,7 @@ export const me = asyncHandler(
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         clinicId: true,
         customRoleId: true,
@@ -555,7 +596,7 @@ export const me = asyncHandler(
   }
 )
 
-const ALLOWED_UPDATE_KEYS = new Set(['name', 'hasSeenTour', 'preferences'])
+const ALLOWED_UPDATE_KEYS = new Set(['name', 'phone', 'hasSeenTour', 'preferences'])
 
 export const updateMe = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -564,6 +605,7 @@ export const updateMe = asyncHandler(
     const body = (req.body ?? {}) as Record<string, unknown>
     const updates: {
       name?: string
+      phone?: string | null
       hasSeenTour?: boolean
       tourCompletedAt?: Date | null
       preferences?: object
@@ -579,6 +621,16 @@ export const updateMe = asyncHandler(
         throw httpError('Name must be 2–100 characters', 400)
       }
       updates.name = trimmed
+    }
+
+    if (body['phone'] !== undefined) {
+      if (body['phone'] === null || body['phone'] === '') {
+        updates.phone = null
+      } else {
+        const parsed = phoneSchema.safeParse(body['phone'])
+        if (!parsed.success) throw httpError(parsed.error.issues[0]!.message, 400)
+        updates.phone = parsed.data
+      }
     }
 
     if (typeof body['hasSeenTour'] === 'boolean') {
@@ -600,6 +652,7 @@ export const updateMe = asyncHandler(
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         clinicId: true,
         hasSeenTour: true,

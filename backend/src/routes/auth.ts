@@ -1,9 +1,9 @@
 import { Router } from 'express'
 import * as authController from '../controllers/authController'
-import { protect, withPublicScope } from '../middleware/auth'
+import { optionalProtect, protect, withPublicScope } from '../middleware/auth'
 import { validateRequest } from '../middleware/validateRequest'
 import { patientRegistrationSchema } from '../validation/module1Schemas'
-import { authRateLimit, refreshRateLimit } from '../middleware/rateLimit'
+import { authRateLimit, publicApiRateLimit, refreshRateLimit } from '../middleware/rateLimit'
 
 const router = Router()
 
@@ -42,6 +42,24 @@ router.post(
   withPublicScope('auth.logout'),
   authController.requireClientHeader,
   authController.logout
+)
+
+// Session handoff to a clinic's own domain (services/authHandoffService).
+// start: optional auth — a signed-in patient gets a code, anyone else `none`.
+// exchange: public; the one-time code is the credential, failures are counted.
+router.post(
+  '/handoff/start',
+  publicApiRateLimit,
+  authController.requireClientHeader,
+  optionalProtect,
+  authController.handoffStart
+)
+router.post(
+  '/handoff/exchange',
+  withPublicScope('auth.handoff_exchange'),
+  authController.requireClientHeader,
+  authRateLimit,
+  authController.handoffExchange
 )
 
 // Authenticated endpoints: protect sets the ALS context automatically.

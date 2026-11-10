@@ -8,12 +8,11 @@ import React from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { BrandGradient } from './BrandGradient'
-import { useAuthModal } from '@/components/auth/AuthModal'
+import { salesMailto } from '@/lib/tenantApi'
 
 const words = ['Run', 'your', 'entire', 'practice', 'on', 'a', 'single', 'timeline.']
 
 export function FinalCTASection() {
-  const { openLogin } = useAuthModal()
   return (
     <section className="relative overflow-hidden bg-[#0B1E35] py-28 md:py-40">
       <BrandGradient variant="navy" />
@@ -74,20 +73,19 @@ export function FinalCTASection() {
           </p>
 
           <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={openLogin}
+            <Link
+              href="/pricing"
               className="group inline-flex items-center gap-2 rounded-full bg-white px-8 py-4 text-[15px] font-semibold text-[#0B1E35] shadow-[0_14px_50px_-12px_rgba(94,234,212,0.7)] transition-shadow hover:shadow-[0_18px_60px_-10px_rgba(94,234,212,0.95)]"
             >
               Start free trial
               <ArrowRight className="h-4 w-4 transition-transform" />
-            </button>
-            <Link
-              href="#demo"
+            </Link>
+            <a
+              href={salesMailto('Book a MedoFlow demo')}
               className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-7 py-4 text-[15px] font-medium text-white transition-colors hover:bg-white/[0.08]"
             >
               Book a demo
-            </Link>
+            </a>
           </div>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[13px] text-white/50">
