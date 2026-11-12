@@ -76,6 +76,8 @@ export const practiceFormSchema = z
 
     noNpi: z.boolean(),
     groupNpi: optionalNpi,
+    /** CTO-29: why an NPPES mismatch is fine. */
+    groupNpiOverrideReason: optional(300),
     /** Blank on an edit = keep the number on file. */
     federalTaxId: text.refine((v) => !v || isValidEin(v), 'Enter a valid EIN (NN-NNNNNNN)'),
     hasTaxIdOnFile: z.boolean(),
@@ -174,6 +176,7 @@ export function practiceFormDefaults(
     mailingPostalCode: p?.mailingPostalCode ?? '',
     noNpi: p?.noNpi ?? false,
     groupNpi: p?.groupNpi ?? '',
+    groupNpiOverrideReason: p?.npiVerification?.group?.overrideReason ?? '',
     federalTaxId: '',
     hasTaxIdOnFile: Boolean(p?.federalTaxIdMasked),
     licenseNumber: p?.licenseNumber ?? '',
@@ -218,6 +221,7 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     mailingPostalCode: v.mailingSameAsPrimary ? null : orNull(v.mailingPostalCode),
     noNpi: v.noNpi,
     groupNpi: v.noNpi ? null : orNull(v.groupNpi),
+    groupNpiOverrideReason: v.noNpi ? null : orNull(v.groupNpiOverrideReason),
     ...(s(v.federalTaxId) ? { federalTaxId: s(v.federalTaxId) } : {}),
     licenseNumber: orNull(v.licenseNumber),
     licenseState: orNull(v.licenseState)?.toUpperCase() ?? null,
@@ -237,6 +241,8 @@ export interface PractitionerDraft {
   licenseNumber: string
   licenseState: string
   npi: string
+  /** CTO-29: why an NPPES mismatch on this NPI is fine. */
+  npiOverrideReason: string
   /** A PRACTITIONER_TITLES value; '' = not given. */
   title: string
   /** Free text when title is 'Other'. */
@@ -255,6 +261,7 @@ export const emptyPractitioner = (): PractitionerDraft => ({
   licenseNumber: '',
   licenseState: '',
   npi: '',
+  npiOverrideReason: '',
   title: '',
   titleOther: '',
   isOwner: false,
@@ -328,6 +335,7 @@ export const toPractitionerDraft = (p: Practitioner): PractitionerDraft => ({
   licenseNumber: p.licenseNumber ?? '',
   licenseState: p.licenseState ?? '',
   npi: p.npi ?? '',
+  npiOverrideReason: p.npiOverrideReason ?? '',
   ...splitTitle(p.title),
   isOwner: p.isOwner,
   isSelf: p.isSelf,
@@ -343,6 +351,7 @@ export const toPractitionerPayload = (p: PractitionerDraft): Practitioner => ({
   licenseState: orNull(p.licenseState)?.toUpperCase() ?? null,
   npi: orNull(p.npi)?.replace(/[\s-]/g, '') ?? null,
   title: joinTitle(p.title, p.titleOther),
+  npiOverrideReason: orNull(p.npiOverrideReason),
   isOwner: p.isOwner,
   isSelf: p.isSelf,
   ...(p.isSelf ? { seesPatients: p.seesPatients } : {}),

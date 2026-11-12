@@ -19,6 +19,8 @@ import * as argon2 from 'argon2'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { adminDb, api, FIXTURE_PASSWORD, login, startServer, type TestServer } from './helpers'
 import { createClinicFixture } from './fixtures'
+import { setNpiFetchForTests } from '../../services/npiRegistryService'
+import { NPPES_INDIVIDUAL, NPPES_NOT_FOUND, NPPES_ORGANISATION } from '../fixtures/nppes'
 
 let server: TestServer
 let platformToken: string
@@ -167,6 +169,21 @@ async function completeApplication(c: SignedUp) {
   })
   expect(a.status, JSON.stringify(a.body)).toBe(200)
   return a
+}
+
+/** Practitioners + agreement for a clinic whose practice details are saved. */
+async function completeRest(c: SignedUp) {
+  const pr = await api(server.url, '/onboarding/application/practitioners', {
+    method: 'PUT',
+    token: c.token,
+    body: { practitioners: [practitioner({ npiOverrideReason: 'Recorded registry answer' })] },
+  })
+  expect(pr.status, JSON.stringify(pr.body)).toBe(200)
+  const a = await api(server.url, '/onboarding/agreement', {
+    token: c.token,
+    body: agreementBody(c.clinicName),
+  })
+  expect(a.status, JSON.stringify(a.body)).toBe(200)
 }
 
 const review = (tenantId: string, body: Record<string, unknown>, token = platformToken) =>
@@ -710,6 +727,103 @@ describe('practice details after the CTO review (CTO-04, CTO-06, CTO-09, CTO-17,
     expect(JSON.stringify(bad.body)).toContain('Enter a 5-digit ZIP or ZIP+4')
     expect((await save(c, { state: 'ZZ' })).status).toBe(400)
     expect((await save(c, { postalCode: '96799-0001', state: 'AS' })).status).toBe(200)
+  })
+})
+
+describe('real NPI lookup (CTO-29)', () => {
+  const registry = (byNpi: Record<string, unknown>, fail = false) =>
+    setNpiFetchForTests(async (url: string) => {
+      if (fail) throw new Error('The operation was aborted due to timeout')
+      const npi = new URL(url).searchParams.get('number')!
+      return { ok: true, status: 200, json: async () => byNpi[npi] ?? NPPES_NOT_FOUND }
+    })
+  afterEach(() => setNpiFetchForTests(null))
+
+  it('the group NPI must be type 2: a mismatch needs a reason, which the reviewer sees', async () => {
+    registry({ [VALID_NPI]: NPPES_INDIVIDUAL })
+    const c = await signUp()
+    const save = (o: Record<string, unknown>) =>
+      api(server.url, '/onboarding/application/practice', {
+        method: 'PUT',
+        token: c.token,
+        body: practiceBody(o),
+      })
+    const refused = await save({})
+    expect(refused.status).toBe(400)
+    expect(refused.body.code).toBe('npi_mismatch')
+    expect(refused.body.message).toMatch(/registered to an individual \(type 1\)/)
+    const ok = await save({ groupNpiOverrideReason: 'Solo practice billing under my own NPI' })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.npiVerification).toMatchObject({
+      group: {
+        verdict: 'WRONG_TYPE',
+        overrideReason: 'Solo practice billing under my own NPI',
+        lookup: { type: 1, name: 'OLIVIA SYNTHETIC' },
+      },
+    })
+    // The reviewer sees the lookup and the override.
+    await completeRest(c)
+    const review = await api(server.url, `/platform/clinics/${c.tenantId}`, {
+      token: platformToken,
+    })
+    expect(review.body.data.application.profile.npiVerification.group.overrideReason).toBe(
+      'Solo practice billing under my own NPI'
+    )
+  })
+
+  it('a real type-2 group NPI and type-1 practitioner NPIs pass; the lookup endpoint reports them', async () => {
+    registry({ [VALID_NPI]: NPPES_ORGANISATION, [OTHER_NPI]: NPPES_INDIVIDUAL })
+    const c = await signUp()
+    const look = await api(server.url, `/onboarding/npi/${VALID_NPI}?expect=2`, { token: c.token })
+    expect(look.status).toBe(200)
+    expect(look.body.data).toMatchObject({ verdict: 'OK', lookup: { type: 2, state: 'TX' } })
+    expect((await api(server.url, '/onboarding/npi/1234567890', { token: c.token })).status).toBe(
+      400
+    )
+    expect(
+      (
+        await api(server.url, '/onboarding/application/practice', {
+          method: 'PUT',
+          token: c.token,
+          body: practiceBody(),
+        })
+      ).status
+    ).toBe(200)
+    // Practitioner with the organisation's NPI: wrong type, refused without a reason.
+    const wrong = await api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: [practitioner({ npi: VALID_NPI })] },
+    })
+    expect(wrong.status).toBe(400)
+    expect(wrong.body.code).toBe('npi_mismatch')
+    const right = await api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: [practitioner({ npi: OTHER_NPI })] },
+    })
+    expect(right.status, JSON.stringify(right.body)).toBe(200)
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.npiVerification).toMatchObject({
+      group: { verdict: 'OK' },
+      practitioners: { [OTHER_NPI]: { verdict: 'OK', lookup: { type: 1 } } },
+    })
+  })
+
+  it('NPPES down or slow: falls back to the checksum with "could not verify"', async () => {
+    registry({}, true)
+    const c = await signUp()
+    const res = await api(server.url, '/onboarding/application/practice', {
+      method: 'PUT',
+      token: c.token,
+      body: practiceBody(),
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.npiVerification).toMatchObject({
+      group: { verdict: 'UNVERIFIED', lookup: { status: 'UNAVAILABLE' } },
+    })
   })
 })
 

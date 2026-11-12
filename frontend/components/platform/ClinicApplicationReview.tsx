@@ -1,5 +1,6 @@
 'use client'
 
+import type { NpiCheck } from '@/lib/onboardingApi'
 import * as React from 'react'
 import { CheckCircle2, Loader2, RefreshCw, XCircle } from 'lucide-react'
 import api from '@/lib/api'
@@ -28,6 +29,10 @@ export interface ReviewApplication {
         secondaryContactEmail?: string | null
         secondaryContactPhone?: string | null
         practiceTypeOther?: string | null
+        npiVerification?: {
+          group?: NpiCheck | null
+          practitioners?: Record<string, NpiCheck>
+        } | null
         mailingSameAsPrimary: boolean
         mailingAddressLine1: string | null
         mailingCity: string | null
@@ -211,7 +216,10 @@ export function ClinicApplicationReview({
                 p.noNpi ? (
                   'No NPI (declared)'
                 ) : (
-                  <Check value={p.groupNpi} valid={isValidNpi(p.groupNpi ?? '')} />
+                  <>
+                    <Check value={p.groupNpi} valid={isValidNpi(p.groupNpi ?? '')} />
+                    <RegistryNote check={p.npiVerification?.group} />
+                  </>
                 )
               }
             />
@@ -286,6 +294,9 @@ export function ClinicApplicationReview({
                   <td className="py-1.5 pr-4 text-slate-600">{x.email}</td>
                   <td className="py-1.5 pr-4">
                     <Check value={x.npi ?? null} valid={isValidNpi(x.npi ?? '')} />
+                    <RegistryNote
+                      check={x.npi ? p.npiVerification?.practitioners?.[x.npi] : undefined}
+                    />
                   </td>
                   <td className="py-1.5 pr-4 text-slate-600">
                     {x.licenseNumber
@@ -385,5 +396,28 @@ export function ClinicApplicationReview({
         </div>
       </div>
     </section>
+  )
+}
+
+/** CTO-29: what NPPES said about an NPI, and any override reason. */
+function RegistryNote({ check }: { check?: NpiCheck | null }) {
+  if (!check) return null
+  const l = check.lookup
+  const text =
+    check.verdict === 'OK'
+      ? `NPPES: ${l?.name ?? 'found'} (type ${l?.type ?? '?'})`
+      : check.verdict === 'UNVERIFIED'
+        ? 'NPPES: could not verify (checksum only)'
+        : `NPPES: ${check.verdict.replace('_', ' ').toLowerCase()}${l?.name ? `, ${l.name}` : ''}${
+            l?.type ? ` (type ${l.type})` : ''
+          }`
+  return (
+    <span
+      className={`block text-[11px] ${check.verdict === 'OK' ? 'text-emerald-700' : 'text-amber-800'}`}
+      data-testid="npi-registry-note"
+    >
+      {text}
+      {check.overrideReason ? `. Applicant's reason: ${check.overrideReason}` : ''}
+    </span>
   )
 }

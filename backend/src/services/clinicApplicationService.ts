@@ -13,6 +13,13 @@
  * Tax ID and DEA are field-encrypted at rest and only ever returned masked to
  * the clinic; platform admins see them in full, and every such read is audited.
  */
+import {
+  lookupNpi,
+  verdictFor,
+  VERDICT_MESSAGE,
+  type NpiLookup,
+  type NpiVerdict,
+} from './npiRegistryService'
 import { syncOwnerProvider } from './ownerProviderService'
 import type { ClinicVerificationStatus, Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
@@ -210,6 +217,39 @@ export async function getApplication(clinicId: string) {
 
 // ─── Step 1: practice details ───────────────────────────────────────────────
 
+// ─── CTO-29: NPPES lookups ──────────────────────────────────────────────────
+
+interface NpiCheck {
+  lookup: NpiLookup | null
+  verdict: NpiVerdict
+  overrideReason: string | null
+}
+
+/**
+ * Looks an NPI up and returns the check to store. A mismatch (wrong type, not
+ * in the registry, deactivated) needs an override reason, or the save is
+ * refused with a clear message on that field. An unreachable registry never
+ * blocks: the check is stored as UNVERIFIED (checksum only).
+ */
+async function checkNpi(
+  npi: string,
+  expectType: 1 | 2,
+  overrideReason: string | null | undefined,
+  path: (string | number)[]
+): Promise<NpiCheck> {
+  const lookup = await lookupNpi(npi)
+  const verdict = verdictFor(lookup, expectType)
+  if (verdict !== 'OK' && verdict !== 'UNVERIFIED' && !overrideReason) {
+    throw Object.assign(
+      httpError(400, `${VERDICT_MESSAGE[verdict](expectType)} Add a reason to continue anyway.`),
+      { code: 'npi_mismatch', details: [{ path, verdict, lookup }] }
+    )
+  }
+  return { lookup, verdict, overrideReason: verdict === 'OK' ? null : (overrideReason ?? null) }
+}
+
+type NpiVerification = { group?: NpiCheck | null; practitioners?: Record<string, NpiCheck> }
+
 export async function savePracticeDetails(
   clinicId: string,
   input: PracticeDetailsInput,
@@ -246,7 +286,15 @@ export async function savePracticeDetails(
         mailingPostalCode: input.mailingPostalCode,
       }
 
+  // CTO-29: the group NPI must be a real organisation (type 2) NPI.
+  const previousNpi = (existing?.npiVerification ?? {}) as NpiVerification
+  const groupCheck =
+    !input.noNpi && input.groupNpi
+      ? await checkNpi(input.groupNpi, 2, input.groupNpiOverrideReason, ['groupNpi'])
+      : null
+
   const data = {
+    npiVerification: { ...previousNpi, group: groupCheck } as unknown as Prisma.InputJsonValue,
     legalName: input.legalName,
     dbaName: input.dbaName,
     practiceType: input.practiceType,
@@ -370,9 +418,25 @@ export async function savePractitioners(
     }
   }
 
+  // CTO-29: each practitioner's NPI must be a real individual (type 1) NPI.
+  const practitionerChecks: Record<string, NpiCheck> = {}
+  for (const [i, p] of practitioners.entries()) {
+    if (!p.npi) continue
+    practitionerChecks[p.npi] = await checkNpi(p.npi, 1, p.npiOverrideReason, [
+      'practitioners',
+      i,
+      'npi',
+    ])
+  }
+  const npiVerification = {
+    ...((profile.npiVerification ?? {}) as NpiVerification),
+    practitioners: practitionerChecks,
+  }
+
   await prisma.clinicProfile.update({
     where: { clinicId },
     data: {
+      npiVerification: npiVerification as unknown as Prisma.InputJsonValue,
       practitioners: practitioners as unknown as Prisma.InputJsonValue,
       practitionersCompletedAt: profile.practitionersCompletedAt ?? new Date(),
     },

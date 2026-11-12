@@ -16,6 +16,7 @@ import {
   type PractitionerErrors,
 } from '@/lib/schemas/onboarding'
 import { IdCheck, selectClass } from './ApplicationShell'
+import { NpiRegistryCheck } from './NpiRegistryCheck'
 import { useAuth } from '@/contexts/AuthContext'
 import { clearDraft, draftKey, loadDraft, saveDraft } from '@/lib/formDraft'
 
@@ -262,6 +263,13 @@ export function PractitionersForm({
                   placeholder="10 digits"
                 />
                 <IdCheck value={r.npi} valid={isValidNpi(r.npi)} label="NPI" />
+                <NpiRegistryCheck
+                  npi={r.npi}
+                  expect={1}
+                  idPrefix={`p${i}`}
+                  reason={r.npiOverrideReason}
+                  onReasonChange={(reason) => update(i, { npiOverrideReason: reason })}
+                />
               </AppFormField>
               <div className="grid grid-cols-2 gap-3">
                 <AppFormField label="License #" error={e.licenseNumber} htmlFor={`p${i}-lic`}>

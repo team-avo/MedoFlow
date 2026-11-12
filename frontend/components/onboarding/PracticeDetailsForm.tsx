@@ -23,6 +23,7 @@ import {
   type PracticeFormValues,
 } from '@/lib/schemas/onboarding'
 import { FormSection, IdCheck, selectClass, TIMEZONES } from './ApplicationShell'
+import { NpiRegistryCheck } from './NpiRegistryCheck'
 import { useAuth } from '@/contexts/AuthContext'
 import { clearDraft, draftKey, loadDraft, PRACTICE_DRAFT_OMIT, saveDraft } from '@/lib/formDraft'
 
@@ -414,6 +415,13 @@ export function PracticeDetailsForm({
               {...register('groupNpi')}
             />
             <IdCheck value={v.groupNpi ?? ''} valid={isValidNpi(v.groupNpi ?? '')} label="NPI" />
+            <NpiRegistryCheck
+              npi={v.groupNpi ?? ''}
+              expect={2}
+              idPrefix="group"
+              reason={String(v.groupNpiOverrideReason ?? '')}
+              onReasonChange={(r) => setValue('groupNpiOverrideReason', r)}
+            />
           </AppFormField>
         )}
         <AppFormField

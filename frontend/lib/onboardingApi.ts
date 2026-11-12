@@ -17,6 +17,8 @@ export interface Practitioner {
   npi?: string | null
   /** Founder, CEO, Medical Director… or free text (CTO-16). */
   title?: string | null
+  /** CTO-29: why a registry mismatch on this NPI is fine. */
+  npiOverrideReason?: string | null
   isOwner: boolean
   isSelf: boolean
   /** The owner's own row only: false for a non-clinical owner (CTO-14). */
@@ -30,6 +32,11 @@ export interface ClinicProfile {
   practiceType: string
   /** The typed name when practiceType is OTHER (CTO-18). */
   practiceTypeOther: string | null
+  /** CTO-29: NPPES lookups with any override reason. */
+  npiVerification?: {
+    group?: NpiCheck | null
+    practitioners?: Record<string, NpiCheck>
+  } | null
   locationCount: number
   officePhone: string | null
   fax: string | null
@@ -128,6 +135,8 @@ export interface PracticeDetailsPayload {
   mailingPostalCode: string | null
   noNpi: boolean
   groupNpi: string | null
+  /** CTO-29 */
+  groupNpiOverrideReason?: string | null
   /** Omit to keep the number on file. */
   federalTaxId?: string
   licenseNumber: string | null
@@ -196,4 +205,32 @@ export const onboardingApi = {
       api.post('/onboarding/application/resubmit', {})
     ),
   getStatus: () => data<OnboardingStatus>(api.get('/onboarding/status')),
+  /** CTO-29: look an NPI up in NPPES (type 2 for the group, 1 for a person). */
+  lookupNpi: (npi: string, expect: 1 | 2) =>
+    data<NpiLookupResult>(api.get(`/onboarding/npi/${encodeURIComponent(npi)}?expect=${expect}`)),
+}
+
+export interface NpiLookup {
+  npi: string
+  status: 'FOUND' | 'NOT_FOUND' | 'DEACTIVATED' | 'UNAVAILABLE'
+  type: 1 | 2 | null
+  name: string | null
+  taxonomy: string | null
+  state: string | null
+  checkedAt: string
+}
+
+export type NpiVerdict = 'OK' | 'WRONG_TYPE' | 'NOT_FOUND' | 'DEACTIVATED' | 'UNVERIFIED'
+
+export interface NpiLookupResult {
+  /** Null when registry lookups are off on this server (checksum only). */
+  lookup: NpiLookup | null
+  verdict: NpiVerdict
+  message: string | null
+}
+
+export interface NpiCheck {
+  lookup: NpiLookup | null
+  verdict: NpiVerdict
+  overrideReason: string | null
 }

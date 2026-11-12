@@ -134,6 +134,8 @@ export const practiceDetailsBody = z
     // Regulatory identifiers
     noNpi: z.boolean(),
     groupNpi: optionalNpi,
+    /** CTO-29: why a registry mismatch is fine (wrong type, not found, deactivated). */
+    groupNpiOverrideReason: optionalText(300),
     /** Omitted on an edit = keep the number on file (the API only returns it masked). */
     federalTaxId: z
       .string()
@@ -195,6 +197,8 @@ export const practitionerBody = z.object({
   licenseNumber: optionalText(50),
   licenseState: optionalState,
   npi: optionalNpi,
+  /** CTO-29: why a registry mismatch on this NPI is fine. */
+  npiOverrideReason: optionalText(300),
   /** Founder, CEO, Medical Director… (PRACTITIONER_TITLES) or free text (CTO-16). */
   title: optionalText(80),
   isOwner: z.boolean(),

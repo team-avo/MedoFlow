@@ -336,6 +336,9 @@ model ClinicProfile {
   salesRep                 String?
   /// [{name, email, phone?, credentials?, licenseNumber?, licenseState?, npi?, isOwner, isSelf}]
   practitioners            Json      @default("[]")
+  /// CTO-29: NPPES lookups for the group NPI and each practitioner's NPI, with
+  /// any override reason: { group?: Check, practitioners?: { [npi]: Check } }.
+  npiVerification          Json?
   practiceCompletedAt      DateTime?
   practitionersCompletedAt DateTime?
   createdAt                DateTime  @default(now())

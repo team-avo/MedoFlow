@@ -193,11 +193,20 @@ describe('setup checklist', () => {
   })
 })
 
+const renderWithQuery = (ui: React.ReactElement) =>
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      {ui}
+    </QueryClientProvider>
+  )
+
 describe('PractitionersForm', () => {
   it('starts with the owner (no "This is me"), adds and removes rows, keeps one primary account holder and validates NPI', async () => {
     savePractitioners.mockResolvedValue({})
     const onSaved = vi.fn()
-    render(
+    renderWithQuery(
       <PractitionersForm
         application={null}
         owner={{ name: 'Olivia Owner', email: 'olivia@example.test' }}
@@ -257,7 +266,7 @@ describe('PractitionersForm', () => {
   it('a non-clinical owner unticks "I see patients" and needs no NPI', async () => {
     savePractitioners.mockReset().mockResolvedValue({})
     const onSaved = vi.fn()
-    render(
+    renderWithQuery(
       <PractitionersForm
         application={null}
         owner={{ name: 'Mona Manager', email: 'mona@example.test' }}

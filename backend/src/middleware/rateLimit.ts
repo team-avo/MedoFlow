@@ -146,3 +146,16 @@ export const liveTranscriptRateLimit = rateLimit({
   legacyHeaders: false,
   message: { success: false, error: 'Too many live caption requests. Please slow down.' },
 })
+
+/**
+ * NPPES look-ups while filling in the application (CTO-29): 30 per minute per
+ * signed-in owner. NPI_LOOKUP_RATE_LIMIT_MAX overrides.
+ */
+export const npiLookupRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: () => Number(process.env.NPI_LOOKUP_RATE_LIMIT_MAX) || 30,
+  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : ipKeyGenerator(req.ip ?? '')),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many NPI look-ups. Wait a minute and try again.' },
+})
