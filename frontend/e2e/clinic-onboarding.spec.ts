@@ -202,8 +202,11 @@ test('a new clinic owner completes the application, then sets up while under rev
     dbaName: null,
   })
 
-  // ── Step 2: practitioners (the owner is pre-filled as "this is me") ──
+  // ── Step 2: practitioners (CTO-14: the owner is row 0, pre-filled, no "This is me") ──
   await expect(page.locator('#p0-name')).not.toHaveValue('')
+  await expect(page.getByLabel('This is me')).toHaveCount(0)
+  await expect(page.getByLabel('I see patients')).toBeChecked()
+  await page.locator('#p0-title').selectOption('Medical Director')
   await page.getByRole('button', { name: 'Save & continue' }).click()
   await expect(page.getByText('NPI is required')).toBeVisible()
   await page.locator('#p0-npi').fill('1234567893')
@@ -217,7 +220,14 @@ test('a new clinic owner completes the application, then sets up while under rev
   await expect(page).toHaveURL(/\/agreement$/)
   const practitioners = calls.find((c) => c.key === 'PUT /onboarding/application/practitioners')!
   expect(practitioners.body.practitioners).toEqual([
-    expect.objectContaining({ npi: '1234567893', credentials: 'MD', isOwner: true, isSelf: true }),
+    expect.objectContaining({
+      npi: '1234567893',
+      credentials: 'MD',
+      title: 'Medical Director',
+      isOwner: true,
+      isSelf: true,
+      seesPatients: true,
+    }),
     expect.objectContaining({ name: 'Nate Naturopath', isOwner: false, isSelf: false }),
   ])
 
@@ -228,8 +238,11 @@ test('a new clinic owner completes the application, then sets up while under rev
   await expect(summary).not.toContainText('12-3456789')
   const submit = page.getByRole('button', { name: /Sign & submit application/ })
   await expect(submit).toBeDisabled()
-  for (const box of await page.getByRole('checkbox').all()) await box.check()
-  await page.locator('#signerTitle').fill('Medical Director')
+  // CTO-08: one click on "select all" ticks every acknowledgement.
+  await page.getByLabel('I agree to all of the above').check()
+  await page.getByLabel(/read and agree to the authorization/).check()
+  // CTO-16: the signer's title is pre-filled from their practitioner row.
+  await expect(page.locator('#signerTitle')).toHaveValue('Medical Director')
   const printed = await page.locator('#signerName').inputValue()
   await page.locator('#signature').fill('Someone Else')
   await expect(page.getByText('Type your name exactly as printed')).toBeVisible()
