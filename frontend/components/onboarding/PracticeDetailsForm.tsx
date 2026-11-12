@@ -7,7 +7,15 @@ import { Loader2 } from 'lucide-react'
 import { AppFormField, AppInput } from '@/components/ui-system'
 import { apiErrorOf } from '@/lib/apiError'
 import { onboardingApi, type Application } from '@/lib/onboardingApi'
-import { isValidDea, isValidEin, isValidNpi, PRACTICE_TYPES, US_STATES } from '@/lib/practiceIds'
+import {
+  closestPracticeType,
+  isValidDea,
+  isValidEin,
+  isValidNpi,
+  PRACTICE_TYPES,
+  US_STATES,
+  zipStateMismatch,
+} from '@/lib/practiceIds'
 import {
   practiceFormDefaults,
   practiceFormSchema,
@@ -17,9 +25,10 @@ import {
 import { FormSection, IdCheck, selectClass, TIMEZONES } from './ApplicationShell'
 
 /**
- * Practice details — the first step of the clinic application, and the
+ * Practice details: the first step of the clinic application, and the
  * "Practice" tab of /dashboard/clinic. Field set: legal name / DBA, practice
- * type, locations, primary address (written to the main location), contacts,
+ * type (or a typed "Other", CTO-18), locations, primary address (written to
+ * the main location), a primary and an optional secondary contact (CTO-17),
  * mailing address, regulatory IDs (group NPI or "no NPI", EIN, state license,
  * DEA) and account details.
  */
@@ -48,6 +57,16 @@ export function PracticeDetailsForm({
 
   const v = watch()
   const err = (k: keyof PracticeFormValues) => errors[k]?.message as string | undefined
+  // CTO-18: a typed "Other" that closely matches a listed type is offered first.
+  const suggestedKey =
+    v.practiceType === 'OTHER' ? closestPracticeType(String(v.practiceTypeOther ?? '')) : null
+  const suggestion = suggestedKey
+    ? { key: suggestedKey, label: PRACTICE_TYPES.find(([k]) => k === suggestedKey)?.[1] ?? '' }
+    : null
+  // CTO-22: a ZIP outside the chosen state is a warning, never a block.
+  const zipWarning = zipStateMismatch(v.postalCode, v.state)
+  const mailingZipWarning =
+    !v.mailingSameAsPrimary && zipStateMismatch(v.mailingPostalCode, v.mailingState)
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null)
@@ -124,6 +143,36 @@ export function PracticeDetailsForm({
             ))}
           </select>
         </AppFormField>
+        {v.practiceType === 'OTHER' && (
+          <AppFormField
+            label="Your practice type"
+            required
+            error={err('practiceTypeOther')}
+            htmlFor="practiceTypeOther"
+          >
+            <AppInput
+              id="practiceTypeOther"
+              maxLength={80}
+              placeholder="e.g. Peptide clinic"
+              {...register('practiceTypeOther')}
+            />
+            {suggestion && (
+              <p className="text-xs text-slate-600" data-testid="practice-type-suggestion">
+                Did you mean <strong>{suggestion.label}</strong>?{' '}
+                <button
+                  type="button"
+                  className="font-semibold text-brand underline"
+                  onClick={() => {
+                    setValue('practiceType', suggestion.key, { shouldValidate: true })
+                    setValue('practiceTypeOther', '')
+                  }}
+                >
+                  Use it
+                </button>
+              </p>
+            )}
+          </AppFormField>
+        )}
         <AppFormField
           label="Number of locations"
           required
@@ -176,6 +225,11 @@ export function PracticeDetailsForm({
             placeholder="75001"
             {...register('postalCode')}
           />
+          {zipWarning && !err('postalCode') && (
+            <p className="text-xs text-amber-700" data-testid="zip-warning">
+              This ZIP is usually outside {v.state}. Check the address; you can still save it.
+            </p>
+          )}
         </AppFormField>
         <AppFormField label="Timezone" required error={err('timezone')} htmlFor="timezone">
           <select id="timezone" className={selectClass} {...register('timezone')}>
@@ -202,10 +256,7 @@ export function PracticeDetailsForm({
         </AppFormField>
       </FormSection>
 
-      <FormSection
-        title="Contacts"
-        description="Who we talk to about the account, orders and billing."
-      >
+      <FormSection title="Contacts" description="Who we contact about your account.">
         <AppFormField
           label="Primary contact name"
           required
@@ -231,32 +282,29 @@ export function PracticeDetailsForm({
         </AppFormField>
         <div className="hidden md:block" />
         <AppFormField
-          label="Office manager"
-          error={err('officeManagerName')}
-          htmlFor="officeManagerName"
+          label="Secondary contact name (optional)"
+          error={err('secondaryContactName')}
+          htmlFor="secondaryContactName"
         >
-          <AppInput id="officeManagerName" {...register('officeManagerName')} />
+          <AppInput id="secondaryContactName" {...register('secondaryContactName')} />
         </AppFormField>
         <AppFormField
-          label="Office manager email"
-          error={err('officeManagerEmail')}
-          htmlFor="officeManagerEmail"
+          label="Secondary contact email"
+          error={err('secondaryContactEmail')}
+          htmlFor="secondaryContactEmail"
         >
-          <AppInput id="officeManagerEmail" type="email" {...register('officeManagerEmail')} />
+          <AppInput
+            id="secondaryContactEmail"
+            type="email"
+            {...register('secondaryContactEmail')}
+          />
         </AppFormField>
         <AppFormField
-          label="Accounts payable"
-          error={err('accountsPayableName')}
-          htmlFor="accountsPayableName"
+          label="Secondary contact phone"
+          error={err('secondaryContactPhone')}
+          htmlFor="secondaryContactPhone"
         >
-          <AppInput id="accountsPayableName" {...register('accountsPayableName')} />
-        </AppFormField>
-        <AppFormField
-          label="Accounts payable email"
-          error={err('accountsPayableEmail')}
-          htmlFor="accountsPayableEmail"
-        >
-          <AppInput id="accountsPayableEmail" type="email" {...register('accountsPayableEmail')} />
+          <AppInput id="secondaryContactPhone" type="tel" {...register('secondaryContactPhone')} />
         </AppFormField>
       </FormSection>
 
@@ -307,6 +355,12 @@ export function PracticeDetailsForm({
                 inputMode="numeric"
                 {...register('mailingPostalCode')}
               />
+              {mailingZipWarning && !err('mailingPostalCode') && (
+                <p className="text-xs text-amber-700">
+                  This ZIP is usually outside {v.mailingState}. Check the address; you can still
+                  save it.
+                </p>
+              )}
             </AppFormField>
           </>
         )}
@@ -322,7 +376,7 @@ export function PracticeDetailsForm({
             <span>
               I don&apos;t have an NPI number
               <span className="block text-xs text-slate-500">
-                You can continue without one — our team confirms your state license instead during
+                You can continue without one: our team confirms your state license instead during
                 review.
               </span>
             </span>
@@ -363,7 +417,7 @@ export function PracticeDetailsForm({
         </AppFormField>
         <AppFormField label="License state" error={err('licenseState')} htmlFor="licenseState">
           <select id="licenseState" className={selectClass} {...register('licenseState')}>
-            <option value="">—</option>
+            <option value="">Choose…</option>
             {US_STATES.map(([code, name]) => (
               <option key={code} value={code}>
                 {name}
@@ -404,13 +458,17 @@ export function PracticeDetailsForm({
           required
           error={err('estimatedSeats')}
           htmlFor="estimatedSeats"
-          description="Practitioners, front desk and admins combined."
+          descriptionBelow
+          description="Just you? Enter 1. Otherwise count everyone who will sign in."
         >
           <AppInput
             id="estimatedSeats"
             type="number"
             min={1}
             max={1000}
+            // CTO-09: selecting the pre-filled 1 on focus means typing replaces
+            // it, instead of turning "1" into "13".
+            onFocus={(e) => e.currentTarget.select()}
             {...register('estimatedSeats', { valueAsNumber: true })}
           />
         </AppFormField>
@@ -418,11 +476,10 @@ export function PracticeDetailsForm({
           label="How did you hear about us?"
           error={err('referralSource')}
           htmlFor="referralSource"
+          descriptionBelow
+          description="Optional."
         >
           <AppInput id="referralSource" {...register('referralSource')} />
-        </AppFormField>
-        <AppFormField label="Sales rep (if any)" error={err('salesRep')} htmlFor="salesRep">
-          <AppInput id="salesRep" {...register('salesRep')} />
         </AppFormField>
       </FormSection>
 
@@ -433,7 +490,7 @@ export function PracticeDetailsForm({
       )}
       {Object.keys(errors).length > 0 && (
         <p role="alert" className="text-sm text-rose-600">
-          Some fields need attention — see the messages above.
+          Some fields need attention. See the messages above.
         </p>
       )}
 

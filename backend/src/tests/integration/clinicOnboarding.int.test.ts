@@ -645,6 +645,74 @@ describe('owner-only onboarding and the Locations step', () => {
   })
 })
 
+describe('practice details after the CTO review (CTO-04, CTO-06, CTO-09, CTO-17, CTO-18, CTO-22)', () => {
+  const save = (c: SignedUp, overrides: Record<string, unknown>) =>
+    api(server.url, '/onboarding/application/practice', {
+      method: 'PUT',
+      token: c.token,
+      body: practiceBody(overrides),
+    })
+
+  it('accepts but drops Sales rep, office manager and accounts payable; stores a secondary contact', async () => {
+    const c = await signUp()
+    const res = await save(c, {
+      salesRep: 'Somebody',
+      officeManagerName: 'Olga Office',
+      accountsPayableName: 'Paula Payable',
+      secondaryContactName: 'Sam Second',
+      secondaryContactEmail: 'SAM@example.test',
+      secondaryContactPhone: '555-0199',
+      practiceType: 'LONGEVITY_MEDICAL',
+      estimatedSeats: 1,
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    const profile = res.body.data.profile
+    for (const retired of [
+      'salesRep',
+      'officeManagerName',
+      'accountsPayableName',
+      'accountsPayableEmail',
+    ]) {
+      expect(profile).not.toHaveProperty(retired)
+    }
+    expect(profile).toMatchObject({
+      secondaryContactName: 'Sam Second',
+      secondaryContactEmail: 'sam@example.test',
+      secondaryContactPhone: '555-0199',
+      practiceType: 'LONGEVITY_MEDICAL',
+      // CTO-09: a team of one is fine.
+      estimatedSeats: 1,
+    })
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.salesRep).toBeNull()
+    expect(row.officeManagerName).toBeNull()
+  })
+
+  it('"Other" needs a typed name (2 to 80 characters); a listed type clears it', async () => {
+    const c = await signUp()
+    const missing = await save(c, { practiceType: 'OTHER' })
+    expect(missing.status).toBe(400)
+    expect(JSON.stringify(missing.body)).toMatch(/practice type/i)
+    expect(
+      (await save(c, { practiceType: 'OTHER', practiceTypeOther: 'x'.repeat(81) })).status
+    ).toBe(400)
+    const ok = await save(c, { practiceType: 'OTHER', practiceTypeOther: '  Peptide clinic ' })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    expect(ok.body.data.profile.practiceTypeOther).toBe('Peptide clinic')
+    const listed = await save(c, { practiceType: 'CHIROPRACTIC', practiceTypeOther: 'ignored' })
+    expect(listed.body.data.profile.practiceTypeOther).toBeNull()
+  })
+
+  it('US addresses: ZIP or ZIP+4, a US state or territory', async () => {
+    const c = await signUp()
+    const bad = await save(c, { postalCode: '7500' })
+    expect(bad.status).toBe(400)
+    expect(JSON.stringify(bad.body)).toContain('Enter a 5-digit ZIP or ZIP+4')
+    expect((await save(c, { state: 'ZZ' })).status).toBe(400)
+    expect((await save(c, { postalCode: '96799-0001', state: 'AS' })).status).toBe(200)
+  })
+})
+
 describe('the account creator is a provider (CTO-14)', () => {
   const savePractice = (c: SignedUp, body = practiceBody()) =>
     api(server.url, '/onboarding/application/practice', { method: 'PUT', token: c.token, body })

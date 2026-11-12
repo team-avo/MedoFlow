@@ -133,6 +133,24 @@ export function applicationProgress(
 }
 
 /** The application as the clinic sees it (tax ID and DEA masked). */
+/**
+ * Columns kept in the table but no longer part of the application: Sales rep
+ * (CTO-04), office manager and accounts payable (CTO-17). Never returned.
+ */
+const RETIRED_PROFILE_FIELDS = [
+  'salesRep',
+  'officeManagerName',
+  'officeManagerEmail',
+  'accountsPayableName',
+  'accountsPayableEmail',
+] as const
+
+function withoutRetired<T extends Record<string, unknown>>(profile: T) {
+  const copy: Record<string, unknown> = { ...profile }
+  for (const f of RETIRED_PROFILE_FIELDS) delete copy[f]
+  return copy as Omit<T, (typeof RETIRED_PROFILE_FIELDS)[number]>
+}
+
 export async function getApplication(clinicId: string) {
   const clinic = await clinicContext(clinicId)
   const [profile, location, agreement] = await Promise.all([
@@ -164,7 +182,7 @@ export async function getApplication(clinicId: string) {
     progress: applicationProgress(profile, clinic.tenant.termsAcceptedAt),
     profile: profile
       ? {
-          ...profile,
+          ...withoutRetired(profile),
           federalTaxId: undefined,
           deaNumber: undefined,
           federalTaxIdMasked: maskIdentifier(profile.federalTaxId),
@@ -232,6 +250,7 @@ export async function savePracticeDetails(
     legalName: input.legalName,
     dbaName: input.dbaName,
     practiceType: input.practiceType,
+    practiceTypeOther: input.practiceType === 'OTHER' ? input.practiceTypeOther : null,
     locationCount: input.locationCount,
     officePhone: input.officePhone,
     fax: input.fax,
@@ -239,10 +258,9 @@ export async function savePracticeDetails(
     primaryContactName: input.primaryContactName,
     primaryContactEmail: input.primaryContactEmail,
     primaryContactPhone: input.primaryContactPhone,
-    officeManagerName: input.officeManagerName,
-    officeManagerEmail: input.officeManagerEmail,
-    accountsPayableName: input.accountsPayableName,
-    accountsPayableEmail: input.accountsPayableEmail,
+    secondaryContactName: input.secondaryContactName,
+    secondaryContactEmail: input.secondaryContactEmail,
+    secondaryContactPhone: input.secondaryContactPhone,
     mailingSameAsPrimary: input.mailingSameAsPrimary,
     ...mailing,
     noNpi: input.noNpi,
@@ -251,7 +269,6 @@ export async function savePracticeDetails(
     licenseState: input.licenseState,
     estimatedSeats: input.estimatedSeats,
     referralSource: input.referralSource,
-    salesRep: input.salesRep,
     ...(input.federalTaxId ? { federalTaxId: input.federalTaxId } : {}),
     ...(input.deaNumber !== undefined ? { deaNumber: input.deaNumber } : {}),
   }
@@ -681,7 +698,10 @@ export async function getApplicationForReview(tenantId: string, reviewerId: stri
     clinicId: clinic.id,
     owner,
     profile: profile
-      ? { ...profile, practitioners: (profile.practitioners ?? []) as unknown as Practitioner[] }
+      ? {
+          ...withoutRetired(profile),
+          practitioners: (profile.practitioners ?? []) as unknown as Practitioner[],
+        }
       : null,
     location,
     agreements,

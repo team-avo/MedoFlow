@@ -55,7 +55,8 @@ export default function ProviderCalendarPage() {
   const [sheetOpen, setSheetOpen] = useState(false)
   const [locationFilter, setLocationFilter] = useState<string>('all')
 
-  const isProvider = user?.role === 'PROVIDER'
+  // The owner-doctor (SUPER_ADMIN with their own Provider, CTO-14) treats patients too.
+  const isProvider = user?.role === 'PROVIDER' || !!user?.provider?.isActive
 
   const { start, end } = useMemo(() => getWeekRange(weekStart), [weekStart])
   const weekDates = useMemo(() => getWeekDates(start), [start])

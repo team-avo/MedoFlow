@@ -24,9 +24,10 @@ export interface ReviewApplication {
         primaryContactName: string
         primaryContactEmail: string
         primaryContactPhone: string | null
-        officeManagerName: string | null
-        accountsPayableName: string | null
-        accountsPayableEmail: string | null
+        secondaryContactName?: string | null
+        secondaryContactEmail?: string | null
+        secondaryContactPhone?: string | null
+        practiceTypeOther?: string | null
         mailingSameAsPrimary: boolean
         mailingAddressLine1: string | null
         mailingCity: string | null
@@ -40,7 +41,6 @@ export interface ReviewApplication {
         deaNumber: string | null
         estimatedSeats: number
         referralSource: string | null
-        salesRep: string | null
         practitioners: Practitioner[]
       })
     | null
@@ -67,7 +67,7 @@ export interface ReviewApplication {
 const typeLabel = (k: string) => PRACTICE_TYPES.find(([key]) => key === k)?.[1] ?? k
 
 function Check({ value, valid }: { value: string | null; valid: boolean }) {
-  if (!value) return <span className="text-slate-400">—</span>
+  if (!value) return <span className="text-slate-400">Not set</span>
   return (
     <span className="inline-flex items-center gap-1.5">
       <code className="text-xs">{value}</code>
@@ -87,7 +87,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-slate-50 py-1.5 text-sm">
       <dt className="text-slate-500">{k}</dt>
-      <dd className="min-w-0 break-words text-right text-slate-900">{v ?? '—'}</dd>
+      <dd className="min-w-0 break-words text-right text-slate-900">{v ?? 'Not set'}</dd>
     </div>
   )
 }
@@ -165,7 +165,14 @@ export function ClinicApplicationReview({
             </h3>
             <Row k="Legal name" v={p.legalName} />
             <Row k="DBA" v={p.dbaName ?? 'Same as legal name'} />
-            <Row k="Practice type" v={typeLabel(p.practiceType)} />
+            <Row
+              k="Practice type"
+              v={
+                p.practiceType === 'OTHER' && p.practiceTypeOther
+                  ? `Other (typed): ${p.practiceTypeOther}`
+                  : typeLabel(p.practiceType)
+              }
+            />
             <Row k="Locations" v={String(p.locationCount)} />
             <Row
               k="Primary address"
@@ -174,13 +181,13 @@ export function ClinicApplicationReview({
                   ? [l.addressLine1, l.addressLine2, l.city, l.state, l.postalCode]
                       .filter(Boolean)
                       .join(', ')
-                  : '—'
+                  : 'Not set'
               }
             />
             <Row k="Timezone" v={l?.timezone} />
             <Row
               k="Office phone / fax"
-              v={[p.officePhone, p.fax].filter(Boolean).join(' / ') || '—'}
+              v={[p.officePhone, p.fax].filter(Boolean).join(' / ') || 'Not set'}
             />
             <Row k="Website" v={p.website} />
             <Row
@@ -214,7 +221,11 @@ export function ClinicApplicationReview({
             />
             <Row
               k="State license"
-              v={p.licenseNumber ? `${p.licenseNumber} (${p.licenseState ?? '—'})` : '—'}
+              v={
+                p.licenseNumber
+                  ? `${p.licenseNumber}${p.licenseState ? ` (${p.licenseState})` : ''}`
+                  : 'Not set'
+              }
             />
             <Row
               k="DEA"
@@ -226,19 +237,24 @@ export function ClinicApplicationReview({
               k="Primary contact"
               v={`${p.primaryContactName} · ${p.primaryContactEmail}${p.primaryContactPhone ? ` · ${p.primaryContactPhone}` : ''}`}
             />
-            <Row k="Office manager" v={p.officeManagerName} />
             <Row
-              k="Accounts payable"
-              v={[p.accountsPayableName, p.accountsPayableEmail].filter(Boolean).join(' · ') || '—'}
+              k="Secondary contact"
+              v={
+                [p.secondaryContactName, p.secondaryContactEmail, p.secondaryContactPhone]
+                  .filter(Boolean)
+                  .join(' · ') || 'None'
+              }
             />
             <Row
               k="Team size / referral"
-              v={`${p.estimatedSeats} · ${p.referralSource ?? '—'}${p.salesRep ? ` · rep ${p.salesRep}` : ''}`}
+              v={`${p.estimatedSeats} · ${p.referralSource ?? 'Not given'}`}
             />
             <Row
               k="Owner account"
               v={
-                application?.owner ? `${application.owner.name} · ${application.owner.email}` : '—'
+                application?.owner
+                  ? `${application.owner.name} · ${application.owner.email}`
+                  : 'Not set'
               }
             />
           </dl>
@@ -272,7 +288,9 @@ export function ClinicApplicationReview({
                     <Check value={x.npi ?? null} valid={isValidNpi(x.npi ?? '')} />
                   </td>
                   <td className="py-1.5 pr-4 text-slate-600">
-                    {x.licenseNumber ? `${x.licenseNumber} (${x.licenseState ?? '—'})` : '—'}
+                    {x.licenseNumber
+                      ? `${x.licenseNumber}${x.licenseState ? ` (${x.licenseState})` : ''}`
+                      : 'Not set'}
                   </td>
                   <td className="py-1.5 text-xs text-slate-600">
                     {[
@@ -282,7 +300,7 @@ export function ClinicApplicationReview({
                       x.title,
                     ]
                       .filter(Boolean)
-                      .join(' · ') || '—'}
+                      .join(' · ') || 'None'}
                   </td>
                 </tr>
               ))}

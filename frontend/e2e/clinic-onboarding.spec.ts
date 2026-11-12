@@ -174,7 +174,19 @@ test('a new clinic owner completes the application, then sets up while under rev
 
   // ── Step 1: practice details ──
   await page.locator('#legalName').fill('Sunrise Wellness Partners LLC')
-  await page.locator('#practiceType').selectOption('FUNCTIONAL_MEDICINE')
+  // CTO-04: no Sales rep field. CTO-17: primary + optional secondary contact only.
+  await expect(page.locator('#salesRep')).toHaveCount(0)
+  await expect(page.locator('#officeManagerName')).toHaveCount(0)
+  await expect(page.locator('#accountsPayableName')).toHaveCount(0)
+  await expect(page.locator('#secondaryContactName')).toBeVisible()
+  // CTO-18: "Other" takes a typed name; a near-miss of a listed type is offered.
+  await page.locator('#practiceType').selectOption('OTHER')
+  await page.locator('#practiceTypeOther').fill('longevitty')
+  const suggestion = page.getByTestId('practice-type-suggestion')
+  await expect(suggestion).toContainText('Longevity medical practice')
+  await suggestion.getByRole('button', { name: 'Use it' }).click()
+  // CTO-06: the CTO's core market is a listed type.
+  await expect(page.locator('#practiceType')).toHaveValue('LONGEVITY_MEDICAL')
   await page.locator('#locationCount').fill('2')
   await page.locator('#addressLine1').fill('100 Example Street')
   await page.locator('#city').fill('Testville')
@@ -186,14 +198,30 @@ test('a new clinic owner completes the application, then sets up while under rev
   await page.locator('#groupNpi').fill('1234567893')
   await expect(page.getByTestId('idcheck-NPI')).toHaveText(/check digit look right/)
   await page.locator('#federalTaxId').fill('12-3456789')
-  await page.locator('#estimatedSeats').fill('5')
+  // CTO-22: a ZIP outside the state is a warning only.
+  await page.locator('#postalCode').fill('10001')
+  await expect(page.getByTestId('zip-warning')).toBeVisible()
+  await page.locator('#postalCode').fill('75001')
+  await expect(page.getByTestId('zip-warning')).toHaveCount(0)
+  // CTO-09: a team of one. Typing replaces the pre-filled 1 instead of making "11".
+  await page.locator('#estimatedSeats').click()
+  await page.keyboard.type('1')
+  await expect(page.locator('#estimatedSeats')).toHaveValue('1')
+  await page.locator('#secondaryContactName').fill('Sam Second')
+  await page.locator('#secondaryContactEmail').fill('sam@example.test')
   await page.getByRole('button', { name: 'Save & continue' }).click()
 
   await expect(page).toHaveURL(/\/practitioners$/)
   const practice = calls.find((c) => c.key === 'PUT /onboarding/application/practice')!
+  expect(practice.body).not.toHaveProperty('salesRep')
+  expect(practice.body).not.toHaveProperty('officeManagerName')
   expect(practice.body).toMatchObject({
     legalName: 'Sunrise Wellness Partners LLC',
-    practiceType: 'FUNCTIONAL_MEDICINE',
+    practiceType: 'LONGEVITY_MEDICAL',
+    practiceTypeOther: null,
+    estimatedSeats: 1,
+    secondaryContactName: 'Sam Second',
+    secondaryContactEmail: 'sam@example.test',
     state: 'TX',
     timezone: 'America/Chicago',
     groupNpi: '1234567893',
@@ -400,9 +428,9 @@ test('platform admin: review queue → application → request changes → appro
         primaryContactName: 'Ada Stone',
         primaryContactEmail: 'ada@example.test',
         primaryContactPhone: null,
-        officeManagerName: null,
-        accountsPayableName: null,
-        accountsPayableEmail: null,
+        secondaryContactName: null,
+        secondaryContactEmail: null,
+        secondaryContactPhone: null,
         mailingSameAsPrimary: true,
         mailingAddressLine1: null,
         mailingCity: null,
@@ -416,7 +444,6 @@ test('platform admin: review queue → application → request changes → appro
         deaNumber: 'AB1234564',
         estimatedSeats: 3,
         referralSource: null,
-        salesRep: null,
         practitioners: [
           {
             name: 'Ada Stone',
@@ -505,3 +532,45 @@ test('platform admin: review queue → application → request changes → appro
     { decision: 'APPROVE' },
   ])
 })
+
+// CTO-05: the "Your account" fields line up on desktop and stack on a phone.
+for (const [name, width, height] of [
+  ['desktop', 1280, 900],
+  ['mobile', 375, 800],
+] as const) {
+  test(`"Your account" layout (${name})`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    const live: MockOnboarding = {
+      tenant: {
+        onboardingCompletedAt: null,
+        termsAcceptedAt: null,
+        verificationStatus: 'PENDING_REVIEW',
+      },
+      clinicProfile: null,
+    }
+    await installMockApi(page, {
+      role: 'SUPER_ADMIN',
+      newClinic: true,
+      signedIn: true,
+      onboarding: live,
+    })
+    await mockOnboarding(page, live)
+    await page.goto('/practice')
+    const seats = page.locator('#estimatedSeats')
+    const referral = page.locator('#referralSource')
+    await seats.scrollIntoViewIfNeeded()
+    const a = (await seats.boundingBox())!
+    const b = (await referral.boundingBox())!
+    if (name === 'desktop') {
+      // Same row, same top edge: label and input share a baseline.
+      expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1)
+      expect(b.x).toBeGreaterThan(a.x)
+    } else {
+      expect(b.y).toBeGreaterThan(a.y + a.height) // stacked
+    }
+    await page
+      .getByRole('heading', { name: 'Your account' })
+      .locator('xpath=ancestor::section[1]')
+      .screenshot({ path: `test-results/cto-05-your-account-${name}.png` })
+  })
+}

@@ -16,8 +16,10 @@ import {
   normalizeDea,
   normalizeEin,
   normalizeNpi,
+  isValidPracticeTypeOther,
   PRACTICE_TYPE_KEYS,
   US_STATE_CODES,
+  US_ZIP,
 } from '../utils/practiceIds'
 
 const requiredText = (label: string, max = 200) =>
@@ -62,9 +64,10 @@ const state = z
   .transform((v) => v.toUpperCase())
 const optionalState = blankable(isState, 'Choose a US state', (v) => v.toUpperCase())
 
-const ZIP = /^\d{5}(-\d{4})?$/
-const zip = z.string().trim().regex(ZIP, 'Enter a 5-digit ZIP code')
-const optionalZip = blankable((v) => ZIP.test(v), 'Enter a 5-digit ZIP code')
+// CTO-22: US-only addresses; same rule on both sides (practice-lists.json).
+const ZIP_MESSAGE = 'Enter a 5-digit ZIP or ZIP+4'
+const zip = z.string().trim().regex(US_ZIP, ZIP_MESSAGE)
+const optionalZip = blankable((v) => US_ZIP.test(v), ZIP_MESSAGE)
 
 /** "www.clinic.com" or "https://clinic.com" → a normalised https URL. */
 function toWebsite(v: string): string | null {
@@ -92,6 +95,8 @@ export const practiceDetailsBody = z
     practiceType: z.enum(PRACTICE_TYPE_KEYS as [string, ...string[]], {
       message: 'Choose a practice type',
     }),
+    /** Required (2 to 80 characters) when practiceType is OTHER (CTO-18). */
+    practiceTypeOther: optionalText(80),
     locationCount: z.coerce.number().int().min(1).max(500),
 
     // Primary location (written to the clinic's first location)
@@ -112,10 +117,11 @@ export const practiceDetailsBody = z
     primaryContactName: requiredText('Primary contact name'),
     primaryContactEmail: email,
     primaryContactPhone: optionalPhone,
-    officeManagerName: optionalText(200),
-    officeManagerEmail: optionalEmail,
-    accountsPayableName: optionalText(200),
-    accountsPayableEmail: optionalEmail,
+    // CTO-17: one optional secondary contact (office manager and accounts
+    // payable are no longer asked; unknown keys are stripped).
+    secondaryContactName: optionalText(200),
+    secondaryContactEmail: optionalEmail,
+    secondaryContactPhone: optionalPhone,
 
     // Mailing / billing address
     mailingSameAsPrimary: z.boolean(),
@@ -146,9 +152,16 @@ export const practiceDetailsBody = z
     // About the account
     estimatedSeats: z.coerce.number().int().min(1).max(1000),
     referralSource: optionalText(200),
-    salesRep: optionalText(100),
+    // CTO-04: "Sales rep" is gone; a client that still sends it is fine (stripped).
   })
   .superRefine((v, ctx) => {
+    if (v.practiceType === 'OTHER' && !isValidPracticeTypeOther(v.practiceTypeOther)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['practiceTypeOther'],
+        message: 'Type your practice type (2 to 80 characters)',
+      })
+    }
     if (!v.noNpi && !v.groupNpi) {
       ctx.addIssue({
         code: 'custom',

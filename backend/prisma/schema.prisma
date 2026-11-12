@@ -293,6 +293,8 @@ model ClinicProfile {
   legalName                String
   dbaName                  String?
   practiceType             String
+  /// The typed name when practiceType is OTHER (CTO-18). Never added to the list automatically.
+  practiceTypeOther        String?
   locationCount            Int       @default(1)
   officePhone              String?
   fax                      String?
@@ -300,6 +302,11 @@ model ClinicProfile {
   primaryContactName       String
   primaryContactEmail      String
   primaryContactPhone      String?
+  /// Optional second contact (CTO-17).
+  secondaryContactName     String?
+  secondaryContactEmail    String?
+  secondaryContactPhone    String?
+  /// Retired from the form (CTO-17); kept so existing rows are untouched.
   officeManagerName        String?
   officeManagerEmail       String?
   accountsPayableName      String?
@@ -318,6 +325,7 @@ model ClinicProfile {
   deaNumber                String?
   estimatedSeats           Int       @default(1)
   referralSource           String?
+  /// Retired (CTO-04): no longer accepted or returned; dropping the column needs agreement.
   salesRep                 String?
   /// [{name, email, phone?, credentials?, licenseNumber?, licenseState?, npi?, isOwner, isSelf}]
   practitioners            Json      @default("[]")

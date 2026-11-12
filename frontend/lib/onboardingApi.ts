@@ -28,6 +28,8 @@ export interface ClinicProfile {
   legalName: string
   dbaName: string | null
   practiceType: string
+  /** The typed name when practiceType is OTHER (CTO-18). */
+  practiceTypeOther: string | null
   locationCount: number
   officePhone: string | null
   fax: string | null
@@ -35,10 +37,9 @@ export interface ClinicProfile {
   primaryContactName: string
   primaryContactEmail: string
   primaryContactPhone: string | null
-  officeManagerName: string | null
-  officeManagerEmail: string | null
-  accountsPayableName: string | null
-  accountsPayableEmail: string | null
+  secondaryContactName: string | null
+  secondaryContactEmail: string | null
+  secondaryContactPhone: string | null
   mailingSameAsPrimary: boolean
   mailingAddressLine1: string | null
   mailingAddressLine2: string | null
@@ -55,7 +56,6 @@ export interface ClinicProfile {
   licenseState: string | null
   estimatedSeats: number
   referralSource: string | null
-  salesRep: string | null
   practitioners: Practitioner[]
   practiceCompletedAt: string | null
   practitionersCompletedAt: string | null
@@ -102,6 +102,8 @@ export interface PracticeDetailsPayload {
   legalName: string
   dbaName: string | null
   practiceType: string
+  /** The typed name when practiceType is OTHER (CTO-18). */
+  practiceTypeOther: string | null
   locationCount: number
   addressLine1: string
   addressLine2: string | null
@@ -115,10 +117,9 @@ export interface PracticeDetailsPayload {
   primaryContactName: string
   primaryContactEmail: string
   primaryContactPhone: string | null
-  officeManagerName: string | null
-  officeManagerEmail: string | null
-  accountsPayableName: string | null
-  accountsPayableEmail: string | null
+  secondaryContactName: string | null
+  secondaryContactEmail: string | null
+  secondaryContactPhone: string | null
   mailingSameAsPrimary: boolean
   mailingAddressLine1: string | null
   mailingAddressLine2: string | null
@@ -135,7 +136,6 @@ export interface PracticeDetailsPayload {
   deaNumber?: string | null
   estimatedSeats: number
   referralSource: string | null
-  salesRep: string | null
 }
 
 export const ACKNOWLEDGEMENTS = {

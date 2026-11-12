@@ -1,5 +1,5 @@
 /**
- * Client-side validation for the clinic application forms — the mirror of
+ * Client-side validation for the clinic application forms: the mirror of
  * backend/src/validation/onboardingSchemas.ts. The NPI / EIN / DEA checks are
  * the same functions on both sides (lib/practiceIds.ts, shared test cases in
  * shared/validation-cases/practice-ids.json); the API re-validates everything.
@@ -9,13 +9,17 @@ import {
   isValidDea,
   isValidEin,
   isValidNpi,
+  isValidPracticeTypeOther,
   PRACTITIONER_TITLES,
   US_STATE_CODES,
+  US_ZIP,
 } from '@/lib/practiceIds'
 import type { Application, PracticeDetailsPayload, Practitioner } from '@/lib/onboardingApi'
 
 const PHONE = /^[+()\d\s.-]{7,25}$/
-const ZIP = /^\d{5}(-\d{4})?$/
+// CTO-22: same ZIP rule as the backend (shared/validation-cases/practice-lists.json).
+const ZIP = US_ZIP
+const ZIP_MESSAGE = 'Enter a 5-digit ZIP or ZIP+4'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const text = z.string().trim()
@@ -37,6 +41,8 @@ export const practiceFormSchema = z
     sameAsLegal: z.boolean(),
     dbaName: optional(200),
     practiceType: text.min(1, 'Choose a practice type'),
+    /** CTO-18: required (2 to 80 characters) when practiceType is OTHER. */
+    practiceTypeOther: optional(80),
     locationCount: z
       .number({ message: 'Enter a number' })
       .int('Enter a whole number')
@@ -47,7 +53,7 @@ export const practiceFormSchema = z
     addressLine2: optional(200),
     city: required('City', 100),
     state,
-    postalCode: text.regex(ZIP, 'Enter a 5-digit ZIP code'),
+    postalCode: text.regex(ZIP, ZIP_MESSAGE),
     timezone: text.min(1, 'Choose a timezone'),
     officePhone: optionalPhone,
     fax: optionalPhone,
@@ -56,17 +62,17 @@ export const practiceFormSchema = z
     primaryContactName: required('Primary contact name'),
     primaryContactEmail: text.regex(EMAIL, 'Enter a valid email'),
     primaryContactPhone: optionalPhone,
-    officeManagerName: optional(200),
-    officeManagerEmail: optionalEmail,
-    accountsPayableName: optional(200),
-    accountsPayableEmail: optionalEmail,
+    // CTO-17: one optional secondary contact.
+    secondaryContactName: optional(200),
+    secondaryContactEmail: optionalEmail,
+    secondaryContactPhone: optionalPhone,
 
     mailingSameAsPrimary: z.boolean(),
     mailingAddressLine1: optional(200),
     mailingAddressLine2: optional(200),
     mailingCity: optional(100),
     mailingState: optionalState,
-    mailingPostalCode: text.refine((v) => !v || ZIP.test(v), 'Enter a 5-digit ZIP code'),
+    mailingPostalCode: text.refine((v) => !v || ZIP.test(v), ZIP_MESSAGE),
 
     noNpi: z.boolean(),
     groupNpi: optionalNpi,
@@ -89,9 +95,15 @@ export const practiceFormSchema = z
       .min(1, 'At least 1')
       .max(1000, 'Up to 1000'),
     referralSource: optional(200),
-    salesRep: optional(100),
   })
   .superRefine((v, ctx) => {
+    if (v.practiceType === 'OTHER' && !isValidPracticeTypeOther(v.practiceTypeOther)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['practiceTypeOther'],
+        message: 'Type your practice type (2 to 80 characters)',
+      })
+    }
     if (!v.noNpi && !v.groupNpi) {
       ctx.addIssue({
         code: 'custom',
@@ -137,6 +149,7 @@ export function practiceFormDefaults(
     sameAsLegal: !p?.dbaName,
     dbaName: p?.dbaName ?? '',
     practiceType: p?.practiceType ?? '',
+    practiceTypeOther: p?.practiceTypeOther ?? '',
     locationCount: p?.locationCount ?? 1,
     addressLine1: l?.addressLine1 ?? '',
     addressLine2: l?.addressLine2 ?? '',
@@ -150,10 +163,9 @@ export function practiceFormDefaults(
     primaryContactName: p?.primaryContactName ?? owner.name ?? '',
     primaryContactEmail: p?.primaryContactEmail ?? owner.email ?? '',
     primaryContactPhone: p?.primaryContactPhone ?? '',
-    officeManagerName: p?.officeManagerName ?? '',
-    officeManagerEmail: p?.officeManagerEmail ?? '',
-    accountsPayableName: p?.accountsPayableName ?? '',
-    accountsPayableEmail: p?.accountsPayableEmail ?? '',
+    secondaryContactName: p?.secondaryContactName ?? '',
+    secondaryContactEmail: p?.secondaryContactEmail ?? '',
+    secondaryContactPhone: p?.secondaryContactPhone ?? '',
     mailingSameAsPrimary: p?.mailingSameAsPrimary ?? true,
     mailingAddressLine1: p?.mailingAddressLine1 ?? '',
     mailingAddressLine2: p?.mailingAddressLine2 ?? '',
@@ -171,7 +183,6 @@ export function practiceFormDefaults(
     removeDea: false,
     estimatedSeats: p?.estimatedSeats ?? 1,
     referralSource: p?.referralSource ?? '',
-    salesRep: p?.salesRep ?? '',
   }
 }
 
@@ -182,6 +193,7 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     legalName: s(v.legalName),
     dbaName: v.sameAsLegal ? null : orNull(v.dbaName),
     practiceType: s(v.practiceType),
+    practiceTypeOther: s(v.practiceType) === 'OTHER' ? orNull(v.practiceTypeOther) : null,
     locationCount: Number(v.locationCount),
     addressLine1: s(v.addressLine1),
     addressLine2: orNull(v.addressLine2),
@@ -195,10 +207,9 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     primaryContactName: s(v.primaryContactName),
     primaryContactEmail: s(v.primaryContactEmail),
     primaryContactPhone: orNull(v.primaryContactPhone),
-    officeManagerName: orNull(v.officeManagerName),
-    officeManagerEmail: orNull(v.officeManagerEmail),
-    accountsPayableName: orNull(v.accountsPayableName),
-    accountsPayableEmail: orNull(v.accountsPayableEmail),
+    secondaryContactName: orNull(v.secondaryContactName),
+    secondaryContactEmail: orNull(v.secondaryContactEmail),
+    secondaryContactPhone: orNull(v.secondaryContactPhone),
     mailingSameAsPrimary: v.mailingSameAsPrimary,
     mailingAddressLine1: v.mailingSameAsPrimary ? null : orNull(v.mailingAddressLine1),
     mailingAddressLine2: v.mailingSameAsPrimary ? null : orNull(v.mailingAddressLine2),
@@ -213,7 +224,6 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     ...(v.removeDea ? { deaNumber: null } : s(v.deaNumber) ? { deaNumber: s(v.deaNumber) } : {}),
     estimatedSeats: Number(v.estimatedSeats),
     referralSource: orNull(v.referralSource),
-    salesRep: orNull(v.salesRep),
   }
 }
 
