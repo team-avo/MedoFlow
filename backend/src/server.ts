@@ -89,7 +89,7 @@ const bootstrap = async (): Promise<void> => {
     console.warn(
       ring
         ? `[field-encryption] keys loaded (active "${ring.activeKid}", ${ring.keys.size} total)`
-        : '[field-encryption] no keys configured — clinical text is stored unencrypted'
+        : '[field-encryption] no keys configured: clinical text is stored unencrypted'
     )
   } catch (err) {
     console.error(
@@ -106,7 +106,7 @@ const bootstrap = async (): Promise<void> => {
     console.warn('AI Scribe worker started (transcription will run when Redis is available)')
   } catch (err) {
     console.warn(
-      'AI Scribe worker not started — transcription will stay "Processing" until Redis is running and the server is restarted:',
+      'AI Scribe worker not started. Transcription will stay "Processing" until Redis is running and the server is restarted:',
       err instanceof Error ? err.message : err
     )
   }

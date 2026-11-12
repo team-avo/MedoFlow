@@ -75,7 +75,7 @@ export function PatientWelcomeCard({ firstName, themeColor, routeId, onOpenHub }
       ? `$${Number(openInvoice.amountDue).toFixed(2)}`
       : typeof openInvoice.total !== 'undefined'
         ? `$${Number(openInvoice.total).toFixed(2)}`
-        : '—'
+        : 'Not set'
     : 'All settled'
   const invoiceSub = openInvoice
     ? `Invoice ${openInvoice.id.slice(0, 8)} · ${openInvoice.status ?? 'OPEN'}`

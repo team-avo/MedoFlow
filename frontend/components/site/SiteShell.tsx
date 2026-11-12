@@ -190,7 +190,7 @@ function HeaderActions() {
           type="button"
           className="mf-icon-btn"
           onClick={actions.openCart}
-          aria-label={`Open cart${actions.cartCount ? ` — ${actions.cartCount} item${actions.cartCount === 1 ? '' : 's'}` : ''}`}
+          aria-label={`Open cart${actions.cartCount ? `, ${actions.cartCount} item${actions.cartCount === 1 ? '' : 's'}` : ''}`}
         >
           <ShoppingBag size={20} aria-hidden />
           {actions.cartCount > 0 && <span className="mf-badge">{actions.cartCount}</span>}

@@ -194,10 +194,10 @@ function dropUnboundLinks(settings: SiteSettings): SiteSettings {
 /**
  * Installs a template into the clinic's DRAFT (nothing goes live until
  * publish).
- *   replace     — theme, menus and every template page. Pages that already
+ *   replace: theme, menus and every template page. Pages that already
  *                 exist get the template copy as their draft; any unpublished
  *                 edits are saved as a revision first, so nothing is lost.
- *   styles-only — theme tokens and header/footer layout only; pages untouched.
+ *   styles-only: theme tokens and header/footer layout only; pages untouched.
  */
 export async function installTemplate(
   actor: SiteActor,

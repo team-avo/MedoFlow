@@ -3,7 +3,7 @@
 /**
  * The consultation room's two primary controls, always side by side and
  * always rendered (demo feedback WS2: "video call is shadowed by the manual
- * recording button — make sure both are visible and working").
+ * recording button: make sure both are visible and working").
  *
  *  - Video: Start call / End call.
  *  - Recording: Start / Stop, Upload & transcribe, or the processing state.

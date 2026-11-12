@@ -166,7 +166,7 @@ function GetStartedInner() {
         </h1>
         <p className="mt-3 text-slate-600">
           {catalog?.billingMode === 'demo'
-            ? 'Create a clinic on the demo — everything is unlocked.'
+            ? 'Create a clinic on the demo; everything is unlocked.'
             : `Start your ${catalog?.trialDays ?? 14}-day free trial. No credit card required.`}
         </p>
       </div>
@@ -234,7 +234,7 @@ function GetStartedInner() {
                     </span>
                   )}
                   {availability === 'idle' && 'Your clinic’s site, booking and patient portal'}
-                  {availability === 'error' && 'Could not check right now — you can still continue'}
+                  {availability === 'error' && 'Could not check right now. You can still continue'}
                 </span>
               }
             >

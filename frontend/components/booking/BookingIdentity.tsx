@@ -3,7 +3,7 @@
 /**
  * Who the booking is for, on the Review step (demo feedback WS1). Patients
  * book for themselves only, so the details always come from the signed-in
- * profile — never re-typed, and never a password field in the booking form.
+ * profile: never re-typed, and never a password field in the booking form.
  *
  *  - YourDetailsCard: read-only name / email / phone. If the profile has no
  *    phone yet, one inline field saves it to the profile (first entry, once).

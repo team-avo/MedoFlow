@@ -19,7 +19,7 @@ export interface UseAudioRecorderReturn {
 /**
  * React hook wrapping browser MediaRecorder API for consultation audio capture.
  *
- * Records the provider's microphone only — no screen-share required.
+ * Records the provider's microphone only: no screen-share required.
  *
  * Why microphone-only is the right approach here:
  *   - The Jitsi iframe runs on a cross-origin domain (8x8.vc), so the only
@@ -36,7 +36,7 @@ export interface UseAudioRecorderReturn {
  *     With echoCancellation disabled the bleed is even clearer.
  *
  *   - Result: recording starts silently and automatically when the provider
- *     joins the Jitsi call — no manual steps, no popup, no user training.
+ *     joins the Jitsi call: no manual steps, no popup, no user training.
  */
 export function useAudioRecorder(): UseAudioRecorderReturn {
   const [isRecording, setIsRecording] = useState(false)
@@ -89,7 +89,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     }
 
     try {
-      // Microphone only — captures provider voice + patient voice via speakers.
+      // Microphone only: captures provider voice + patient voice via speakers.
       // echoCancellation is intentionally OFF so the patient's audio (playing
       // through speakers) is not subtracted from the recording.
       const micStream = await navigator.mediaDevices.getUserMedia({

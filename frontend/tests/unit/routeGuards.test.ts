@@ -1,4 +1,4 @@
-/** F0.4.2 (b) — each role's route guard. */
+/** F0.4.2 (b): each role's route guard. */
 import { describe, expect, it } from 'vitest'
 import {
   accountRedirect,
@@ -43,7 +43,7 @@ describe('dashboard guard', () => {
     ['FRONT_DESK', '/dashboard/front-desk', null],
     ['FRONT_DESK', '/dashboard/services', '/dashboard'],
     ['ACCOUNTING', '/dashboard/front-desk', '/dashboard'],
-    // Component 8 — website builder
+    // Component 8: website builder
     ['SUPER_ADMIN', '/dashboard/site/editor', null],
     ['MARKETING', '/dashboard/site/editor', null],
     ['MARKETING', '/dashboard/site/domains', '/dashboard'],

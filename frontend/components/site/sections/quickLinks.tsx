@@ -3,7 +3,7 @@
 /**
  * The homepage menu (WS3): the clinic's quick links from settings.homeMenu
  * (edited under Menus → Homepage), as pills or tiles. Links that lead
- * nowhere right now — e.g. Products while the clinic sells nothing — are
+ * nowhere right now: e.g. Products while the clinic sells nothing, are
  * left out on the live site.
  */
 import { ArrowRight } from 'lucide-react'

@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * F2.1 — the one review screen behind both scribe entry points (the AI
+ * F2.1: the one review screen behind both scribe entry points (the AI
  * Scribe console and the consultation room).
  *
  *  - the provider edits the SOAP note AND the patient-facing summary: the
  *    AI only drafts, nothing it wrote is used unreviewed (B2.3, F2.3);
  *  - "Approve & send" saves exactly what is on screen, finalizes the note,
  *    publishes only the summary to the patient and sends the confirmed
- *    products — one action, one server transaction (B2.4, B5.3);
+ *    products: one action, one server transaction (B2.4, B5.3);
  *  - it stays disabled until the note and summary have content and any
  *    detected products are confirmed.
  */
@@ -195,7 +195,7 @@ export function ScribeReviewPanel({
       </div>
 
       <p className="text-sm text-slate-500">
-        Drafted by AI from the conversation — check every section. Nothing is added to the record or
+        Drafted by AI from the conversation. Check every section. Nothing is added to the record or
         sent to the patient until you approve.
       </p>
 

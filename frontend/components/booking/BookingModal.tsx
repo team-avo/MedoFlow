@@ -1,21 +1,21 @@
 'use client'
 
 /**
- * BookingModal — in-nav appointment booking for the patient shell.
+ * BookingModal: in-nav appointment booking for the patient shell.
  *
- * Flow (all steps render in the same dialog — no page navigation):
- *   1. Service     — pick what to book from the clinic's service catalogue.
- *   2. Provider    — pick a clinician offering that service, or "Any".
- *   3. Schedule    — pick a date from the next 14 days, then a time slot.
+ * Flow (all steps render in the same dialog, no page navigation):
+ *   1. Service: pick what to book from the clinic's service catalogue.
+ *   2. Provider: pick a clinician offering that service, or "Any".
+ *   3. Schedule: pick a date from the next 14 days, then a time slot.
  *                    A slot hold is created on select to prevent races.
- *   4. Review      — summary + confirm. Calls createAppointment.
+ *   4. Review: summary + confirm. Calls createAppointment.
  *
  * Post-success:
  *   • If the service is prepaid / no clientSecret is returned, show an
  *     in-modal confirmation card with "View appointments" + "Book another".
  *   • If Stripe returns a clientSecret, close the modal and push the patient
  *     to the existing /payment/[id] flow (no Stripe Elements in the modal
- *     itself — keeps the scope tight).
+ *     itself: keeps the scope tight).
  *
  * The provider wraps the public shell so the nav, the account page, the
  * store, and the avatar menu can all trigger booking from one place.
@@ -131,7 +131,7 @@ function BookingModal({
   // CTO-31: in person or a video visit; starts from the service's default.
   const [modeChoice, setModeChoice] = React.useState<'IN_PERSON' | 'VIRTUAL' | null>(null)
   const mode = modeChoice ?? flow.service?.defaultMode ?? 'IN_PERSON'
-  // F1.1: the chosen time was taken — back on the time picker with a notice
+  // F1.1: the chosen time was taken, back on the time picker with a notice
   // and freshly loaded availability, instead of an error.
   const [slotTaken, setSlotTaken] = React.useState(false)
   const [availabilityKey, setAvailabilityKey] = React.useState(0)
@@ -140,7 +140,7 @@ function BookingModal({
     setAvailabilityKey((k) => k + 1)
   }
 
-  // Reset when closing — hold is released as a best-effort cleanup.
+  // Reset when closing: hold is released as a best-effort cleanup.
   React.useEffect(() => {
     if (open) return
     if (flow.hold && clinicId) {
@@ -245,7 +245,7 @@ function BookingModal({
     setStep('service')
   }
 
-  // Auth gate — if a non-patient somehow opens this, nudge them.
+  // Auth gate: if a non-patient somehow opens this, nudge them.
   const unauthorized = open && (!isAuthenticated || !clinicId)
 
   return (
@@ -698,7 +698,7 @@ function ScheduleStep({
           <div className="space-y-3">
             <EmptyBlock
               title="Fully booked"
-              body="Try a different date — mornings tend to open up first."
+              body="Try a different date: mornings tend to open up first."
             />
             {provider && (
               <button

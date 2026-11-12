@@ -1,5 +1,5 @@
 /**
- * URL slugs for services, providers and products — the <slug> in
+ * URL slugs for services, providers and products, the <slug> in
  * /services/<slug>, /team/<slug> and /store/<slug>. A slug is assigned once
  * (on create, or lazily for older rows) and only changes when an admin edits
  * it; every change leaves a 301 redirect behind.

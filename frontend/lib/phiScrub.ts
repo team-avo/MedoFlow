@@ -108,7 +108,7 @@ export function scrubPhi(value: unknown, depth = 0, seen = new WeakSet<object>()
 /**
  * Reduce any thrown value to a small, PHI-free summary. Axios errors carry
  * the request config (body, headers incl. Authorization) and the response
- * body — none of that may reach a log, so only status/code/name survive.
+ * body: none of that may reach a log, so only status/code/name survive.
  */
 export function describeError(err: unknown): Record<string, string | number> {
   if (err == null) return {}

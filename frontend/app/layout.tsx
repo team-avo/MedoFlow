@@ -9,10 +9,10 @@ import { TopProgressBar } from '@/components/common/TopProgressBar'
 import { TourOverlay } from '@/components/tour/TourOverlay'
 import { Toaster } from '@/components/ui/sonner'
 
-// Self-hosted fonts (app/fonts, SIL OFL 1.1 — licences alongside). The build
+// Self-hosted fonts (app/fonts, SIL OFL 1.1, licences alongside). The build
 // used to download them from Google Fonts via next/font/google; an occasional
 // unexpected Google response crashed `next build` (and so deploys), so the
-// files — the same latin variable-weight woff2s Google serves — are in the repo.
+// files: the same latin variable-weight woff2s Google serves, are in the repo.
 const inter = localFont({
   src: './fonts/inter-latin-wght.woff2',
   weight: '100 900',

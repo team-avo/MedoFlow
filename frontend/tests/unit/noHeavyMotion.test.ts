@@ -1,5 +1,5 @@
 /**
- * Frontend smoothness pass — source-level guards that keep the app light:
+ * Frontend smoothness pass: source-level guards that keep the app light:
  *  - no animation / 3D / smooth-scroll library comes back (framer-motion,
  *    three, @react-three, lenis);
  *  - no full-screen blocking loader comes back (GlobalApiLoader);

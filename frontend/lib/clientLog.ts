@@ -4,7 +4,7 @@
  *
  * Callers pass a fixed context string plus the caught value; only a scrubbed
  * summary of the error (name, HTTP status, API code, masked message) is
- * printed — never request/response bodies, user objects or free text.
+ * printed: never request/response bodies, user objects or free text.
  */
 import { describeError, scrubText } from './phiScrub'
 

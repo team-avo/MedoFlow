@@ -12,7 +12,7 @@ const PALETTES = {
 } as const
 
 /**
- * Static brand gradient — soft colour pools as a section background.
+ * Static brand gradient: soft colour pools as a section background.
  * Plain radial gradients: no blur filter and no animation loop, so it costs
  * one paint instead of a GPU layer that repaints every frame.
  */

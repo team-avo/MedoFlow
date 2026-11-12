@@ -34,7 +34,7 @@ const validateAppointmentForProvider = async (
   return appointment
 }
 
-/** Which SOAP sections a write touches (names only — never the text). */
+/** Which SOAP sections a write touches (names only: never the text). */
 const soapFieldsPresent = (d: {
   subjective?: string | null
   objective?: string | null
@@ -111,7 +111,7 @@ export const createVisitRecord = async (
     return { ...created, versionId: version.id }
   })
 
-  // B0.3.2 / B3.3: the note text is never copied into the audit log —
+  // B0.3.2 / B3.3: the note text is never copied into the audit log,
   // the version id points at the immutable (encrypted) snapshot.
   await auditService.logAudit({
     clinicId,

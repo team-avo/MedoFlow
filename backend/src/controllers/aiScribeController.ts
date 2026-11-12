@@ -76,7 +76,7 @@ async function withConsent<
   return { ...session, consent }
 }
 
-/** GET /ai-scribe/capabilities — what the UI may offer. No hosts, URLs or keys. */
+/** GET /ai-scribe/capabilities: what the UI may offer. No hosts, URLs or keys. */
 export const getCapabilities = (_req: Request, res: Response): void => {
   successResponse(res, 200, 'Capabilities retrieved', { capabilities: scribeCapabilities() })
 }
@@ -98,7 +98,7 @@ export const startSession = asyncHandler(
   }
 )
 
-/** POST /ai-scribe/session/:id/consent — provider attests verbal consent. */
+/** POST /ai-scribe/session/:id/consent: provider attests verbal consent. */
 export const attestConsent = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { providerId, clinicId } = await providerScope(req)
@@ -156,7 +156,7 @@ export const uploadAudio = asyncHandler(
   }
 )
 
-/** POST /ai-scribe/session/:id/process — retry processing the stored audio. */
+/** POST /ai-scribe/session/:id/process: retry processing the stored audio. */
 export const process = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const sessionId = req.params.id as string
@@ -346,7 +346,7 @@ export const getByVisitRecord = asyncHandler(
   }
 )
 
-/** GET /ai-scribe/session/:id/longitudinal — the patient's prior approved visits (FR-7). */
+/** GET /ai-scribe/session/:id/longitudinal: the patient's prior approved visits (FR-7). */
 export const getLongitudinal = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const sessionId = req.params.id as string

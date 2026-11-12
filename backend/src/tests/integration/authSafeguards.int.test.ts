@@ -1,5 +1,5 @@
 /**
- * B0.2 — identity, sessions and access safeguards, end to end over HTTP:
+ * B0.2: identity, sessions and access safeguards, end to end over HTTP:
  *  B0.2.1 logout + refresh rotation invalidate tokens
  *  B0.2.2 MFA enrol → challenge (valid / invalid / replayed / expired) → recovery code
  *  B0.2.3 idle timeout is enforced server-side

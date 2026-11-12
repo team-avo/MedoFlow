@@ -190,7 +190,7 @@ export const SECTION_SETTINGS = {
         heading: shortText(),
         intro: longText(600),
         submitLabel: z.string().max(40).default('Send message'),
-        successMessage: z.string().max(300).default('Thanks — we will be in touch shortly.'),
+        successMessage: z.string().max(300).default('Thanks, we will be in touch shortly.'),
         askPhone: z.boolean().default(true),
         consentText: longText(400),
       })

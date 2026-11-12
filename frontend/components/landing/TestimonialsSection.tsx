@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * TestimonialsSection — social proof, made human.
+ * TestimonialsSection: social proof, made human.
  *
  * Big featured quote up top with a real provider's face. Three smaller
  * testimonial tiles below from different specialties. Hover-tilt for
@@ -46,7 +46,7 @@ const others: Testimonial[] = [
   },
   {
     quote:
-      'The AI scribe gave me my evenings back. I sign 12 charts during the day now — not at 9 PM with a glass of wine and a sigh.',
+      'The AI scribe gave me my evenings back. I sign 12 charts during the day now, not at 9 PM with a glass of wine and a sigh.',
     who: 'Dr. Priya Nair',
     role: 'Family Medicine',
     clinic: 'Lotus Family Med',
@@ -55,7 +55,7 @@ const others: Testimonial[] = [
   },
   {
     quote:
-      "Our front desk hires a new admin in week one — and they're productive by lunch. The interface just makes sense.",
+      "Our front desk hires a new admin in week one, and they're productive by lunch. The interface just makes sense.",
     who: 'Elena Vasquez',
     role: 'Practice Manager',
     clinic: 'BrightPath Mental Health',
@@ -154,7 +154,7 @@ export function TestimonialsSection() {
               Real owners. Real numbers. <span className="text-ink-muted">Real evenings off.</span>
             </>
           }
-          description="2,400+ clinics across 14 specialties — from solo therapists to 20-provider multi-location groups."
+          description="2,400+ clinics across 14 specialties, from solo therapists to 20-provider multi-location groups."
         />
 
         <div className="mx-auto mt-16 max-w-6xl">
@@ -167,7 +167,7 @@ export function TestimonialsSection() {
           </div>
         </div>
 
-        {/* Trust strip — clinic name marquee */}
+        {/* Trust strip: clinic name marquee */}
         <div className="mx-auto mt-20 max-w-5xl text-center">
           <p className="mf-eyebrow text-ink-muted">Also running on MedoFlow</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-x-7 gap-y-3 text-[14px] font-medium text-ink-muted">

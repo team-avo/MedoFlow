@@ -71,7 +71,7 @@ function TimelineTab({ patientId, clinicId }: { patientId: string; clinicId?: st
   appointments.forEach((a) => {
     items.push({
       type: 'Appointment',
-      title: `${a.service.name} — ${a.location.name}`,
+      title: `${a.service.name}: ${a.location.name}`,
       date: a.startTime,
       id: a.id,
     })

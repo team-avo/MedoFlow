@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS2 — "video call is shadowed by the manual recording
+ * Demo feedback WS2: "video call is shadowed by the manual recording
  * button": in every state both controls are rendered, the recording one
  * works during a call, and when it can't be used it says why.
  */

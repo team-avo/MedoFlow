@@ -74,8 +74,8 @@ export const requestMeta = (
 
 /**
  * Records that `req.user` viewed a sensitive record (B0.3.1). Only call this
- * for PHI-heavy reads — SOAP notes / visit records, scribe transcripts,
- * patient files — so audit volume stays meaningful. Also feeds the
+ * for PHI-heavy reads: SOAP notes / visit records, scribe transcripts,
+ * patient files: so audit volume stays meaningful. Also feeds the
  * anomalous-access monitor (B0.6.5).
  */
 export const logRead = async (

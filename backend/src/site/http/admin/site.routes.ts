@@ -1,4 +1,4 @@
-/** /api/v1/site — the site as a whole: settings, publish, preview links, AI copy. */
+/** /api/v1/site: the site as a whole: settings, publish, preview links, AI copy. */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'

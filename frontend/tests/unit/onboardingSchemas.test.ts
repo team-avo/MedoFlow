@@ -1,4 +1,4 @@
-/** Clinic onboarding — client validation of the application forms. */
+/** Clinic onboarding: client validation of the application forms. */
 import { describe, expect, it } from 'vitest'
 import {
   emptyPractitioner,

@@ -111,7 +111,7 @@ function ProviderDashboardContent() {
     enabled: !!clinicId,
   })
 
-  // Live clock — recompute "in 5 min" countdowns every 30 s.
+  // Live clock: recompute "in 5 min" countdowns every 30 s.
   const [now, setNow] = React.useState<Date>(() => new Date())
   React.useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30_000)
@@ -147,7 +147,7 @@ function ProviderDashboardContent() {
     return Array.from(groups.values())
   }, [upcoming, today])
 
-  // Pick a sensible "next break" — a 30+ minute gap between visits, or a
+  // Pick a sensible "next break", a 30+ minute gap between visits, or a
   // default mid-day marker if the schedule is empty.
   const nextBreak = React.useMemo(() => {
     for (let i = 0; i < todaysUpcoming.length - 1; i++) {
@@ -157,7 +157,7 @@ function ProviderDashboardContent() {
         return formatTime(thisEnd)
       }
     }
-    return todaysUpcoming.length ? '—' : '12:30 PM'
+    return todaysUpcoming.length ? 'None' : '12:30 PM'
   }, [todaysUpcoming])
 
   const isLoading = appointmentsLoading || plansLoading
@@ -166,7 +166,7 @@ function ProviderDashboardContent() {
     <PageContainer className="space-y-8">
       {/* CTO-30: an appointment within 10 minutes, with Start scribe. */}
       <StartingSoonCard />
-      {/* Hero — gradient welcome card with live "next up" chip */}
+      {/* Hero: gradient welcome card with live "next up" chip */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#1C8B81] text-white">
         <div className="relative flex flex-col gap-8 p-8 lg:flex-row lg:items-center lg:justify-between lg:p-10">
           <div className="space-y-4">
@@ -242,7 +242,7 @@ function ProviderDashboardContent() {
         </div>
       </div>
 
-      {/* KPI row — tinted cards for a livelier feel */}
+      {/* KPI row: tinted cards for a livelier feel */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <KPIStatCard
           label="Today's Volume"
@@ -267,7 +267,7 @@ function ProviderDashboardContent() {
         />
       </div>
 
-      {/* AI Scribe queue — the main attraction */}
+      {/* AI Scribe queue: the main attraction */}
       <div className="grid gap-6 lg:grid-cols-3">
         <AppCard className="overflow-hidden border border-[#E5E7EB] shadow-none lg:col-span-2">
           <AppCardHeader className="flex flex-row items-center justify-between border-b border-[#E5E7EB] bg-gradient-to-r from-white via-[#F7FDFC] to-[#F0FDFA] py-5">
@@ -308,7 +308,7 @@ function ProviderDashboardContent() {
                 </div>
                 <p className="text-sm font-medium">No upcoming sessions in the next 7 days.</p>
                 <p className="text-xs text-slate-400">
-                  When a patient books, it&apos;ll appear here — one tap to start the Scribe.
+                  When a patient books, it&apos;ll appear here. One tap starts the Scribe.
                 </p>
               </div>
             ) : (
@@ -419,7 +419,7 @@ function ProviderDashboardContent() {
           </AppCardContent>
         </AppCard>
 
-        {/* Side rail — Scribe primer + quick links */}
+        {/* Side rail: Scribe primer + quick links */}
         <div className="space-y-6">
           <AppCard className="relative overflow-hidden border-none bg-gradient-to-br from-[#1E3A5F] via-[#233F63] to-[#0F766E] text-white shadow-card">
             <AppCardContent className="relative space-y-5 p-7">

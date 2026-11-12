@@ -70,12 +70,12 @@ export const heritage: SiteTemplate = {
           ],
         },
       ],
-      text: 'Gentle care for every member of the family — from first visits to grandparents.',
+      text: 'Gentle care for every member of the family, from first visits to grandparents.',
     },
     homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: {
       enabled: true,
-      text: 'Welcoming new families — first check-ups for kids under 3 are free.',
+      text: 'Welcoming new families: first check-ups for kids under 3 are free.',
       link: templatePageRef('new-patients'),
     },
     social: {},
@@ -105,7 +105,7 @@ export const heritage: SiteTemplate = {
         sec('quick-links', 'pills', { heading: '' }),
         sec('service-grid', 'cards', {
           heading: 'Care for all ages',
-          intro: 'Check-ups, cleanings, treatments and advice — under one friendly roof.',
+          intro: 'Check-ups, cleanings, treatments and advice, under one friendly roof.',
           maxItems: 6,
           showPrices: false,
           showDuration: true,
@@ -188,7 +188,7 @@ export const heritage: SiteTemplate = {
         sec('steps', 'numbered', {
           heading: 'Your first visit',
           items: [
-            { title: 'Book online', text: 'Choose a time that works — evening slots available.' },
+            { title: 'Book online', text: 'Choose a time that works. Evening slots available.' },
             {
               title: 'Fill in a short form',
               text: 'We will send a secure intake form before your visit.',
@@ -209,7 +209,7 @@ export const heritage: SiteTemplate = {
             },
             {
               question: 'Can I book for my whole family?',
-              answer: 'Yes — book back-to-back appointments, or call us and we will arrange them.',
+              answer: 'Yes. Book back-to-back appointments, or call us and we will arrange them.',
             },
             {
               question: 'Do you see young children?',

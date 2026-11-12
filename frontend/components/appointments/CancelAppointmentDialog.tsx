@@ -3,7 +3,7 @@
 /**
  * Cancel an appointment with the clinic's cancellation policy stated up
  * front (F1.3): when free cancellation ends, and the fee that applies inside
- * the window — so a patient or staff member sees the consequence before
+ * the window: so a patient or staff member sees the consequence before
  * confirming. Used on the patient's appointment page and the staff sheet.
  */
 import React, { useState } from 'react'

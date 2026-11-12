@@ -79,7 +79,7 @@ export function IdleTimeoutManager({
     try {
       window.localStorage.setItem(ACTIVITY_STORAGE_KEY, String(at))
     } catch {
-      // storage unavailable — this tab still tracks its own activity
+      // storage unavailable: this tab still tracks its own activity
     }
   }, [])
 
@@ -152,7 +152,7 @@ export function IdleTimeoutManager({
         tick()
       }
     }
-    // Coming back to the tab is not activity — re-check immediately so an
+    // Coming back to the tab is not activity, re-check immediately so an
     // expired session is closed before anything is shown.
     const onVisible = () => {
       if (document.visibilityState === 'visible') tick()

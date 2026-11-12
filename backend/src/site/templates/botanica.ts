@@ -52,7 +52,7 @@ export const botanica: SiteTemplate = {
     seo: {
       titleSuffix: '',
       description:
-        'Integrative, root-cause care for lasting health — naturopathic consultations, nutrition and supplements.',
+        'Integrative, root-cause care for lasting health: naturopathic consultations, nutrition and supplements.',
       ogImage: null,
     },
   },
@@ -62,14 +62,14 @@ export const botanica: SiteTemplate = {
       slug: 'home',
       title: 'Home',
       seoDescription:
-        'Integrative, root-cause care for lasting health — naturopathic consultations, nutrition and supplements.',
+        'Integrative, root-cause care for lasting health: naturopathic consultations, nutrition and supplements.',
       showInNav: false,
       sections: [
         sec('hero', 'split', {
           eyebrow: 'Integrative & naturopathic care',
           headline: 'Get to the root of how you feel',
           subheadline:
-            'Unhurried consultations that look at sleep, stress, nutrition and history together — then a plan that fits your life.',
+            'Unhurried consultations that look at sleep, stress, nutrition and history together, then a plan that fits your life.',
           primaryCta: bookCta('Book a consult'),
           secondaryCta: { label: 'Our approach', link: templatePageRef('approach') },
           image: { src: '/site-samples/hero-botanica.svg', alt: 'Fresh herbs and leaves' },
@@ -141,7 +141,7 @@ export const botanica: SiteTemplate = {
             {
               question: 'Do you replace my regular doctor?',
               answer:
-                'No — we work alongside your primary care provider and share notes with your consent.',
+                'No. We work alongside your primary care provider and share notes with your consent.',
             },
             {
               question: 'Is testing always required?',
@@ -162,7 +162,7 @@ export const botanica: SiteTemplate = {
       variant: 'list',
       closing: {
         heading: 'Not sure which visit?',
-        text: 'Start with a first consultation — we will guide you from there.',
+        text: 'Start with a first consultation; we will guide you from there.',
       },
     }),
     teamPage({

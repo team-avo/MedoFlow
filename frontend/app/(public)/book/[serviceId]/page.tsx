@@ -106,10 +106,10 @@ function BookingPageContent() {
   const [slotHoldId, setSlotHoldId] = useState<string | null>(null)
   const [holdingSlot, setHoldingSlot] = useState(false)
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null)
-  // Default ON — most patients expect automated note-taking as part of modern
+  // Default ON: most patients expect automated note-taking as part of modern
   // telehealth. They can uncheck during review if they'd rather opt out.
   const [aiScribeConsent, setAiScribeConsent] = useState<boolean>(true)
-  // F1.1: the chosen time was taken (or its hold expired) — back on the time
+  // F1.1: the chosen time was taken (or its hold expired): back on the time
   // picker with a notice and fresh availability, not an error.
   const [slotTaken, setSlotTaken] = useState(false)
   const [waitlistOpen, setWaitlistOpen] = useState(false)
@@ -123,7 +123,7 @@ function BookingPageContent() {
   })
 
   // Apply the clinic's brand color across the booking page so the patient
-  // never sees Medoflow's teal — just the clinic accent they came from.
+  // never sees Medoflow's teal: just the clinic accent they came from.
   const themeColor = clinic?.themeColor?.trim() || '#0D9488'
   const themeStyle = React.useMemo(
     () =>
@@ -698,7 +698,7 @@ function BookingPageContent() {
                       </div>
                     )}
 
-                    {/* AI Scribe consent — captured here so the provider
+                    {/* AI Scribe consent: captured here so the provider
                         doesn't have to prompt for it mid-visit. */}
                     <label
                       className={cn(
@@ -749,7 +749,9 @@ function BookingPageContent() {
                       >
                         {selectedPackageId
                           ? 'Confirm with Package'
-                          : `Confirm visit · $${service?.defaultPrice ?? '—'}`}{' '}
+                          : service?.defaultPrice != null
+                            ? `Confirm visit · $${service.defaultPrice}`
+                            : 'Confirm visit'}{' '}
                         <ArrowRight className="ml-2 h-4 w-4" />
                       </AppButton>
                     </div>
@@ -885,7 +887,7 @@ function BookingConfirmation({
   intakeHref: string
 }) {
   // Build a downloadable .ics file inline so patients can drop the
-  // visit straight onto their calendar — the single highest-leverage
+  // visit straight onto their calendar, the single highest-leverage
   // post-booking action.
   const icsHref = React.useMemo(() => {
     if (!startTime) return null

@@ -1,4 +1,4 @@
-/** F0.2.1 — idle window maths. */
+/** F0.2.1: idle window maths. */
 import { describe, expect, it } from 'vitest'
 import { heartbeatDue, idlePhase, idleWindow, secondsLeft } from '@/lib/idleTimeout'
 

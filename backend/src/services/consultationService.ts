@@ -87,7 +87,7 @@ const rotateJoinToken = async (sessionId: string, clinicId: string) => {
 }
 
 // ---------------------------------------------------------------------------
-// Sanitization — strip sensitive fields for patient view
+// Sanitization: strip sensitive fields for patient view
 // ---------------------------------------------------------------------------
 
 export function sanitizeForPatient(session: Record<string, unknown>) {
@@ -118,7 +118,7 @@ export const createOrGetSession = async (
     throwApi('Appointment not found', 404)
   }
   if (appointment.providerId !== providerId) {
-    throwApi('Access denied — appointment belongs to another provider', 403, 'forbidden')
+    throwApi('Access denied: appointment belongs to another provider', 403, 'forbidden')
   }
   if (!['CONFIRMED', 'COMPLETED'].includes(appointment.status)) {
     throwApi(
@@ -150,7 +150,7 @@ export const createOrGetSession = async (
     return existing
   }
 
-  // Create new session — pre-grant consent if the patient opted in while
+  // Create new session: pre-grant consent if the patient opted in while
   // booking. The appointment carries `aiScribeConsentGrantedAt` when so.
   const preGrantedAt = appointment.aiScribeConsentGrantedAt ?? null
   const session = await prisma.consultationSession.create({
@@ -242,7 +242,7 @@ export const getSessionById = async (sessionId: string, userId: string, role: Ro
 
 export const getSessionByToken = async (joinToken: string) => {
   // The join token is the capability (anonymous patients join with it alone),
-  // so the lookup is cross-clinic by design — also for logged-in callers.
+  // so the lookup is cross-clinic by design, also for logged-in callers.
   const session = await withTenantBypass('consultation.join_by_token', () =>
     prisma.consultationSession.findUnique({
       where: { joinToken },
@@ -380,7 +380,7 @@ export const attestVerbalConsent = async (
 /**
  * The patient declines AI recording (FR-1). Recording is then refused on
  * every path for this visit; the provider documents manually. A patient who
- * declined can still grant consent later (they changed their mind) — but
+ * declined can still grant consent later (they changed their mind): but
  * never once recording has stopped.
  */
 export const declineConsent = async (sessionId: string, userId: string, performedById: string) => {
@@ -429,10 +429,10 @@ export const startRecording = async (
 
   // Consent must be granted
   if (session.consentStatus !== ConsentStatus.GRANTED) {
-    throwApi('Recording cannot start — patient consent is required', 400, 'consent_required')
+    throwApi('Recording cannot start: patient consent is required', 400, 'consent_required')
   }
 
-  // Validate session state — must be READY or LIVE
+  // Validate session state: must be READY or LIVE
   const sessionStatus = session.status as string
   if (sessionStatus !== 'READY' && sessionStatus !== 'LIVE') {
     throwApi(`Cannot start recording in session state: ${session.status}`, 400, 'invalid_state')
@@ -636,7 +636,7 @@ export const uploadRecording = async (
 }
 
 // ---------------------------------------------------------------------------
-// Transcription — bridge to existing AI Scribe pipeline
+// Transcription: bridge to existing AI Scribe pipeline
 // ---------------------------------------------------------------------------
 
 export const startTranscription = async (
@@ -681,7 +681,7 @@ export const startTranscription = async (
     visitRecordId = newVisitRecord.id
   }
 
-  // Create AIScribeSession — this is the bridge to existing pipeline
+  // Create AIScribeSession: this is the bridge to existing pipeline
   const aiSession = await aiScribeService.createSession(
     visitRecordId,
     providerId,
@@ -705,7 +705,7 @@ export const startTranscription = async (
   })
 
   // Add to AI Scribe Queue to trigger background worker. A queue outage is a
-  // clean 503 and a FAILED consultation the provider can retry — not a 500
+  // clean 503 and a FAILED consultation the provider can retry, not a 500
   // that leaves it stuck in PROCESSING.
   const { aiScribeQueue } = await import('../queues/aiScribeQueue')
   try {
@@ -785,7 +785,7 @@ export const getTranscript = async (sessionId: string, userId: string, role: Rol
 }
 
 // ---------------------------------------------------------------------------
-// Convert to template — delegates to existing AI scribe flow
+// Convert to template: delegates to existing AI scribe flow
 // ---------------------------------------------------------------------------
 
 export const convertToTemplate = async (

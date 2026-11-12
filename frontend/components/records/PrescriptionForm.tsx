@@ -12,7 +12,7 @@ type PrescriptionFormValues = z.infer<typeof prescriptionFormSchema>
 /**
  * New-prescription form (F3.2). Same rules as the API: notes are required
  * (whitespace does not count) and at most LIMITS.prescriptionNotesMax
- * characters — invalid input never reaches the network.
+ * characters: invalid input never reaches the network.
  */
 export function PrescriptionForm({
   onSubmit,

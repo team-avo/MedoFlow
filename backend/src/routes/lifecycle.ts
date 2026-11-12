@@ -17,7 +17,7 @@ const router = Router()
 
 router.use(protect, requirePlatformAdmin)
 
-// GET /platform/lifecycle/tenants/:tenantId/export — full JSON export (download)
+// GET /platform/lifecycle/tenants/:tenantId/export: full JSON export (download)
 router.get(
   '/tenants/:tenantId/export',
   asyncHandler(async (req, res) => {
@@ -46,7 +46,7 @@ const offboardSchema = {
   }),
 }
 
-// POST /platform/lifecycle/tenants/:tenantId/offboard — irreversible destruction
+// POST /platform/lifecycle/tenants/:tenantId/offboard: irreversible destruction
 router.post(
   '/tenants/:tenantId/offboard',
   authRateLimit,

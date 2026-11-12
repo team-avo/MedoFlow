@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * ManualNoteModal — fast-path documentation.
+ * ManualNoteModal: fast-path documentation.
  *
  * The AI Scribe flow (video + audio + transcription) lives at
  * `/dashboard/provider/appointments/[id]/consultation` and is intentionally a
  * full page because it runs for ~30 minutes and needs camera/mic permissions.
  *
  * But sometimes a provider just wants to type the SOAP note and be done with
- * it — no recording, no transcript, no live patient on the other end. That's
+ * it: no recording, no transcript, no live patient on the other end. That's
  * what this modal is for. It:
  *
  *   1. Creates (or reuses) the VisitRecord for the appointment.
@@ -41,7 +41,7 @@ interface ManualNoteModalProps {
   onOpenChange: (open: boolean) => void
   appointmentId: string
   patientId: string
-  /** Existing visit record if there is one — we'll edit it instead of create. */
+  /** Existing visit record if there is one, we'll edit it instead of create. */
   existingVisit?: VisitRecord | null
   /** Fires after save/finalise so the parent can refetch. */
   onSaved?: (visit: VisitRecord) => void
@@ -151,7 +151,7 @@ export function ManualNoteModal({
         className="max-w-3xl overflow-hidden rounded-3xl border border-slate-100 p-0 shadow-lg"
         aria-describedby="manual-note-description"
       >
-        {/* Header — brand gradient so the modal feels part of the product */}
+        {/* Header: brand gradient so the modal feels part of the product */}
         <div className="relative overflow-hidden bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] px-6 py-5 text-white">
           <DialogHeader className="relative space-y-2 text-left">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80">

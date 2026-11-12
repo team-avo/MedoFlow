@@ -1,6 +1,6 @@
 /**
  * Stateful stand-in for the Prescription → Cart API (Component 5 e2e),
- * layered over installMockApi's auth contract with page.route() — later
+ * layered over installMockApi's auth contract with page.route(): later
  * routes run first, anything not handled here falls back to the auth mock.
  *
  *  provider: scribe session → detected-products proposal → map / confirm →

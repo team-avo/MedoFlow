@@ -1,5 +1,5 @@
 /**
- * Legacy /register entrypoint — use /signup ? Same destination: the
+ * Legacy /register entrypoint: use /signup ? Same destination: the
  * <AuthModal> flow on the landing page. Server-redirects to
  * `/?auth=signup`.
  */

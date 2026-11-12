@@ -1,4 +1,4 @@
-/** /api/v1/site/redirects — URL redirects (automatic + manual, CSV import). */
+/** /api/v1/site/redirects: URL redirects (automatic + manual, CSV import). */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'

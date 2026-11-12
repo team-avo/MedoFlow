@@ -11,7 +11,7 @@
  *   https://host/ sends Strict-Transport-Security (max-age ≥ 1 year)
  *   http://host/  answers 301/308 to https
  *   optional: a CORS preflight from --cors-from is allowed
- * Exits 1 when any check fails. Prints one line per check — paste the
+ * Exits 1 when any check fails. Prints one line per check, paste the
  * output into the PR as the B8.2 evidence.
  */
 import tls from 'tls'

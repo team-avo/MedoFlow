@@ -1,5 +1,5 @@
 /**
- * Voice Agent service — the AI Front Desk.
+ * Voice Agent service: the AI Front Desk.
  *
  * Two halves:
  *   1. Session lifecycle: create ephemeral OpenAI Realtime sessions for
@@ -22,7 +22,7 @@ const REALTIME_MODEL = 'gpt-realtime'
 
 // ─────────────────────────── Tool definitions ────────────────────────
 // Surface the agent's capabilities to OpenAI. Names + JSON schemas match
-// what the model receives. Keep these tight — fewer tools = less drift.
+// what the model receives. Keep these tight, fewer tools = less drift.
 
 export const TOOL_DEFINITIONS = [
   {
@@ -66,7 +66,7 @@ export const TOOL_DEFINITIONS = [
     type: 'function',
     name: 'book_appointment',
     description:
-      'Book a confirmed appointment. CRITICAL: pass the LITERAL patient id string from a prior successful lookup_patient result (looks like "cmoppo3lw000wxme0nh1kcuoa") and the LITERAL slot id string from a prior check_availability result (looks like "<providerId>::<serviceId>::<startISO>::<endISO>"). Do NOT pass placeholder text like "result_of_lookup_patient" — that will fail.',
+      'Book a confirmed appointment. CRITICAL: pass the LITERAL patient id string from a prior successful lookup_patient result (looks like "cmoppo3lw000wxme0nh1kcuoa") and the LITERAL slot id string from a prior check_availability result (looks like "<providerId>::<serviceId>::<startISO>::<endISO>"). Do NOT pass placeholder text like "result_of_lookup_patient", that will fail.',
     parameters: {
       type: 'object',
       properties: {
@@ -210,8 +210,8 @@ const buildSystemPrompt = async (clinicId: string): Promise<string> => {
     '- NEVER narrate that you are about to use a tool. Do not say "let me check", "one moment", "I will look that up". Just call the tool silently.',
     '- NEVER emit tool calls as text or XML inside your reply. Use the native tool_calls field exclusively.',
     '- After a tool returns, immediately respond to the caller with the result in a natural sentence.',
-    '- Identify yourself as an AI assistant only in the very first turn — not on every reply.',
-    "- Before booking, call lookup_patient with the caller's name. Do NOT invent an email — only pass an email if the caller said one. Call lookup_patient at most ONCE per turn.",
+    '- Identify yourself as an AI assistant only in the very first turn, not on every reply.',
+    "- Before booking, call lookup_patient with the caller's name. Do NOT invent an email; only pass an email if the caller said one. Call lookup_patient at most ONCE per turn.",
     '- Before calling check_availability, you need a date. If the caller says "tomorrow" pass tomorrow\'s ISO date (YYYY-MM-DD). Today is ' +
       new Date().toISOString().slice(0, 10) +
       '.',
@@ -255,13 +255,13 @@ export const createBrowserSession = async (
 
   const config = await getOrCreateConfig(clinicId)
   if (!config.enabled) {
-    // Allow even when disabled — admin needs to test before flipping enabled.
+    // Allow even when disabled: admin needs to test before flipping enabled.
     // The dashboard's "enabled" flag gates real PHONE calls, not browser tests.
   }
 
   const systemPrompt = await buildSystemPrompt(clinicId)
 
-  // GA Realtime API (2025+) — endpoint is /v1/realtime/client_secrets and the
+  // GA Realtime API (2025+): endpoint is /v1/realtime/client_secrets and the
   // session config is nested under "session".
   const response = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
     method: 'POST',
@@ -608,7 +608,7 @@ const checkAvailability = async (clinicId: string, args: Record<string, unknown>
   const providerName = args.providerName as string | undefined
   const serviceName = args.serviceName as string | undefined
 
-  // Resolve a service — required by getAvailableSlots. If the caller named one,
+  // Resolve a service: required by getAvailableSlots. If the caller named one,
   // fuzzy-match. Otherwise pick the clinic's most common service as a fallback.
   let service = serviceName
     ? await prisma.service.findFirst({
@@ -692,7 +692,7 @@ const checkAvailability = async (clinicId: string, args: Record<string, unknown>
       })
       for (const slot of open.slice(0, 4)) {
         slots.push({
-          // slotId = providerId::serviceId::start::end — everything book needs.
+          // slotId = providerId::serviceId::start::end: everything book needs.
           id: `${provider.id}::${service.id}::${slot.start}::${slot.end}`,
           providerName: provider.user?.name ?? 'Provider',
           serviceName: service.name,
@@ -723,7 +723,7 @@ const bookAppointment = async (clinicId: string, args: Record<string, unknown>) 
   }
   const parts = slotId.split('::')
   if (parts.length !== 4 || parts.some((p) => !p)) {
-    return { ok: false, error: 'Invalid slotId — use one returned from check_availability.' }
+    return { ok: false, error: 'Invalid slotId: use one returned from check_availability.' }
   }
   const providerId = parts[0]!
   const serviceId = parts[1]!
@@ -997,7 +997,7 @@ export const runTurnWithText = async (
     { role: 'user', content: userText },
   ]
 
-  // 3. First LLM pass — may emit tool calls.
+  // 3. First LLM pass: may emit tool calls.
   const tools = toGroqTools()
   let response = await groqService.chatWithTools(messages, tools)
   const toolEvents: TurnResult['toolCalls'] = []
@@ -1086,7 +1086,7 @@ export const runTurnWithText = async (
   }
 }
 
-// Static greeting — Groq path doesn't open with a stream, so the UI greets first.
+// Static greeting: Groq path doesn't open with a stream, so the UI greets first.
 export const getGreeting = async (clinicId: string): Promise<string> => {
   const config = await getOrCreateConfig(clinicId)
   return config.greeting

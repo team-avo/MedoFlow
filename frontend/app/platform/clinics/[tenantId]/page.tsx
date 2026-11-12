@@ -15,7 +15,7 @@ import type { VerificationStatus } from '@/lib/onboardingApi'
 const REVIEW_LABEL: Record<VerificationStatus, string> = {
   PENDING_REVIEW: 'In review',
   CHANGES_REQUESTED: 'Changes requested',
-  APPROVED: 'Approved — live',
+  APPROVED: 'Approved (live)',
   REJECTED: 'Rejected',
 }
 
@@ -197,7 +197,7 @@ export default function ClinicDetailPage() {
         <Stat label="Plan" value={data.plan} />
         <Stat
           label="Trial ends"
-          value={data.trialEndsAt ? new Date(data.trialEndsAt).toLocaleDateString() : '—'}
+          value={data.trialEndsAt ? new Date(data.trialEndsAt).toLocaleDateString() : 'Not set'}
         />
       </div>
 
@@ -240,13 +240,13 @@ export default function ClinicDetailPage() {
             <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Subdomain</span>
               <span className="min-w-0 break-all text-right font-mono text-xs text-slate-700">
-                {data.brand?.subdomain ?? '—'}
+                {data.brand?.subdomain ?? 'Not set'}
               </span>
             </li>
             <li className="flex items-start justify-between gap-4">
               <span className="text-slate-600">Custom domain</span>
               <span className="min-w-0 break-all text-right text-slate-700">
-                {data.brand?.customDomain ?? '—'}
+                {data.brand?.customDomain ?? 'Not set'}
               </span>
             </li>
             <li className="flex items-start justify-between gap-4">
@@ -256,7 +256,7 @@ export default function ClinicDetailPage() {
                   className="h-4 w-4 rounded-full ring-1 ring-slate-200"
                   style={{ backgroundColor: data.brand?.primaryColor ?? '#6366f1' }}
                 />
-                <code className="text-xs">{data.brand?.primaryColor ?? '—'}</code>
+                <code className="text-xs">{data.brand?.primaryColor ?? 'Not set'}</code>
               </span>
             </li>
           </ul>

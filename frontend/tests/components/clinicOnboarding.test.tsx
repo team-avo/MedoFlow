@@ -1,4 +1,4 @@
-/** Clinic onboarding — review banner, setup checklist and the practitioner list. */
+/** Clinic onboarding: review banner, setup checklist and the practitioner list. */
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import React from 'react'

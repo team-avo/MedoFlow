@@ -1,6 +1,6 @@
 'use client'
 
-/** Website image library: upload (drag & drop), alt text, delete — and a picker for image fields. */
+/** Website image library: upload (drag & drop), alt text, delete, and a picker for image fields. */
 import React from 'react'
 import { ImagePlus, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'

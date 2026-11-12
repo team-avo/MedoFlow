@@ -232,7 +232,7 @@ export default function DisciplinesPage() {
                 header: 'Description',
                 render: (d) => (
                   <span className="text-sm text-slate-500 line-clamp-1 max-w-xs">
-                    {d.description || '—'}
+                    {d.description || 'Not set'}
                   </span>
                 ),
               },

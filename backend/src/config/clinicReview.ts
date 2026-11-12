@@ -8,7 +8,7 @@
  *                                        online booking and patient intake
  *                                        stay off (services/clinicVerification).
  *   CLINIC_REVIEW_MODE=auto              submitting the application approves it
- *                                        straight away — for the hosted demo and
+ *                                        straight away: for the hosted demo and
  *                                        local development.
  *
  * The single place this is read.

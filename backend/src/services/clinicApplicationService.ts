@@ -116,7 +116,7 @@ async function clinicContext(clinicId: string) {
   return clinic
 }
 
-/** The clinic's first active location — signup creates it as "Main Location". */
+/** The clinic's first active location: signup creates it as "Main Location". */
 async function primaryLocation(clinicId: string) {
   return prisma.location.findFirst({
     where: { clinicId, isActive: true },
@@ -340,7 +340,7 @@ export async function savePracticeDetails(
         },
       })
 
-  // The primary address and timezone belong on the clinic's first location —
+  // The primary address and timezone belong on the clinic's first location:
   // that is what booking, reminders and the website read. Signup creates it
   // with timezone UTC, so this is where the real zone is set.
   const location = await primaryLocation(clinicId)
@@ -365,7 +365,7 @@ export async function savePracticeDetails(
     entityType: 'ClinicProfile',
     entityId: profile.id,
     action: existing ? 'CLINIC_PROFILE_UPDATED' : 'CLINIC_PROFILE_CREATED',
-    // Field names only — the values (tax ID, DEA) never enter the audit log.
+    // Field names only: the values (tax ID, DEA) never enter the audit log.
     fieldChanged: changedRegulated.length ? changedRegulated.join(',') : null,
     newValue: {
       practiceType: profile.practiceType,
@@ -507,7 +507,7 @@ async function notifyReviewers(params: {
 /** Status a (re)submitted application moves to. */
 function statusOnSubmit(current: ClinicVerificationStatus): ClinicVerificationStatus {
   // Clinics created by a platform admin (and every clinic that existed before
-  // review was introduced) are already approved — signing doesn't undo that.
+  // review was introduced) are already approved, signing doesn't undo that.
   if (current === 'APPROVED') return 'APPROVED'
   return isAutoClinicReview() ? 'APPROVED' : 'PENDING_REVIEW'
 }

@@ -1,7 +1,7 @@
 /**
  * Video consultations: the embedded 8x8 call shows only the agreed controls
- * (no recording, livestreaming or invites), and a call that cannot start —
- * blocked script, or 8x8 refusing the token — shows a panel whose
+ * (no recording, livestreaming or invites), and a call that cannot start,
+ * blocked script, or 8x8 refusing the token, shows a panel whose
  * "Try again" asks the page for a fresh token.
  */
 import React from 'react'

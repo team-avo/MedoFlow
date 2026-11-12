@@ -1,6 +1,6 @@
 'use client'
 
-/** The consultation transcript (FR-3), shown to the provider only — never to the patient. */
+/** The consultation transcript (FR-3), shown to the provider only, never to the patient. */
 import React from 'react'
 import { FileText } from 'lucide-react'
 import { AppCard, AppCardContent, AppCardHeader, AppCardTitle } from '@/components/ui-system'

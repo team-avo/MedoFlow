@@ -1,5 +1,5 @@
 /**
- * B0.1.2 — the tenant guard checks clinicId === the caller's context:
+ * B0.1.2: the tenant guard checks clinicId === the caller's context:
  *  (a) a query naming another clinic is rejected,
  *  (b) a scoped-model query without clinicId is rejected,
  *  (c) a same-clinic query passes.

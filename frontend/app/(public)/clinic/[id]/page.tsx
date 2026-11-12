@@ -1,6 +1,6 @@
 /**
  * First-builder URL /clinic/<idOrSlug>. The clinic website now lives at its
- * own host (or /s/<slug> on the app host) — Component 8. Old links keep
+ * own host (or /s/<slug> on the app host): Component 8. Old links keep
  * working through a permanent redirect.
  */
 import { headers } from 'next/headers'

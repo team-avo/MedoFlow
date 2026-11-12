@@ -1,5 +1,5 @@
 /**
- * Demo seed — full platform flow: platform admin → tenant/clinic → providers → services → patient → published page.
+ * Demo seed: full platform flow: platform admin → tenant/clinic → providers → services → patient → published page.
  * Run from backend/: DATABASE_URL="..." npx ts-node --transpile-only prisma/seed-demo.ts
  */
 
@@ -145,7 +145,7 @@ async function main() {
     where: { specialty: 'GENERIC', clinicId: null },
   })
   console.log(
-    `   ✓ ${genericTemplate ? `Generic: ${genericTemplate.id}` : '(none — migration seed may be missing)'}`
+    `   ✓ ${genericTemplate ? `Generic: ${genericTemplate.id}` : '(none: migration seed may be missing)'}`
   )
 
   // ─── 6. Two providers ─────────────────────────────────────────────────────
@@ -367,10 +367,10 @@ async function main() {
       settings: {
         title: 'What our patients say',
         quotes: [
-          '"Saved me hours of paperwork. Booking online is so easy." — Sarah M.',
-          '"Dr. Wilson actually listens and explains everything clearly." — James T.',
-          '"Best clinic experience I\'ve had in years. Highly recommend!" — Priya K.',
-          '"The telehealth option is a lifesaver for busy parents." — Diego R.',
+          '"Saved me hours of paperwork. Booking online is so easy." - Sarah M.',
+          '"Dr. Wilson actually listens and explains everything clearly." - James T.',
+          '"Best clinic experience I\'ve had in years. Highly recommend!" - Priya K.',
+          '"The telehealth option is a lifesaver for busy parents." - Diego R.',
         ],
       },
     },
@@ -380,9 +380,9 @@ async function main() {
       settings: {
         title: 'Frequently asked',
         items: [
-          'Do you accept insurance?|We bill most major insurers — bring your insurance card to your first visit.',
+          'Do you accept insurance?|We bill most major insurers; bring your insurance card to your first visit.',
           'How do I cancel an appointment?|Open Appointments in your account menu and cancel up to 24 hours in advance.',
-          'Is telehealth available?|Yes — video visits are available for most non-urgent concerns at $65 per session.',
+          'Is telehealth available?|Yes: video visits are available for most non-urgent concerns at $65 per session.',
           'Do you offer same-day appointments?|We reserve several slots each day for urgent care needs.',
         ],
       },
@@ -411,7 +411,7 @@ async function main() {
       sectionsJson: sectionsJson as any,
       draftSectionsJson: sectionsJson as any,
       publishedAt: new Date(),
-      seoTitle: 'Green Pine Medical Group — Healthcare that fits your life',
+      seoTitle: 'Green Pine Medical Group: Healthcare that fits your life',
       seoDescription: 'Book a visit, message your provider, and manage your care from one place.',
     },
   })
@@ -419,7 +419,7 @@ async function main() {
 
   // ─── Summary ──────────────────────────────────────────────────────────────
   console.log('\n═══════════════════════════════════════════════════')
-  console.log('  SEED COMPLETE — credentials')
+  console.log('  SEED COMPLETE: credentials')
   console.log('═══════════════════════════════════════════════════')
   console.log(`  Platform admin   ${PLATFORM_ADMIN_EMAIL}  /  ${PLATFORM_ADMIN_PASS}`)
   console.log(`  Clinic owner     ${CLINIC_OWNER_EMAIL}  /  ${CLINIC_OWNER_PASS}`)

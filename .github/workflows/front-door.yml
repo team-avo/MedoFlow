@@ -43,7 +43,7 @@ jobs:
             medoflow|www|app|api|admin|preview|sites) echo "::error::reserved name"; exit 1;;
           esac
       - name: Create the Pages project (first run only)
-        run: $WRANGLER pages project create medoflow --production-branch medoflow || echo "Project exists — continuing"
+        run: $WRANGLER pages project create medoflow --production-branch medoflow || echo "Project exists, continuing"
       - name: Deploy
         run: |
           set -o pipefail

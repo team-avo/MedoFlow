@@ -1,7 +1,7 @@
 /**
  * The scribe's AI steps (FR-3 … FR-7, B2.2): label speakers, then draft the
  * SOAP note, timeline, detected orders (name + dose + quantity), the
- * "since last visit" line and the patient-facing summary — one call whose
+ * "since last visit" line and the patient-facing summary, one call whose
  * output must match `ScribeAnalysisShape`. Invalid output gets one repair
  * pass, then fails as `ai_bad_output`; nothing half-parsed reaches a note.
  *
@@ -87,7 +87,7 @@ export function scribeJsonSchema(): Record<string, unknown> {
 /** Appended to every scribe prompt (template or fallback). */
 export const OUTPUT_CONTRACT = `
 
-OUTPUT FORMAT — this replaces any output format described above. Return one JSON object only, no markdown, no commentary:
+OUTPUT FORMAT: this replaces any output format described above. Return one JSON object only, no markdown, no commentary:
 {"soap":{"subjective":"","objective":"","assessment":"","plan":""},"timeline":{"symptoms":[],"duration":null,"assessment":null,"plan":[]},"orders":[{"name":"","dose":null,"quantity":1}],"continuity":null,"patientSummary":{"diagnosis":"","treatmentPlan":"","nextSteps":""}}
 Rules:
 - soap: the clinical note, from what was said only. Never invent findings, vitals, results or doses. Write "Not discussed." for a section with no content.
@@ -166,7 +166,7 @@ const field = (obj: Json, ...keys: string[]): unknown => {
 
 /**
  * Text for a note section. Strings pass; numbers and string lists are
- * joined; objects are refused (null) — never "[object Object]".
+ * joined; objects are refused (null): never "[object Object]".
  */
 function asText(v: unknown, max = MAX_SECTION): string | null {
   if (v === undefined || v === null) return ''

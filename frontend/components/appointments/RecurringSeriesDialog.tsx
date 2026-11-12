@@ -119,7 +119,7 @@ export function RecurringSeriesDialog({
         setResult(res)
         return
       }
-      toast.success(`Recurring series booked — ${res.appointments.length} weekly visits`)
+      toast.success(`Recurring series booked: ${res.appointments.length} weekly visits`)
       close()
     } catch (err) {
       toast.error(bookingErrorMessage(err, 'Could not book the series. Please try again.'))
@@ -299,7 +299,7 @@ export function RecurringSeriesDialog({
         onClose={close}
         onProceedPartial={() => {
           toast.success(
-            `Recurring series booked — ${result?.appointments.length ?? 0} weekly visits`
+            `Recurring series booked: ${result?.appointments.length ?? 0} weekly visits`
           )
           close()
         }}

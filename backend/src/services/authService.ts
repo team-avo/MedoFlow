@@ -77,7 +77,7 @@ export const registerUser = async (body: RegisterBody) => {
   })
 
   // Patients who sign up from a clinic site (clinicId carried via path) need
-  // a PatientClinicMembership row — that's the source of truth that
+  // a PatientClinicMembership row: that's the source of truth that
   // `requireClinicScope` consults before allowing cart mutations, bookings,
   // etc. Without this row, fresh signups would 403 the moment they try to
   // shop or book.
@@ -88,7 +88,7 @@ export const registerUser = async (body: RegisterBody) => {
         patientId: created.id,
       })
     } catch (err) {
-      // Don't block signup if membership upsert fails — the user is still
+      // Don't block signup if membership upsert fails, the user is still
       // valid; they'll hit a clearer error path on the next clinic-scoped
       // action and an admin can re-link them.
       // eslint-disable-next-line no-console

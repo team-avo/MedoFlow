@@ -87,7 +87,7 @@ export const joinByToken = asyncHandler(
   }
 )
 
-/** GET /consultations/join/:token/video-token — Get room info via join token (for patients)
+/** GET /consultations/join/:token/video-token: Get room info via join token (for patients)
  *
  *  Mints a per-patient, non-moderator JaaS JWT so the patient can join the
  *  same room the provider created. The provider is always the moderator.
@@ -192,7 +192,7 @@ export const stopRecording = asyncHandler(
   }
 )
 
-/** POST /consultations/:id/live-transcript — one live-caption segment (WS2). */
+/** POST /consultations/:id/live-transcript: one live-caption segment (WS2). */
 export const liveTranscript = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { providerId } = await providerScope(req)
@@ -325,7 +325,7 @@ async function logVideoToken(
   })
 }
 
-/** POST /consultations/:id/video-room — Create (or reuse) the call room
+/** POST /consultations/:id/video-room: Create (or reuse) the call room
  *
  *  Only the session's own provider may open the room; they join as moderator.
  *  The patient gets a non-moderator token from /join/:token/video-token.
@@ -392,7 +392,7 @@ export const createVideoRoom = asyncHandler(
   }
 )
 
-/** GET /consultations/:id/video-token — Rejoin the existing room
+/** GET /consultations/:id/video-token: Rejoin the existing room
  *
  *  For the session's own patient (participant) or the session's own provider
  *  (moderator), e.g. after a tab refresh mid-call. Anyone else gets 404, the

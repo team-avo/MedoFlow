@@ -256,7 +256,7 @@ export default function ConsultationRoomPage() {
     void (async () => {
       // Let the backend know recording is done (best-effort).
       await consultationApi.stopRecording(session.id).catch(() => null)
-      toast.success('Transcribing the call — hold tight')
+      toast.success('Transcribing the call. Hold tight')
       await uploadAndTranscribe(blob)
     })()
   }, [autoUploadPending, recorder.audioBlob, session, toast, uploadAndTranscribe])
@@ -290,7 +290,7 @@ export default function ConsultationRoomPage() {
 
   // ----- Auto-Scribe wiring -----
   // When the provider enters the Jitsi conference, we start capturing mic
-  // audio right away — assuming consent was granted (which is now the
+  // audio right away: assuming consent was granted (which is now the
   // default on any appointment booked with the consent checkbox on).
   const handleMeetingStarted = async () => {
     if (!session) return
@@ -334,7 +334,7 @@ export default function ConsultationRoomPage() {
     if (recorder.isRecording) {
       setAutoUploadPending(true)
       recorder.stopRecording() // async via MediaRecorder.onstop
-      toast.success('Call ended — AI Scribe finishing up')
+      toast.success('Call ended. AI Scribe is finishing up')
     } else if (recorder.audioBlob) {
       // Already have a blob buffered (e.g. manual recorder was used);
       // kick the same path.
@@ -484,7 +484,7 @@ export default function ConsultationRoomPage() {
 
   return (
     <PageContainer className="space-y-8">
-      {/* Hero header — gradient band with back + live status + start video */}
+      {/* Hero header: gradient band with back + live status + start video */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] text-white">
         <div className="relative flex flex-col gap-6 p-8 lg:p-10">
           <div className="flex items-center justify-between gap-4">
@@ -585,13 +585,13 @@ export default function ConsultationRoomPage() {
         </div>
       )}
 
-      {/* Main Layout — Video + Scribe side-by-side when video is active */}
+      {/* Main Layout: Video + Scribe side-by-side when video is active */}
       <div
         className={`grid gap-8 ${hasVideoRoom ? 'grid-cols-1 xl:grid-cols-5' : 'grid-cols-1 lg:grid-cols-3'}`}
       >
-        {/* Left Column — Video + Recording Controls */}
+        {/* Left Column: Video + Recording Controls */}
         <div className={hasVideoRoom ? 'xl:col-span-3 space-y-6' : 'lg:col-span-2 space-y-6'}>
-          {/* Jitsi Video Call — active while call is live */}
+          {/* Jitsi Video Call: active while call is live */}
           {hasVideoRoom && (
             <JitsiVideoCall
               roomName={videoRoom.roomName}
@@ -621,7 +621,7 @@ export default function ConsultationRoomPage() {
             />
           )}
 
-          {/* Post-call processing state — replaces video area while transcribing */}
+          {/* Post-call processing state: replaces video area while transcribing */}
           {!videoActive && videoRoom && (uploading || transcribing) && (
             <AppCard className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none">
               <AppCardContent className="flex flex-col items-center gap-4 py-12 text-center">
@@ -636,7 +636,7 @@ export default function ConsultationRoomPage() {
                   <p className="mt-1 text-sm text-amber-700/80">
                     {uploading
                       ? 'Sending audio to the server'
-                      : 'Transcribing and generating your SOAP note draft — usually under a minute'}
+                      : 'Transcribing and generating your SOAP note draft. Usually under a minute'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-amber-600">
@@ -688,7 +688,7 @@ export default function ConsultationRoomPage() {
                     </h3>
                     <p className="text-sm leading-relaxed text-amber-800/80">
                       Recording cannot start until the patient grants consent. Share the join link
-                      below — once they open it and accept, you&apos;re clear to record.
+                      below. Once they open it and accept, you&apos;re clear to record.
                     </p>
                     {session.joinToken && (
                       <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-white p-3 sm:flex-row sm:items-center">
@@ -718,7 +718,7 @@ export default function ConsultationRoomPage() {
             </AppCard>
           )}
 
-          {/* Consent declined — no recording for this visit */}
+          {/* Consent declined: no recording for this visit */}
           {session.consentStatus === 'DECLINED' && (
             <AppCard className="overflow-hidden border border-rose-200 bg-gradient-to-br from-rose-50 to-white shadow-none">
               <AppCardContent className="p-6 sm:p-8">
@@ -750,7 +750,7 @@ export default function ConsultationRoomPage() {
             </AppCard>
           )}
 
-          {/* AI Scribe — mission control */}
+          {/* AI Scribe: mission control */}
           <AppCard className="overflow-hidden border border-[#E5E7EB] shadow-none">
             <AppCardHeader className="flex flex-row items-center justify-between border-b border-[#E5E7EB] bg-gradient-to-r from-white via-[#F8FAFC] to-[#F0FDFA] py-5">
               <div className="flex items-center gap-3">
@@ -805,7 +805,7 @@ export default function ConsultationRoomPage() {
                 </p>
               )}
 
-              {/* Secondary row — demo simulator + recording metadata */}
+              {/* Secondary row: demo simulator + recording metadata */}
               <div className="flex flex-wrap items-center gap-3">
                 {caps?.demoEnabled &&
                   !scribeSessionId &&
@@ -836,7 +836,7 @@ export default function ConsultationRoomPage() {
             </AppCardContent>
           </AppCard>
 
-          {/* Manual documentation fallback — opens the new modal rather than routing to a dead list page */}
+          {/* Manual documentation fallback: opens the new modal rather than routing to a dead list page */}
           {session.status === 'FAILED' && !scribe.session && (
             <AppCard className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none">
               <AppCardContent className="p-6 sm:p-8">
@@ -850,7 +850,7 @@ export default function ConsultationRoomPage() {
                         Transcription didn&apos;t finish
                       </h3>
                       <p className="mt-1 text-sm leading-relaxed text-amber-800/80">
-                        No problem — you can still document the visit by typing the SOAP fields
+                        No problem: you can still document the visit by typing the SOAP fields
                         directly. It&apos;s the same record, just no transcript attached.
                       </p>
                     </div>
@@ -967,7 +967,7 @@ export default function ConsultationRoomPage() {
                   Patient join link
                 </div>
                 <p className="text-xs leading-relaxed text-white/70">
-                  Send this to the patient — it opens their side of the consultation with no login
+                  Send this to the patient. It opens their side of the consultation with no login
                   required.
                 </p>
                 <div className="rounded-xl border border-white/15 bg-white/10 p-3">
@@ -1000,7 +1000,7 @@ export default function ConsultationRoomPage() {
         <ScribeWorkspace scribe={scribe} onManual={() => setManualNoteOpen(true)} />
       )}
 
-      {/* Manual documentation modal — same as the appointment-detail page's */}
+      {/* Manual documentation modal: same as the appointment-detail page's */}
       <ManualNoteModal
         open={manualNoteOpen}
         onOpenChange={setManualNoteOpen}

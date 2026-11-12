@@ -404,7 +404,7 @@ export async function buildCartFromProposal(
         appointmentId: proposal.appointmentId,
         providerId: proposal.providerId,
         patientId: proposal.patientId,
-        notes: `${line.matchedProduct!.name} × ${line.quantity} — routed to e-prescribe (Rx→Cart scope guard)`,
+        notes: `${line.matchedProduct!.name} × ${line.quantity}: routed to e-prescribe (Rx→Cart scope guard)`,
         status: 'PENDING_EPRESCRIBE',
         rxOrderLineId: line.id,
       },
@@ -422,7 +422,7 @@ export async function buildCartFromProposal(
   return built
 }
 
-/** Audit rows for a confirmed + built proposal. Ids and counts only — no product text. */
+/** Audit rows for a confirmed + built proposal. Ids and counts only, no product text. */
 export async function auditConfirmAndBuild(
   proposal: Pick<RxOrderProposal, 'id' | 'clinicId'>,
   performedById: string,

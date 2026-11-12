@@ -1,5 +1,5 @@
 /**
- * Shell for every clinic website (reached only through middleware.ts —
+ * Shell for every clinic website (reached only through middleware.ts:
  * never by its own URL). Provides the patient-side cart and sign-in the
  * site's buttons use, the site stylesheet and the theme fonts.
  */

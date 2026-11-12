@@ -1,5 +1,5 @@
 /**
- * Medoflow — Full Demo Universe Seed
+ * Medoflow: Full Demo Universe Seed
  *
  * Creates "Everwell Longevity Clinic" with a complete, believable demo world:
  *   4 providers, 15 patients, ~61 appointments, full invoicing, payments,
@@ -9,7 +9,7 @@
  * Idempotency:
  *   Catalog items, users, providers: upsert / findFirst guard.
  *   Appointments, invoices, payments, commission records: guarded by appointment
- *   count — skipped if the clinic already has appointments.
+ *   count: skipped if the clinic already has appointments.
  *   Voice agent: config upserted on unique clinicId; call log guarded by call count.
  *   Re-running is safe for catalog/user data.
  *
@@ -92,7 +92,7 @@ async function setupMissingColumns(): Promise<void> {
     try {
       await prisma.$executeRawUnsafe(sql)
     } catch {
-      // Column already exists or table not yet present — safe to continue.
+      // Column already exists or table not yet present, safe to continue.
     }
   }
   const indices = [
@@ -111,7 +111,7 @@ async function setupMissingColumns(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 1 — Clinic & Location
+// Phase 1: Clinic & Location
 // ---------------------------------------------------------------------------
 
 async function upsertClinic() {
@@ -164,7 +164,7 @@ async function upsertLocation(clinicId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 2 — Disciplines
+// Phase 2: Disciplines
 // ---------------------------------------------------------------------------
 
 async function createDisciplines(clinicId: string) {
@@ -188,7 +188,7 @@ async function createDisciplines(clinicId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 3 — Services
+// Phase 3: Services
 // ---------------------------------------------------------------------------
 
 async function createServices(clinicId: string, disciplines: Record<string, { id: string }>) {
@@ -288,7 +288,7 @@ async function createServices(clinicId: string, disciplines: Record<string, { id
 }
 
 // ---------------------------------------------------------------------------
-// Phase 4 — Products, Packages, Memberships
+// Phase 4: Products, Packages, Memberships
 // ---------------------------------------------------------------------------
 
 async function createProducts(clinicId: string) {
@@ -379,7 +379,7 @@ async function createProducts(clinicId: string) {
     },
     {
       name: 'Immune Defense Stack',
-      desc: 'Quercetin, zinc picolinate, vitamin C, vitamin D3, and elderberry. Evidence-based daily immune support — especially through travel and seasonal transitions.',
+      desc: 'Quercetin, zinc picolinate, vitamin C, vitamin D3, and elderberry. Evidence-based daily immune support, especially through travel and seasonal transitions.',
       sku: 'IMM-013',
       price: 44,
       qty: 32,
@@ -400,7 +400,7 @@ async function createProducts(clinicId: string) {
     },
     {
       name: 'Whey Isolate Protein (Unflavored)',
-      desc: 'Cold-filtered grass-fed whey isolate — 27g protein per scoop, no added sugar, no artificial flavors. Clinically appropriate for sarcopenia prevention and post-rehab recomposition.',
+      desc: 'Cold-filtered grass-fed whey isolate: 27g protein per scoop, no added sugar, no artificial flavors. Clinically appropriate for sarcopenia prevention and post-rehab recomposition.',
       sku: 'FIT-016',
       price: 54,
       qty: 35,
@@ -516,7 +516,7 @@ async function createMemberships(clinicId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 5 — Users
+// Phase 5: Users
 // ---------------------------------------------------------------------------
 
 async function createUsers(clinicId: string, passwordHash: string) {
@@ -549,14 +549,14 @@ async function createUsers(clinicId: string, passwordHash: string) {
   }
 
   const defs: UserDef[] = [
-    // Platform operator — cross-tenant, not tied to a clinic
+    // Platform operator: cross-tenant, not tied to a clinic
     {
       email: 'platform@medoflow.demo',
       name: 'Pat Okafor',
       role: 'PLATFORM_ADMIN',
       clinicIdOverride: null,
     },
-    // Clinic staff — one account per system role
+    // Clinic staff: one account per system role
     { email: 'alex@everwell.demo', name: 'Alex Thornton', role: 'SUPER_ADMIN' },
     { email: 'jordan@everwell.demo', name: 'Jordan Walsh', role: 'FRONT_DESK' },
     { email: 'taylor@everwell.demo', name: 'Taylor Brooks', role: 'ACCOUNTING' },
@@ -611,7 +611,7 @@ async function createUsers(clinicId: string, passwordHash: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 6 — Providers
+// Phase 6: Providers
 // ---------------------------------------------------------------------------
 
 async function createProviders(
@@ -773,7 +773,7 @@ async function createProviders(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 7 — Commission Rules
+// Phase 7: Commission Rules
 // ---------------------------------------------------------------------------
 
 async function createCommissionRules(clinicId: string, providers: Record<string, { id: string }>) {
@@ -811,7 +811,7 @@ async function createCommissionRules(clinicId: string, providers: Record<string,
 }
 
 // ---------------------------------------------------------------------------
-// Phase 8 — Clinical History
+// Phase 8: Clinical History
 // ---------------------------------------------------------------------------
 
 interface ApptDef {
@@ -832,7 +832,7 @@ interface ApptDef {
 
 const APPOINTMENT_DEFS: ApptDef[] = [
   // -------------------------------------------------------------------------
-  // Dr. Sarah Chen — Physiotherapy / high-value
+  // Dr. Sarah Chen: Physiotherapy / high-value
   // -------------------------------------------------------------------------
   {
     patient: 'emma@everwell.demo',
@@ -988,7 +988,7 @@ const APPOINTMENT_DEFS: ApptDef[] = [
   },
 
   // -------------------------------------------------------------------------
-  // Dr. Marcus Rivera — Sports Medicine / high-volume
+  // Dr. Marcus Rivera: Sports Medicine / high-volume
   // -------------------------------------------------------------------------
   {
     patient: 'emma@everwell.demo',
@@ -1166,7 +1166,7 @@ const APPOINTMENT_DEFS: ApptDef[] = [
   },
 
   // -------------------------------------------------------------------------
-  // Dr. Priya Patel — Nutrition & Wellness / mid-tier
+  // Dr. Priya Patel: Nutrition & Wellness / mid-tier
   // -------------------------------------------------------------------------
   {
     patient: 'emma@everwell.demo',
@@ -1283,7 +1283,7 @@ const APPOINTMENT_DEFS: ApptDef[] = [
   },
 
   // -------------------------------------------------------------------------
-  // Coach James Wright — Mental Performance / lower utilization
+  // Coach James Wright: Mental Performance / lower utilization
   // -------------------------------------------------------------------------
   {
     patient: 'emma@everwell.demo',
@@ -1383,7 +1383,7 @@ async function createClinicalHistory(params: {
 
   const existing = await prisma.appointment.count({ where: { clinicId } })
   if (existing > 0) {
-    console.log(`  ↩ Appointments already exist (${existing}) — skipping clinical history`)
+    console.log(`  ↩ Appointments already exist (${existing}): skipping clinical history`)
     return
   }
 
@@ -1431,7 +1431,7 @@ async function createClinicalHistory(params: {
         cancelledAt: def.status === 'CANCELLED' ? startTime : undefined,
         notes:
           def.status === 'NO_SHOW'
-            ? 'Patient did not attend — no advance notice received.'
+            ? 'Patient did not attend: no advance notice received.'
             : undefined,
         timezone: 'America/Los_Angeles',
       },
@@ -1535,7 +1535,7 @@ async function createClinicalHistory(params: {
               paymentMethod: 'CASH',
               recordedById: frontDeskUserId,
               recordedAt: daysFromNow(def.daysOffset + 3, 10, 0),
-              notes: 'Full refund — patient unable to attend follow-up program.',
+              notes: 'Full refund: patient unable to attend follow-up program.',
             },
           })
           // No commission on refunded invoice
@@ -1568,7 +1568,7 @@ async function createClinicalHistory(params: {
               paymentMethod: 'BANK_TRANSFER',
               recordedById: frontDeskUserId,
               recordedAt: daysFromNow(def.daysOffset + 5, 10, 0),
-              notes: 'Partial refund — service partially completed.',
+              notes: 'Partial refund: service partially completed.',
             },
           })
           // Commission on partially refunded: skip (conservative)
@@ -1587,7 +1587,7 @@ async function createClinicalHistory(params: {
               paymentMethod: 'CASH',
               recordedById: frontDeskUserId,
               recordedAt: now,
-              notes: 'Partial payment — balance to be collected at next appointment.',
+              notes: 'Partial payment: balance to be collected at next appointment.',
             },
           })
           // No commission on partially paid invoice
@@ -1715,7 +1715,7 @@ async function createHeroFinalVisit(
     data: { currentVersionId: version.id },
   })
 
-  // AI Scribe session — APPROVED, summary published
+  // AI Scribe session: APPROVED, summary published
   const aiExisting = await prisma.aIScribeSession.findFirst({
     where: { visitRecordId: visitRecord.id },
   })
@@ -1739,7 +1739,7 @@ async function createHeroFinalVisit(
         },
         patientSummary: {
           summary:
-            'Your physiotherapy assessment is complete. You have mechanical lower back pain related to tight hip flexors and reduced core stability — a very common pattern in runners. There is no nerve involvement, which is great news.',
+            'Your physiotherapy assessment is complete. You have mechanical lower back pain related to tight hip flexors and reduced core stability, a very common pattern in runners. There is no nerve involvement, which is great news.',
           keyFindings: [
             'Lower back stiffness primarily from hip flexor tightness',
             'Core stability will be progressively rebuilt through your program',
@@ -1748,7 +1748,7 @@ async function createHeroFinalVisit(
           recommendations: [
             'Perform your hip flexor stretches and pelvic tilts 3 times daily as demonstrated',
             'Avoid running for the next 2 weeks to allow tissue recovery',
-            'Your next 5 sessions are scheduled — consistency is important for the best outcome',
+            'Your next 5 sessions are scheduled; consistency is important for the best outcome',
           ],
           followUpNote:
             'Dr. Chen will reassess your progress at session 3. Bring any questions you have to your next appointment.',
@@ -1795,11 +1795,11 @@ async function createHeroDraftVisit(
         aiModel: 'gpt-4o-mini',
         aiDraft: {
           subjective:
-            'Patient returns for follow-up. Reports significant improvement in resting pain — now 1/10. Sitting tolerance improved to 45 minutes. Completed home program consistently. Running resumed at low intensity (3 km) with no pain during activity, mild stiffness the following morning.',
+            'Patient returns for follow-up. Reports significant improvement in resting pain, now 1/10. Sitting tolerance improved to 45 minutes. Completed home program consistently. Running resumed at low intensity (3 km) with no pain during activity, mild stiffness the following morning.',
           objective:
             'ROM: lumbar flexion 78° (improved from 65°), extension 25°. Paraspinal tenderness resolved. Hip flexor flexibility improved bilaterally. Single-leg squat: controlled, mild trunk deviation on left. Core activation: improving, still some inhibition in transversus abdominis.',
           assessment:
-            'Excellent response to physiotherapy. Mechanical lower back pain resolving. Residual core stability deficit and mild left hip control impairment — appropriate at this stage of rehabilitation.',
+            'Excellent response to physiotherapy. Mechanical lower back pain resolving. Residual core stability deficit and mild left hip control impairment, appropriate at this stage of rehabilitation.',
           plan: 'Continue sessions 4-6 with progressive loading: introduce single-leg deadlifts, lateral band walks, running return protocol (build by 10% per week). Home program: add bird-dog 3 sets × 10 reps daily. Clear to increase running to 5 km if symptom-free.',
         },
         processingStartedAt: new Date(),
@@ -1810,7 +1810,7 @@ async function createHeroDraftVisit(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 9 — Patient Packages & Subscriptions
+// Phase 9: Patient Packages & Subscriptions
 // ---------------------------------------------------------------------------
 
 async function createEntitlements(params: {
@@ -1915,7 +1915,7 @@ async function createEntitlements(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 10 — Standalone Commerce Invoices (packages + memberships)
+// Phase 10: Standalone Commerce Invoices (packages + memberships)
 // ---------------------------------------------------------------------------
 
 async function createStandaloneCommerceInvoices(params: {
@@ -1936,7 +1936,7 @@ async function createStandaloneCommerceInvoices(params: {
     where: { clinicId, appointmentId: null },
   })
   if (existing > 0) {
-    console.log(`  ↩ Standalone invoices already exist (${existing}) — skipping`)
+    console.log(`  ↩ Standalone invoices already exist (${existing}): skipping`)
     return
   }
 
@@ -2057,7 +2057,7 @@ async function createStandaloneCommerceInvoices(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 11 — Prebuilt Carts
+// Phase 11: Prebuilt Carts
 // ---------------------------------------------------------------------------
 
 async function createPrebuiltCarts(params: {
@@ -2074,7 +2074,7 @@ async function createPrebuiltCarts(params: {
     where: { patientId: emma.id, clinicId, status: 'ACTIVE' },
   })
   if (existing) {
-    console.log('  ↩ Prebuilt cart for Emma already exists — skipping')
+    console.log('  ↩ Prebuilt cart for Emma already exists, skipping')
     return
   }
 
@@ -2105,7 +2105,7 @@ async function createPrebuiltCarts(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 12 — Completed Commerce Orders (Storefront style)
+// Phase 12: Completed Commerce Orders (Storefront style)
 // ---------------------------------------------------------------------------
 
 async function createCompletedCommerceOrders(params: {
@@ -2124,7 +2124,7 @@ async function createCompletedCommerceOrders(params: {
     where: { patientId: ryan.id, clinicId, appointmentId: null },
   })
   if (existing) {
-    console.log('  ↩ Completed commerce order for Ryan already exists — skipping')
+    console.log('  ↩ Completed commerce order for Ryan already exists, skipping')
     return
   }
 
@@ -2182,7 +2182,7 @@ async function createCompletedCommerceOrders(params: {
 }
 
 // ---------------------------------------------------------------------------
-// Phase 13 — AI Front Desk (voice agent): config + a realistic call log
+// Phase 13: AI Front Desk (voice agent): config + a realistic call log
 // ---------------------------------------------------------------------------
 
 type SeedTranscriptTurn = { role: 'assistant' | 'user'; content: string; offsetSec: number }
@@ -2217,7 +2217,7 @@ async function createVoiceAgentData(params: {
   const { clinicId, users } = params
   const patientId = (email: string): string | null => users[email]?.id ?? null
 
-  // Config — idempotent via the unique clinicId. Enabled, warm persona, with
+  // Config: idempotent via the unique clinicId. Enabled, warm persona, with
   // business hours and a clinic-specific instruction block so the admin UI
   // (/dashboard/voice-agent → Configure) shows a fully populated example.
   await prisma.voiceAgentConfig.upsert({
@@ -2243,7 +2243,7 @@ async function createVoiceAgentData(params: {
       },
       afterHoursMessage:
         "We're closed right now, but I can take a message and someone will call you " +
-        'back on the next business day — or I can help you book online. Which would you prefer?',
+        'back on the next business day, or I can help you book online. Which would you prefer?',
       escalationPhone: '+1 (555) 010-2000',
       capabilities: {
         book: true,
@@ -2258,15 +2258,15 @@ async function createVoiceAgentData(params: {
         'Everwell is a multi-disciplinary clinic: physiotherapy, sports medicine, ' +
         'nutrition & wellness, and mental performance. Offer new patients a complimentary ' +
         '15-minute phone consult before their first visit. Dr. Sarah Chen leads physiotherapy; ' +
-        'Coach James Wright handles mental performance. Never give clinical advice — book a ' +
+        'Coach James Wright handles mental performance. Never give clinical advice; book a ' +
         'visit or take a message instead.',
     },
   })
 
-  // Call log — skip if this clinic already has calls (matches the appointment guard).
+  // Call log: skip if this clinic already has calls (matches the appointment guard).
   const existingCalls = await prisma.voiceCall.count({ where: { clinicId } })
   if (existingCalls > 0) {
-    console.log(`  ↩ Voice calls already exist (${existingCalls}) — config ensured, calls skipped`)
+    console.log(`  ↩ Voice calls already exist (${existingCalls}): config ensured, calls skipped`)
     return
   }
 
@@ -2301,7 +2301,7 @@ async function createVoiceAgentData(params: {
         {
           role: 'assistant',
           content:
-            'Thanks, Emma — found you. Dr. Sarah Chen has openings for an Initial Physiotherapy Assessment. What day works?',
+            'Thanks, Emma, found you. Dr. Sarah Chen has openings for an Initial Physiotherapy Assessment. What day works?',
           offsetSec: 22,
         },
         { role: 'user', content: 'Something Thursday morning?', offsetSec: 33 },
@@ -2314,7 +2314,7 @@ async function createVoiceAgentData(params: {
         {
           role: 'assistant',
           content:
-            "Done — you're booked with Dr. Sarah Chen Thursday at 9:30 for a 60-minute assessment. A confirmation is on its way to your email. Anything else?",
+            "Done: you're booked with Dr. Sarah Chen Thursday at 9:30 for a 60-minute assessment. A confirmation is on its way to your email. Anything else?",
           offsetSec: 54,
         },
         { role: 'user', content: "No, that's everything. Thank you!", offsetSec: 72 },
@@ -2372,7 +2372,7 @@ async function createVoiceAgentData(params: {
           offsetSec: 0,
         },
         { role: 'user', content: 'I need to move my appointment this week.', offsetSec: 5 },
-        { role: 'assistant', content: 'Sure — can I get your name?', offsetSec: 10 },
+        { role: 'assistant', content: 'Sure: can I get your name?', offsetSec: 10 },
         { role: 'user', content: 'Liam Nakamura.', offsetSec: 14 },
         {
           role: 'assistant',
@@ -2390,7 +2390,7 @@ async function createVoiceAgentData(params: {
         {
           role: 'assistant',
           content:
-            "All set — moved to Friday 10:30 AM. You'll get an updated confirmation. Anything else?",
+            "All set: moved to Friday 10:30 AM. You'll get an updated confirmation. Anything else?",
           offsetSec: 50,
         },
         { role: 'user', content: "That's it, thanks!", offsetSec: 64 },
@@ -2433,7 +2433,7 @@ async function createVoiceAgentData(params: {
       summary:
         'Sophia Martinez cancelled her Comprehensive Nutrition Consultation (Wednesday 2:00 PM). Within the free-cancellation window; no fee applied.',
       transcript: [
-        { role: 'assistant', content: 'Everwell, this is Ava — how can I help?', offsetSec: 0 },
+        { role: 'assistant', content: 'Everwell, this is Ava. How can I help?', offsetSec: 0 },
         {
           role: 'user',
           content: 'I have to cancel my nutrition appointment, something came up.',
@@ -2451,7 +2451,7 @@ async function createVoiceAgentData(params: {
         {
           role: 'assistant',
           content:
-            "Absolutely — call back any time and I'll find you a new slot. Your appointment is now cancelled. Anything else?",
+            "Absolutely: call back any time and I'll find you a new slot. Your appointment is now cancelled. Anything else?",
           offsetSec: 44,
         },
         { role: 'user', content: 'No, thank you.', offsetSec: 56 },
@@ -2552,13 +2552,13 @@ async function createVoiceAgentData(params: {
         },
         {
           role: 'user',
-          content: "I'm a runner with ongoing knee pain — do you treat that?",
+          content: "I'm a runner with ongoing knee pain. Do you treat that?",
           offsetSec: 8,
         },
         {
           role: 'assistant',
           content:
-            "We do — that's a great fit for our sports medicine and physiotherapy teams. Since we're closed, can I take your name and number for a callback?",
+            "We do: that's a great fit for our sports medicine and physiotherapy teams. Since we're closed, can I take your name and number for a callback?",
           offsetSec: 15,
         },
         { role: 'user', content: 'Daniel Okafor, 555-019-3312.', offsetSec: 27 },
@@ -2578,7 +2578,7 @@ async function createVoiceAgentData(params: {
             name: 'Daniel Okafor',
             phone: '+1 (555) 019-3312',
             message:
-              'Runner with recurring knee pain — asking if the clinic treats this. Wants a callback.',
+              'Runner with recurring knee pain, asking if the clinic treats this. Wants a callback.',
           },
           resultJson: { saved: true },
           offsetSec: 40,
@@ -2611,7 +2611,7 @@ async function createVoiceAgentData(params: {
           offsetSec: 11,
         },
         { role: 'user', content: 'Not yet, just checking. Thanks!', offsetSec: 30 },
-        { role: 'assistant', content: 'Anytime — talk soon!', offsetSec: 36 },
+        { role: 'assistant', content: 'Anytime: talk soon!', offsetSec: 36 },
       ],
       events: [
         {
@@ -2635,7 +2635,7 @@ async function createVoiceAgentData(params: {
       minute: 27,
       durationSec: 96,
       summary:
-        'Marcus Chen disputed a charge on his last invoice (partial refund not reflected). Beyond the assistant’s scope — transferred to the front desk / accounting.',
+        'Marcus Chen disputed a charge on his last invoice (partial refund not reflected). Beyond the assistant’s scope; transferred to the front desk / accounting.',
       transcript: [
         {
           role: 'assistant',
@@ -2652,7 +2652,7 @@ async function createVoiceAgentData(params: {
         {
           role: 'assistant',
           content:
-            "Thanks, Marcus. Billing adjustments and refunds are handled by our team directly — I don't want to guess on your money. Let me connect you to the front desk now. One moment.",
+            "Thanks, Marcus. Billing adjustments and refunds are handled by our team directly. I don't want to guess on your money. Let me connect you to the front desk now. One moment.",
           offsetSec: 25,
         },
         { role: 'user', content: 'Okay, thank you.', offsetSec: 40 },
@@ -2755,7 +2755,7 @@ async function main(): Promise<void> {
   console.log('\n🌱 Medoflow Full Demo Universe Seed\n')
   console.log('Clinic: Everwell Longevity Clinic\n')
 
-  // argon2id matches the verifier in authController.ts:69 — keep them aligned
+  // argon2id matches the verifier in authController.ts:69, keep them aligned
   // or logins silently fail at runtime even though hashes are valid.
   const passwordHash = await argon2.hash(DEMO_PASSWORD, { type: argon2.argon2id })
 

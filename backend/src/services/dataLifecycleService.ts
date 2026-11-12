@@ -6,8 +6,8 @@
  *    status or soft-deletes (PatientFile.isDeleted). The Prisma extension
  *    enforces this (`assertDeletePolicy` in config/prisma.ts).
  *  - Hard deletion happens only here, inside a `lifecycle:` bypass scope:
- *      exportTenantData  — complete JSON export of a customer's data
- *      offboardTenant    — destroys every clinic-scoped row and stored object,
+ *      exportTenantData: complete JSON export of a customer's data
+ *      offboardTenant: destroys every clinic-scoped row and stored object,
  *                          anonymises user accounts, tombstones the clinic/tenant.
  *  - AuditLog rows are retained (6-year HIPAA window, enforced by a DB
  *    trigger). The users and clinic they reference are anonymised, not

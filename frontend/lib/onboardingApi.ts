@@ -55,7 +55,7 @@ export interface ClinicProfile {
   mailingPostalCode: string | null
   groupNpi: string | null
   noNpi: boolean
-  /** Last 4 only — the full number never comes back to the clinic. */
+  /** Last 4 only: the full number never comes back to the clinic. */
   federalTaxIdMasked: string | null
   deaNumberMasked: string | null
   hasDeaNumber: boolean

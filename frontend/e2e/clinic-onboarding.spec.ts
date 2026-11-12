@@ -259,7 +259,7 @@ test('a new clinic owner completes the application, then sets up while under rev
     expect.objectContaining({ name: 'Nate Naturopath', isOwner: false, isSelf: false }),
   ])
 
-  // ── Step 3: agreement — summary, acknowledgements, typed signature ──
+  // ── Step 3: agreement: summary, acknowledgements, typed signature ──
   const summary = page.getByRole('region', { name: 'Application summary' })
   await expect(summary).toContainText('Sunrise Wellness Partners LLC')
   await expect(summary).toContainText('•••••6789')
@@ -526,7 +526,7 @@ test('platform admin: review queue → application → request changes → appro
   await requestChanges.click()
   await expect(page.getByText('Changes requested').first()).toBeVisible()
   await review.getByRole('button', { name: 'Approve' }).click()
-  await expect(page.getByText('Approved — live')).toBeVisible()
+  await expect(page.getByText('Approved (live)')).toBeVisible()
   expect(decisions).toEqual([
     { decision: 'REQUEST_CHANGES', notes: 'The DEA number does not verify.' },
     { decision: 'APPROVE' },

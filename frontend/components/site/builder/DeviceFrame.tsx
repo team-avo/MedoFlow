@@ -3,7 +3,7 @@
 /**
  * Desktop / tablet / phone previews. The site renders at the device's real
  * width (so its container queries pick the right layout) and is scaled down
- * to fit the space available — a desktop preview stays a desktop layout
+ * to fit the space available, a desktop preview stays a desktop layout
  * even in a narrow editor column.
  */
 import React from 'react'

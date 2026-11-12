@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B0.6.4 — restore drill: prove the latest encrypted backup restores.
+# B0.6.4: restore drill: prove the latest encrypted backup restores.
 #
 #   fetch (latest object under the prefix, or BACKUP_FILE) → age-decrypt with
 #   BACKUP_AGE_IDENTITY → pg_restore into an EMPTY scratch database → checks:
@@ -9,7 +9,7 @@
 #   Prints a short report; exits non-zero if any check fails.
 #
 # Env:
-#   RESTORE_DATABASE_URL    scratch database (will be overwritten) — never production
+#   RESTORE_DATABASE_URL    scratch database (will be overwritten): never production
 #   BACKUP_AGE_IDENTITY     age private key file path, or the key itself (AGE-SECRET-KEY-…)
 #   BACKUP_FILE             optional local .dump.age; otherwise the latest object in
 #   BACKUP_BUCKET / BACKUP_S3_ENDPOINT / BACKUP_PREFIX (+ AWS_* credentials)

@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS1 — session handoff to a clinic's own domain: when the
+ * Demo feedback WS1: session handoff to a clinic's own domain: when the
  * booking page bounces through the app host, and how the code comes back.
  */
 import { describe, expect, it } from 'vitest'

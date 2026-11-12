@@ -1,5 +1,5 @@
 /**
- * Component 3 — LIVE front-end ↔ back-end check (no mocks). Opt-in: runs
+ * Component 3: LIVE front-end ↔ back-end check (no mocks). Opt-in: runs
  * only when E2E_LIVE_API is set, against a real backend (local presigned-URL
  * driver, real Postgres with RLS + field encryption) and a frontend built
  * with NEXT_PUBLIC_API_URL pointing at it. Synthetic data from
@@ -51,7 +51,7 @@ const expectNoFilenameInUrls = (urls: string[]) => {
   expect(leaks).toEqual([])
 }
 
-test('provider: SOAP note, file upload/download/preview, prescription, plan — against the real API', async ({
+test('provider: SOAP note, file upload/download/preview, prescription, plan, against the real API', async ({
   page,
 }) => {
   const seen = watchUrls(page)
@@ -128,7 +128,7 @@ test('provider: SOAP note, file upload/download/preview, prescription, plan — 
   expectNoFilenameInUrls(seen.urls)
 })
 
-test('patient: downloads their own file and submits the intake form — against the real API', async ({
+test('patient: downloads their own file and submits the intake form, against the real API', async ({
   page,
 }) => {
   const seen = watchUrls(page)

@@ -234,7 +234,7 @@ export const linkAdminAsProvider = async (
   }
 
   if (user.provider) {
-    // Already has a provider profile — just return it
+    // Already has a provider profile, just return it
     return user.provider
   }
 
@@ -308,7 +308,7 @@ export const provisionFrontDeskUser = async (
     throw err
   }
 
-  // Determine role — if customRoleId is provided, use STAFF; otherwise fallback to legacy roles
+  // Determine role: if customRoleId is provided, use STAFF; otherwise fallback to legacy roles
   let assignedRole: Role
   let customRoleId: string | null = null
   let roleLabelForEmail = 'Staff'

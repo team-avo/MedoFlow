@@ -72,7 +72,7 @@ declare global {
 }
 
 // ---------------------------------------------------------------------------
-// Module-level script loader — loads external_api.js exactly once across
+// Module-level script loader: loads external_api.js exactly once across
 // React StrictMode double-invocations and multiple component mounts.
 // ---------------------------------------------------------------------------
 type ReadyCallback = () => void
@@ -236,7 +236,7 @@ export function JitsiVideoCall({
           width: '100%',
           height: '100%',
           configOverwrite: {
-            // Skip the "Join meeting" page — the user already clicked
+            // Skip the "Join meeting" page: the user already clicked
             // "Start Video Call" / "Join video consultation" in our UI.
             // We want them to land straight in the conference.
             prejoinPageEnabled: false,
@@ -292,8 +292,8 @@ export function JitsiVideoCall({
         })
 
         // Jitsi shows recoverable issues (permissions, ICE, …) inside the
-        // iframe. A fatal error — e.g. 8x8 refusing an expired or invalid
-        // token — leaves a dead frame, so we replace it with our own panel.
+        // iframe. A fatal error: e.g. 8x8 refusing an expired or invalid
+        // token: leaves a dead frame, so we replace it with our own panel.
         api.addEventListener('errorOccurred', (evt: any) => {
           const isFatal = evt?.error?.isFatal ?? false
           const name = evt?.error?.name ?? 'unknown'
@@ -376,10 +376,10 @@ export function JitsiVideoCall({
       className={`relative w-full rounded-2xl overflow-hidden bg-slate-900 ${className}`}
       style={{ height }}
     >
-      {/* Jitsi renders its full UI here — lobby, conference, error messages all inside the iframe.
+      {/* Jitsi renders its full UI here, lobby, conference, error messages all inside the iframe.
                 NB: the container MUST have an explicit `height` (not min-height). Jitsi's external_api
                 injects an iframe with `style="height: 100%"`, and CSS `height: 100%` only resolves
-                against a parent with an explicit `height` — min-height alone leaves the iframe
+                against a parent with an explicit `height`, min-height alone leaves the iframe
                 collapsed to the browser-default 150px. */}
       <div ref={containerRef} className="w-full h-full" />
       {prompt !== null && (

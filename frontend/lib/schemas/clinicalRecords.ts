@@ -1,5 +1,5 @@
 /**
- * Client-side validation for clinical records (F3.2) — the mirror of
+ * Client-side validation for clinical records (F3.2): the mirror of
  * backend/src/validation/clinicalRecordsSchemas.ts. Both suites run the
  * shared cases in shared/validation-cases/clinical-records.json, so the two
  * sides cannot drift without CI failing.
@@ -233,7 +233,7 @@ const requiredError = (issue: { input?: unknown }) =>
   issue.input === undefined ? 'Required' : undefined
 
 /**
- * Builds the answer schema for a template — the same rules the API applies
+ * Builds the answer schema for a template, the same rules the API applies
  * (backend answerProblems): required fields answered (blank text counts as
  * unanswered), numbers are numbers, select values among the options, a
  * required checkbox ticked.

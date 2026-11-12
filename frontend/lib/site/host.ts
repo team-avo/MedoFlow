@@ -1,5 +1,5 @@
 /**
- * Host classification for the edge middleware — frontend mirror of
+ * Host classification for the edge middleware, frontend mirror of
  * backend/src/site/routing/hosts.ts (same cases: shared/validation-cases/site-routes.json).
  *
  *   NEXT_PUBLIC_SITE_ROOT_DOMAIN  clinic subdomains live under it (e.g. medoflow.com)

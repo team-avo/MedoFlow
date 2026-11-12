@@ -8,7 +8,7 @@ import { JitsiVideoCall } from '@/components/consultation/JitsiVideoCall'
 import { videoAutoEnded } from '@/lib/consultationApi'
 
 // ---------------------------------------------------------------------------
-// Types (minimal — patient only sees sanitized data)
+// Types (minimal: patient only sees sanitized data)
 // ---------------------------------------------------------------------------
 
 interface PatientSession {
@@ -77,7 +77,7 @@ export default function PatientJoinPage() {
   // FR-1: the patient may say no. The visit still goes ahead, unrecorded.
   const [consentDeclined, setConsentDeclined] = useState(false)
   const [declining, setDeclining] = useState(false)
-  // Video room — becomes available once the provider clicks "Start Video Call"
+  // Video room: becomes available once the provider clicks "Start Video Call"
   // on their side. We poll for it and render the Jitsi iframe in-place.
   const [videoRoom, setVideoRoom] = useState<{
     roomName: string
@@ -474,7 +474,7 @@ export default function PatientJoinPage() {
               recording.
             </p>
 
-            {/* Join video — enabled once provider creates the room */}
+            {/* Join video: enabled once provider creates the room */}
             {session.status !== 'ENDED' &&
               session.status !== 'PROCESSING' &&
               session.status !== 'TRANSCRIPT_READY' && (

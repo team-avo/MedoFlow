@@ -4,7 +4,7 @@
  *
  * Human in the loop (B2.3): the AI only ever writes to the session's draft
  * fields. Nothing reaches the visit record (VisitRecord / VisitNoteVersion)
- * or the patient until the provider approves — and approval itself makes no
+ * or the patient until the provider approves, and approval itself makes no
  * AI call: it records exactly what the provider reviewed.
  */
 
@@ -391,7 +391,7 @@ export const updateDraft = async (
     entityType: 'AIScribeSession',
     entityId: sessionId,
     action: 'AI_DRAFT_EDITED',
-    // Which fields changed — never their content.
+    // Which fields changed: never their content.
     newValue: { fields },
     performedById,
   })
@@ -612,7 +612,7 @@ export interface PublishedSummaryItem {
 
 /**
  * The patient's portal list (F2.6): published summaries only, nothing else
- * from the visit — no note, no transcript, no draft (B2.4).
+ * from the visit: no note, no transcript, no draft (B2.4).
  */
 export const listPublishedSummariesForPatient = async (
   patientId: string

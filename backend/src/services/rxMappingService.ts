@@ -3,7 +3,7 @@
  *
  * Turns the orders the AI scribe heard in a visit into lines against the
  * clinic's own SKU catalog. Every input order produces exactly one output
- * line — an order that cannot be matched with confidence is kept as
+ * line: an order that cannot be matched with confidence is kept as
  * UNMAPPED / AMBIGUOUS and routed to MANUAL so the provider sees it. Nothing
  * is ever dropped silently.
  *
@@ -118,8 +118,8 @@ const clampQuantity = (q: unknown): number => {
 }
 
 /**
- * Accepts whatever shape the LLM produced — an array of strings, or of
- * objects with name/product/item and quantity/qty — and returns clean orders.
+ * Accepts whatever shape the LLM produced, an array of strings, or of
+ * objects with name/product/item and quantity/qty, and returns clean orders.
  * Blank entries are not orders; everything else is kept.
  */
 export function parseScribeOrders(value: unknown): ScribeOrder[] {

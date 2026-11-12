@@ -10,8 +10,8 @@ import { withTenantContext } from '../config/tenantContext'
  * guard see no context and will fail closed under enforce mode.
  *
  * For unauthenticated routes (login, register, public webhooks) we still
- * enter a context — with `bypassReason` set to the route-appropriate
- * string — so that legitimate auth queries don't trip the guard. See
+ * enter a context: with `bypassReason` set to the route-appropriate
+ * string: so that legitimate auth queries don't trip the guard. See
  * `controllers/authController.ts` for examples of `withTenantBypass` use.
  */
 export function bindTenantContext(req: Request, _res: Response, next: NextFunction): void {

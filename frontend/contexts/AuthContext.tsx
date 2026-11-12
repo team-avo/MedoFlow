@@ -25,7 +25,7 @@ export type LoginResult =
 
 export type MfaFactor = { code: string } | { recoveryCode: string }
 
-/** Why a session ended locally — drives the message on the sign-in screen. */
+/** Why a session ended locally, drives the message on the sign-in screen. */
 export type SessionEndReason = 'user' | 'idle' | 'expired'
 
 interface AuthContextType {
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   /**
    * Drop everything this tab holds for the signed-in user: the in-memory
    * token, the user object and every cached query (no stale PHI is left for
-   * the next person at this screen — F0.2.4). Then route to sign-in.
+   * the next person at this screen, F0.2.4). Then route to sign-in.
    */
   const endSessionLocally = useCallback(
     (reason: SessionEndReason, opts: { broadcast: boolean }) => {
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const current = pathnameRef.current
       if (reason === 'user') {
-        // On a clinic site, stay on the clinic landing — never bounce to the
+        // On a clinic site, stay on the clinic landing, never bounce to the
         // Medoflow marketing root.
         router.push(current?.startsWith('/clinic/') ? current : '/')
         return

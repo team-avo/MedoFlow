@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * TopProgressBar — a thin, non-blocking progress line at the top of the
+ * TopProgressBar: a thin, non-blocking progress line at the top of the
  * viewport. Replaces the old full-screen GlobalApiLoader overlay.
  *
  * Shown while:

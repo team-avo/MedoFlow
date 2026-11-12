@@ -1,5 +1,5 @@
 /**
- * F0.3.2 — no PHI reaches the browser console; F0.3.3 — the same scrubber
+ * F0.3.2: no PHI reaches the browser console; F0.3.3, the same scrubber
  * is what any future telemetry SDK's beforeSend must call.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest'

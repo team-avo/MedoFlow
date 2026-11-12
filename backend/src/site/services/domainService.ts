@@ -1,7 +1,7 @@
 /**
  * Clinic-site domains (B8.2): the free <label>.<root> subdomain every clinic
  * gets, and clinic-owned custom domains that serve the site once verified.
- * Exactly one domain per clinic is primary — the canonical origin for
+ * Exactly one domain per clinic is primary, the canonical origin for
  * links, the sitemap and SEO; every other host 301s to it.
  */
 import crypto from 'crypto'

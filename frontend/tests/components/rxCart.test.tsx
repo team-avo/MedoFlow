@@ -1,5 +1,5 @@
 /**
- * Component 5 — Prescription → Cart UI.
+ * Component 5: Prescription → Cart UI.
  *  F5.1 detected-product chips: removable, unmapped items surfaced, nothing
  *       is sent without the provider's confirmation
  *  F5.2 cart provenance "Prescribed · Dr. X" + accept / decline; one-click pay
@@ -215,7 +215,7 @@ describe('F5.2 cart provenance and accept / decline', () => {
     render(
       <DecisionButtons item={prescribedItem({ patientDecision: 'DECLINED' })} onDecide={onDecide} />
     )
-    expect(screen.getByText('Declined — not charged')).toBeInTheDocument()
+    expect(screen.getByText('Declined, not charged')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Accept instead' }))
     expect(onDecide).toHaveBeenCalledWith('ACCEPTED')
   })

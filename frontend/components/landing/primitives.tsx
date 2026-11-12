@@ -4,7 +4,7 @@
  * Shared primitives for the marketing landing page.
  *
  * One-trick-ponies live here so each section file can focus on layout and
- * storytelling. Keep this file short — if a primitive grows past ~50 lines,
+ * storytelling. Keep this file short, if a primitive grows past ~50 lines,
  * split it into its own file.
  */
 
@@ -81,7 +81,7 @@ type StatusChipProps = {
   onNavy?: boolean
 }
 
-/** Dot + label row. 6px dot, no wash background — matches design system. */
+/** Dot + label row. 6px dot, no wash background, matches design system. */
 export function StatusChip({ tone = 'ok', children, onNavy }: StatusChipProps) {
   return (
     <span

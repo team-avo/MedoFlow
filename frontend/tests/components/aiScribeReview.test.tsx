@@ -1,5 +1,5 @@
 /**
- * Component 2 — the shared scribe review core (F2.1 – F2.5).
+ * Component 2: the shared scribe review core (F2.1 – F2.5).
  *  F2.1 / F2.3  the provider edits note + patient summary; "Approve & send"
  *               sends exactly what is on screen, and is blocked until the
  *               note, the summary and any detected products are confirmed

@@ -62,7 +62,7 @@ export interface EgressProblem {
 
 /**
  * The one explicit opt-out: an environment that holds synthetic data only
- * (docs/PHI_GATE.md — the hosted demo) may use an AI vendor without a BAA.
+ * (docs/PHI_GATE.md: the hosted demo) may use an AI vendor without a BAA.
  * The value must be exactly this phrase; plain http and the mock provider
  * stay fatal, and every boot prints a warning naming the vendor.
  */
@@ -89,7 +89,7 @@ function endpointProblems(
   if (NEVER_PHI_HOSTS.has(host)) {
     out.push({
       fatal: true,
-      message: `${name} points at the Gemini Developer API (${host}), which cannot be covered by a BAA — use the vertex-gemini preset for real patient data`,
+      message: `${name} points at the Gemini Developer API (${host}), which cannot be covered by a BAA; use the vertex-gemini preset for real patient data`,
       baa: true,
     })
     return out
@@ -113,7 +113,7 @@ function endpointProblems(
   if (!allowed.has(host)) {
     out.push({
       fatal: true,
-      message: `${name} sends PHI to ${host}, which is not in AI_SCRIBE_BAA_HOSTS — add it only after its BAA and zero-retention are confirmed in writing`,
+      message: `${name} sends PHI to ${host}, which is not in AI_SCRIBE_BAA_HOSTS; add it only after its BAA and zero-retention are confirmed in writing`,
       baa: true,
     })
   }
@@ -139,7 +139,7 @@ export function scribeEgressProblems(
         ? {
             fatal: false,
             baa: true,
-            message: `AI_SCRIBE_PHI_POLICY=${SYNTHETIC_ONLY}: allowed for synthetic data only — ${p.message}`,
+            message: `AI_SCRIBE_PHI_POLICY=${SYNTHETIC_ONLY}: allowed for synthetic data only; ${p.message}`,
           }
         : p
     )
@@ -148,7 +148,7 @@ export function scribeEgressProblems(
     out.push({
       fatal: false,
       message:
-        'The AI scribe is not fully configured (AI_SCRIBE_LLM_* / AI_SCRIBE_STT_*) — recording and drafting are unavailable',
+        'The AI scribe is not fully configured (AI_SCRIBE_LLM_* / AI_SCRIBE_STT_*): recording and drafting are unavailable',
     })
   }
   return out

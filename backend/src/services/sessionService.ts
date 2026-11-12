@@ -113,7 +113,7 @@ export const revokeAllSessions = async (
 /**
  * Validates the session behind an access token or refresh token. Throws a
  * 401 ApiError if it is missing, revoked, expired or idle (and revokes it in
- * the idle case). `touch` records activity — true for API requests, false
+ * the idle case). `touch` records activity: true for API requests, false
  * for token refresh.
  */
 export const assertSessionActive = async (
@@ -121,22 +121,22 @@ export const assertSessionActive = async (
   userId: string,
   opts: { touch: boolean; now?: Date }
 ) => {
-  if (!sessionId) throw sessionError('Session required — please sign in again', 'session_required')
+  if (!sessionId) throw sessionError('Session required: please sign in again', 'session_required')
   const now = opts.now ?? new Date()
   const session = await prisma.userSession.findUnique({ where: { id: sessionId } })
   if (!session || session.userId !== userId) {
-    throw sessionError('Session not found — please sign in again', 'session_invalid')
+    throw sessionError('Session not found: please sign in again', 'session_invalid')
   }
   if (session.revokedAt) {
-    throw sessionError('Session has ended — please sign in again', 'session_revoked')
+    throw sessionError('Session has ended: please sign in again', 'session_revoked')
   }
   if (session.expiresAt <= now) {
     await revokeSession(session.id, 'expired')
-    throw sessionError('Session expired — please sign in again', 'session_expired')
+    throw sessionError('Session expired: please sign in again', 'session_expired')
   }
   if (now.getTime() - session.lastActivityAt.getTime() > getIdleTimeoutMs(session)) {
     await revokeSession(session.id, 'idle_timeout')
-    throw sessionError('Signed out after inactivity — please sign in again', 'session_idle_timeout')
+    throw sessionError('Signed out after inactivity: please sign in again', 'session_idle_timeout')
   }
   if (opts.touch && now.getTime() - session.lastActivityAt.getTime() > TOUCH_INTERVAL_MS) {
     await prisma.userSession.update({ where: { id: session.id }, data: { lastActivityAt: now } })

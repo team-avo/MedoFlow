@@ -1,15 +1,15 @@
 'use client'
 
 /**
- * PatientHubModal — single dialog opened from the clinic-site avatar menu.
+ * PatientHubModal: single dialog opened from the clinic-site avatar menu.
  *
  * Replaces the old standalone /account/* pages so a clinic-site visitor
  * never bounces off their clinic landing. One modal with four tabs:
  *
- *   • Overview     — next visit + quick stats
- *   • Appointments — all appointments with status badges
- *   • Visits       — past visit summaries
- *   • Profile      — name / email / role (read-only for the demo)
+ *   • Overview: next visit + quick stats
+ *   • Appointments: all appointments with status badges
+ *   • Visits: past visit summaries
+ *   • Profile: name / email / role (read-only for the demo)
  */
 
 import React from 'react'
@@ -240,7 +240,7 @@ function OverviewPanel({
         <StatCard label="Total visits" value={String((appointments ?? []).length)} />
       </div>
 
-      {/* Shop tile — routes to the dedicated clinic storefront */}
+      {/* Shop tile: routes to the dedicated clinic storefront */}
       {clinicRouteId && (
         <button
           type="button"

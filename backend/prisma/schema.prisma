@@ -571,7 +571,7 @@ enum SiteAssetStatus {
 }
 
 // Public website images (logo, hero, gallery). Stored in the public site
-// assets bucket — never the patient-files (PHI) bucket.
+// assets bucket: never the patient-files (PHI) bucket.
 model SiteAsset {
   id           String          @id @default(cuid())
   clinicId     String
@@ -825,7 +825,7 @@ enum ScribeTone {
 
 // Specialty-aware AI Scribe prompt template. Clinic-scoped so each clinic
 // can fork the platform defaults, but the seed templates have clinicId=null
-// to signal "system default" — those are visible to every clinic and cannot
+// to signal "system default", those are visible to every clinic and cannot
 // be edited by clinic admins (only the platform admin can).
 model ScribeTemplate {
   id           String   @id @default(cuid())

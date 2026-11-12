@@ -4,7 +4,7 @@ import api from './api'
  * Patient files (B3.1 / F3.1). File bytes never travel through an
  * authenticated API call: the API issues a short-lived presigned URL and the
  * browser PUTs / GETs the object directly. The presigned request carries no
- * Authorization header or cookies — the signature in the URL is the grant.
+ * Authorization header or cookies: the signature in the URL is the grant.
  *
  * F3.3: the original filename is only ever used locally (list label, the
  * download's `download` attribute). It never appears in a URL, a query

@@ -205,7 +205,7 @@ export const uploadRecording = async (
 }
 
 /**
- * POST /consultations/:id/live-transcript — one live-caption segment while
+ * POST /consultations/:id/live-transcript: one live-caption segment while
  * recording (WS2). The text is a preview; nothing is stored server-side.
  */
 export const liveTranscript = async (
@@ -257,12 +257,12 @@ export interface VideoRoomResult {
   domain: string
   roomUrl: string
   roomName: string
-  /** Signed JWT from the backend — empty string when JaaS is not configured */
+  /** Signed JWT from the backend, empty string when JaaS is not configured */
   jwt: string
   jaasEnabled: boolean
 }
 
-/** POST /consultations/:id/video-room — Create (or reuse) the 8x8 JaaS call room */
+/** POST /consultations/:id/video-room: Create (or reuse) the 8x8 JaaS call room */
 export const createVideoRoom = async (
   sessionId: string,
   clinicId?: string
@@ -275,13 +275,13 @@ export const createVideoRoom = async (
   return data.data
 }
 
-/** GET /consultations/:id/video-token — Get meeting token (authenticated) */
+/** GET /consultations/:id/video-token: Get meeting token (authenticated) */
 export const getVideoToken = async (sessionId: string): Promise<VideoRoomResult> => {
   const { data } = await api.get<ApiRes<VideoRoomResult>>(`/consultations/${sessionId}/video-token`)
   return data.data
 }
 
-/** GET /consultations/join/:token/video-token — Get meeting token via join token (for patients) */
+/** GET /consultations/join/:token/video-token: Get meeting token via join token (for patients) */
 export const getVideoTokenByJoinToken = async (joinToken: string): Promise<VideoRoomResult> => {
   const { data } = await api.get<ApiRes<VideoRoomResult>>(
     `/consultations/join/${joinToken}/video-token`

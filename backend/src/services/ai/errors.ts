@@ -1,7 +1,7 @@
 /**
  * AI provider failures as safe codes (FR-11, FR-14).
  *
- * Provider error bodies can echo the prompt (a transcript — PHI) and carry
+ * Provider error bodies can echo the prompt (a transcript: PHI) and carry
  * internal hostnames, so an AiError's message is always one of the fixed
  * texts below. It is what gets stored in AIScribeSession.errorMessage, shown
  * to the provider, logged, and kept as a BullMQ failure reason.

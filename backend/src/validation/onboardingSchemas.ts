@@ -269,7 +269,7 @@ export const agreementBody = z.object({
   communications: z.boolean(),
   signerName: requiredText('Your full name'),
   signerTitle: requiredText('Your title', 100),
-  /** Typed signature — must match signerName. */
+  /** Typed signature: must match signerName. */
   signature: requiredText('Signature'),
   /** Required only when ONBOARDING_CONFIRM_NAME is on (CTO-10); checked in the service. */
   confirmClinicName: z.string().trim().max(200).optional(),

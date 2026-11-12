@@ -1,5 +1,5 @@
 /**
- * Clinic onboarding — NPI / EIN / DEA format and checksum validation. The
+ * Clinic onboarding: NPI / EIN / DEA format and checksum validation. The
  * cases are shared with the frontend (shared/validation-cases/practice-ids.json,
  * frontend/tests/unit/practiceIds.test.ts).
  */

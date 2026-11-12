@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * F2.6 — the patient's care summaries: the plain-language summary of each
+ * F2.6: the patient's care summaries: the plain-language summary of each
  * visit, once the provider approved and sent it. Never the clinical note or
  * the transcript (B2.4).
  */

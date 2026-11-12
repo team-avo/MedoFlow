@@ -2,7 +2,7 @@
 
 /**
  * The scribe states around the review screen (FR-1, FR-11): every state
- * says what is happening and what the provider can do next — there is no
+ * says what is happening and what the provider can do next, there is no
  * dead end. Shared by the AI Scribe console and the consultation room.
  */
 import React from 'react'
@@ -141,7 +141,7 @@ export function ScribeProcessingPanel({
       <div role="status" className={`${box} border-amber-200 bg-amber-50/60`}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-amber-900">
-            This is taking longer than expected. The AI may still finish — check again, or write the
+            This is taking longer than expected. The AI may still finish. Check again, or write the
             note manually.
           </p>
           <AppButton variant="outline" className="rounded-full" onClick={onCheckAgain}>
@@ -156,7 +156,7 @@ export function ScribeProcessingPanel({
     <div role="status" className={`${box} border-indigo-100 bg-white`}>
       <div className="flex items-center gap-3 text-sm font-semibold text-primary-700">
         <Loader2 className="h-5 w-5 animate-spin" />
-        Transcribing and drafting the note — usually under a minute.
+        Transcribing and drafting the note. Usually under a minute.
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 /**
- * B3.1 / F3.3 — object storage for patient files: presigned URLs are
+ * B3.1 / F3.3: object storage for patient files: presigned URLs are
  * time-limited, carry SSE and no filename; the local driver's tokens behave
  * like S3 signatures; content sniffing; production refuses local storage.
  */

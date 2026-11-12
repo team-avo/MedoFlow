@@ -1,5 +1,5 @@
 /**
- * Frontend smoothness pass — layout & navigation smoke, per role.
+ * Frontend smoothness pass: layout & navigation smoke, per role.
  *
  *  - Every nav link a role sees is clicked (client-side, as a user would):
  *    the page renders (no "Application error", 404 or error boundary), and
@@ -87,7 +87,7 @@ const ROLES: RolePlan[] = [
 
 /**
  * Counts, every animation frame, how long an element with role="status"
- * covers (nearly) the whole viewport — i.e. a blocking loading overlay.
+ * covers (nearly) the whole viewport: i.e. a blocking loading overlay.
  */
 async function trackBlockingOverlay(page: Page) {
   await page.addInitScript(() => {

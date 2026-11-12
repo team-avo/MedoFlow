@@ -27,7 +27,7 @@ export interface CreateAppointmentPayload {
   patientPackageId?: string
   /**
    * Patient opted-in to AI Scribe while booking. When true, the consultation
-   * session for this appointment starts with consent already granted — the
+   * session for this appointment starts with consent already granted, the
    * provider doesn't have to re-prompt for it at visit time.
    */
   aiScribeConsent?: boolean

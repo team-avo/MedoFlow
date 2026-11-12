@@ -110,7 +110,7 @@ export function needsOnboarding(user: GuardUser, _pathname: string): boolean {
   return user.role === 'SUPER_ADMIN' && !!user.clinicId && !onboardingFinished(user)
 }
 
-/** /dashboard/** — staff, providers and clinic admins. */
+/** /dashboard/**, staff, providers and clinic admins. */
 export function dashboardRedirect(user: GuardUser | null, pathname: string): string | null {
   if (!user) return loginRedirect(pathname)
   // Patients live on /account/*.
@@ -129,7 +129,7 @@ export function dashboardRedirect(user: GuardUser | null, pathname: string): str
   ) {
     return '/dashboard'
   }
-  // Website builder (Component 8) — same roles the /site API allows:
+  // Website builder (Component 8): same roles the /site API allows:
   // editors are owners + marketing; enquiries (PHI) owners + front desk;
   // domains owners only.
   if (matches(pathname, '/dashboard/site')) {
@@ -143,14 +143,14 @@ export function dashboardRedirect(user: GuardUser | null, pathname: string): str
   return null
 }
 
-/** /account/** — the patient portal. */
+/** /account/**, the patient portal. */
 export function accountRedirect(user: GuardUser | null, pathname: string): string | null {
   if (!user) return loginRedirect(pathname, '/account')
   if (user.role !== 'PATIENT') return '/dashboard'
   return null
 }
 
-/** /platform/** — MedoFlow operators only. */
+/** /platform/**, MedoFlow operators only. */
 export function platformRedirect(user: GuardUser | null): string | null {
   if (!user) return loginRedirect('/platform/clinics')
   if (user.role !== 'PLATFORM_ADMIN') return '/dashboard'

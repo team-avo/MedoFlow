@@ -9,7 +9,7 @@ export interface TokenPayload {
   userId: string
   clinicId?: string | null
   role: string
-  /** UserSession id — every access token is bound to a server-side session. */
+  /** UserSession id: every access token is bound to a server-side session. */
   sid: string
 }
 

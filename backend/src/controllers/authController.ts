@@ -295,7 +295,7 @@ export const login = asyncHandler(
     // surface the SAME generic 401 here ("Invalid email or password") so an
     // attacker can't enumerate which accounts belong to which clinic.
     //
-    // PATIENT role is the only one this applies to — staff/SUPER_ADMIN sign
+    // PATIENT role is the only one this applies to, staff/SUPER_ADMIN sign
     // in from /dashboard, not a clinic page, and never carry a clinicId hint.
     if (clinicHint && user.role === 'PATIENT') {
       const targetClinic = await prisma.clinic.findFirst({
@@ -329,7 +329,7 @@ export const login = asyncHandler(
   }
 )
 
-/** POST /auth/mfa/verify — second step of an MFA login. */
+/** POST /auth/mfa/verify: second step of an MFA login. */
 export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { mfaToken, code, recoveryCode } = req.body as {
     mfaToken?: string
@@ -343,7 +343,7 @@ export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): 
   try {
     userId = verifyMfaChallengeToken(mfaToken).userId
   } catch {
-    throw httpError('MFA challenge expired — sign in again', 401, 'mfa_challenge_invalid')
+    throw httpError('MFA challenge expired: sign in again', 401, 'mfa_challenge_invalid')
   }
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -370,7 +370,7 @@ export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): 
 })
 
 /**
- * POST /auth/handoff/start — called by the app host's /auth/handoff page.
+ * POST /auth/handoff/start: called by the app host's /auth/handoff page.
  * Returns where to send the browser: back to the clinic page with a one-time
  * code (signed-in patient) or with `handoff=none` (anyone else).
  */
@@ -382,7 +382,7 @@ export const handoffStart = asyncHandler(async (req: Request, res: Response): Pr
 })
 
 /**
- * POST /auth/handoff/exchange — called from the clinic origin. Trades a
+ * POST /auth/handoff/exchange: called from the clinic origin. Trades a
  * one-time code for a session there (the refresh cookie set on this response
  * lands in the clinic site's cookie partition).
  */
@@ -427,7 +427,7 @@ export const refreshToken = asyncHandler(
     if (!storedToken) throw httpError('Invalid refresh token', 401)
 
     if (storedToken.revoked) {
-      // Token reuse detected — this indicates a stolen token.
+      // Token reuse detected: this indicates a stolen token.
       // Revoke ALL sessions + refresh tokens for this user (nuclear option).
       await sessionService.revokeAllSessions(storedToken.userId, 'refresh_token_reuse')
       await logAuthEvent({
@@ -746,7 +746,7 @@ export const setPassword = asyncHandler(
   }
 )
 
-/** POST /auth/change-password — signed-in password change; signs out other sessions. */
+/** POST /auth/change-password: signed-in password change; signs out other sessions. */
 export const changePassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   if (!req.user) throw httpError('Authentication required', 401)
   const { currentPassword, newPassword } = req.body as {
@@ -810,7 +810,7 @@ export const mfaEnable = asyncHandler(async (req: Request, res: Response): Promi
   successResponse(
     res,
     200,
-    'MFA enabled. Store these recovery codes somewhere safe — they are shown once.',
+    'MFA enabled. Store these recovery codes somewhere safe. They are shown once.',
     {
       recoveryCodes,
     }

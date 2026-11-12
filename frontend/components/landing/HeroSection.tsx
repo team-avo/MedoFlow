@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Hero — the opening statement on a static brand backdrop (gradient + grid).
+ * Hero: the opening statement on a static brand backdrop (gradient + grid).
  * No 3D scene, parallax or entrance animation: it paints once and is done.
  */
 
@@ -28,7 +28,7 @@ export function HeroSection() {
         aria-hidden
       />
 
-      {/* Vignette to ground the typography — darker at the edges only */}
+      {/* Vignette to ground the typography, darker at the edges only */}
       <div
         className="absolute inset-0 z-[1]"
         style={{
@@ -56,7 +56,7 @@ export function HeroSection() {
             </h1>
 
             <p className="mx-auto mt-7 max-w-xl text-[17px] leading-relaxed text-white/70">
-              Scheduling, EMR, billing, payments, an ambient AI scribe — and soon, an AI front desk
+              Scheduling, EMR, billing, payments, an ambient AI scribe and, soon, an AI front desk
               that answers your phone. One platform. One bill. No stitching.
             </p>
 

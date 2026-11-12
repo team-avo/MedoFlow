@@ -29,7 +29,7 @@ function formatCurrency(amount?: string | number | null) {
 }
 
 function formatDate(iso?: string | null) {
-  if (!iso) return '—'
+  if (!iso) return 'Not set'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -61,7 +61,7 @@ function OnFileCard() {
           <p className="mt-1 text-sm text-slate-800" data-testid="card-on-file">
             {onFile?.card
               ? cardLabel(onFile.card)
-              : 'No card on file yet — the card you pay for a booking with is saved here.'}
+              : 'No card on file yet. The card you pay for a booking with is saved here.'}
           </p>
           <p className="mt-1 text-xs text-slate-400">
             Held by Stripe. Used only when you choose “Pay with card on file”.

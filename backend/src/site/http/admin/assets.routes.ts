@@ -1,4 +1,4 @@
-/** /api/v1/site/assets — website image library (presigned uploads). */
+/** /api/v1/site/assets: website image library (presigned uploads). */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'

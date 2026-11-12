@@ -1,5 +1,5 @@
 /**
- * F0.2.2 — MFA enrol, then sign-in challenge: a valid code succeeds, an
+ * F0.2.2: MFA enrol, then sign-in challenge: a valid code succeeds, an
  * invalid one fails; the screens are keyboard accessible (keyboard-only
  * flow + axe scan with no serious/critical violations).
  */

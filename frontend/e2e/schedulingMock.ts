@@ -1,6 +1,6 @@
 /**
  * Stateful stand-in for the scheduling API (Component 1 e2e), layered over
- * installMockApi's auth contract with page.route() — later routes run first,
+ * installMockApi's auth contract with page.route(): later routes run first,
  * and anything not handled here falls back to the auth mock. It implements
  * the contract the booking screens depend on: public catalogue +
  * availability, slot holds, booking (with prepay), payment confirm,

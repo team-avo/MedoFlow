@@ -1,5 +1,5 @@
 /**
- * Component 5 — Prescription → Cart in the browser.
+ * Component 5: Prescription → Cart in the browser.
  *  F5.1 the scribe screen shows detected products as removable chips the
  *       provider confirms before "Approve & send"; exactly the confirmed
  *       items are sent
@@ -49,14 +49,14 @@ test('F5.1 provider removes, maps and confirms detected products, then "Approve 
   await send.click()
 
   await expect.poll(() => rx.approveBodies.length).toBe(1)
-  // Exactly what the provider left on screen — the removed chip is not sent.
+  // Exactly what the provider left on screen, the removed chip is not sent.
   expect(rx.approveBodies[0]).toEqual({
     rxConfirmation: {
       proposalId: 'proposal-e2e-1',
       confirmedLineIds: ['l-mag', 'l-tram', 'l-turmeric'],
       acknowledged: true,
     },
-    // Component 2: one call — the note and patient summary as left on screen,
+    // Component 2: one call: the note and patient summary as left on screen,
     // published together with the approval.
     sendToPatient: true,
     draft: {
@@ -90,7 +90,7 @@ test('F5.2 / F5.3 patient accepts / declines prescribed items and pays with the 
   await page.goto('/checkout')
   await expect(page.getByText('Prescribed · Dr. Avery Stone')).toHaveCount(2)
 
-  // F5.3: card and shipping on file from booking — nothing to re-enter.
+  // F5.3: card and shipping on file from booking, nothing to re-enter.
   const oneClick = page.getByTestId('one-click-pay')
   await expect(oneClick.getByText('Visa •••• 4242')).toBeVisible()
   await expect(oneClick.getByText(/100 Example Street/)).toBeVisible()
@@ -106,7 +106,7 @@ test('F5.2 / F5.3 patient accepts / declines prescribed items and pays with the 
   await expect(pay).toBeDisabled()
   await page.getByRole('button', { name: 'Accept Magnesium Glycinate' }).click()
   await page.getByRole('button', { name: 'Decline Arnica Gel' }).click()
-  await expect(page.getByText('Declined — not charged')).toBeVisible()
+  await expect(page.getByText('Declined, not charged')).toBeVisible()
   await expect(pay).toHaveText('Pay $48.00 with card on file')
   await expect(pay).toBeEnabled()
   await expectNoSeriousA11yViolations(page, '[data-testid="one-click-pay"]')

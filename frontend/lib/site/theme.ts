@@ -19,14 +19,14 @@ export const FONT_PAIRS: readonly FontPairDef[] = [
   {
     key: 'modern',
     label: 'Modern',
-    description: 'Inter — clean and neutral',
+    description: 'Inter: clean and neutral',
     headingVar: '--font-inter',
     bodyVar: '--font-inter',
   },
   {
     key: 'friendly',
     label: 'Friendly',
-    description: 'Nunito — rounded and warm',
+    description: 'Nunito: rounded and warm',
     headingVar: '--font-site-nunito',
     bodyVar: '--font-site-nunito-sans',
   },

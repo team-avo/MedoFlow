@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS2 — the provider's consultation room, in the browser:
+ * Demo feedback WS2: the provider's consultation room, in the browser:
  *  - the video and recording controls are both visible (side by side, not
  *    overlapping) before, during and after a call;
  *  - joining the call starts the recording when consent is granted, and the

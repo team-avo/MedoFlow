@@ -102,7 +102,7 @@ export const serenity: SiteTemplate = {
         sec('quick-links', 'pills', { heading: '' }),
         sec('image-with-text', 'image-left', {
           heading: 'A slower kind of care',
-          body: 'Every visit begins with a consultation, so your plan fits your goals — never a one-size-fits-all menu.\n\n*Unhurried appointments. Honest advice. Results that look like you.*',
+          body: 'Every visit begins with a consultation, so your plan fits your goals, never a one-size-fits-all menu.\n\n*Unhurried appointments. Honest advice. Results that look like you.*',
           image: { src: '/site-samples/wellness-serenity.svg', alt: 'Botanical skincare products' },
           cta: routeCta('Our approach', 'contact'),
         }),
@@ -133,7 +133,7 @@ export const serenity: SiteTemplate = {
           heading: '',
           items: [
             {
-              quote: 'The most relaxing hour of my month — and my skin has never looked better.',
+              quote: 'The most relaxing hour of my month, and my skin has never looked better.',
               author: 'Sample review',
               detail: 'Replace with a real, consented review',
             },
@@ -173,7 +173,7 @@ export const serenity: SiteTemplate = {
           items: [
             {
               question: 'Can I pause my membership?',
-              answer: 'Yes — pause for up to two months a year from your account.',
+              answer: 'Yes. Pause for up to two months a year from your account.',
             },
             {
               question: 'Do unused credits roll over?',

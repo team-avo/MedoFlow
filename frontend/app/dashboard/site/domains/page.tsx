@@ -2,7 +2,7 @@
 
 /**
  * Domains (F8.4 / B8.2): the free <name>.<root> subdomain and the clinic's
- * own domains — DNS records to create, verification, primary domain.
+ * own domains: DNS records to create, verification, primary domain.
  */
 import React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -119,7 +119,7 @@ export default function SiteDomainsPage() {
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold text-slate-900">Your free address</h1>
             <p className="mt-1 text-sm text-slate-600">
-              Included with every plan, with HTTPS. Change the name any time — the old one keeps
+              Included with every plan, with HTTPS. Change the name any time; the old one keeps
               redirecting.
             </p>
             {sub && (
@@ -206,7 +206,7 @@ export default function SiteDomainsPage() {
               void act(
                 'add',
                 () => siteApi.addDomain(hostname),
-                'Domain added — now create the DNS records'
+                'Domain added. Now create the DNS records'
               ).then((ok) => ok && setHostname(''))
             }}
           >
@@ -274,7 +274,7 @@ export default function SiteDomainsPage() {
                         void act(
                           `p-${d.id}`,
                           () => siteApi.setPrimaryDomain(d.id),
-                          'Primary domain set — other addresses now redirect here'
+                          'Primary domain set. Other addresses now redirect here'
                         )
                       }
                     >

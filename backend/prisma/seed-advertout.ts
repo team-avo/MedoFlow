@@ -1,5 +1,5 @@
 /**
- * Advertout demo clinic seed — provisions a full clinic for CEO demo.
+ * Advertout demo clinic seed: provisions a full clinic for CEO demo.
  * Run from backend/:
  *   DATABASE_URL="postgresql://postgres:<pw>@tramway.proxy.rlwy.net:41439/railway?schema=public" \
  *     npx ts-node --transpile-only prisma/seed-advertout.ts
@@ -168,7 +168,7 @@ async function main() {
       firstName: 'Rahul',
       lastName: 'Mehta',
       email: DR1_EMAIL,
-      bio: 'MBBS, MD — 12 years in family medicine. Passionate about preventive care and digital health.',
+      bio: 'MBBS, MD, 12 years in family medicine. Passionate about preventive care and digital health.',
       headshotUrl: 'https://i.pravatar.cc/300?img=11',
       licenseNumber: 'MH-MD-20340',
       languages: ['English', 'Hindi', 'Marathi'],
@@ -333,7 +333,7 @@ async function main() {
         eyebrow: 'Welcome to Advertout Wellness Clinic',
         headline: 'Your health, our priority.',
         subheadline:
-          'Book a consultation, connect with your doctor, and manage your health — all in one place. Same-day video visits available.',
+          'Book a consultation, connect with your doctor, and manage your health, all in one place. Same-day video visits available.',
         ctaLabel: 'Book an appointment',
         ctaHref: '#services',
         backgroundImage: '',
@@ -363,10 +363,10 @@ async function main() {
       settings: {
         title: 'What our patients say',
         quotes: [
-          '"Booking online was so easy — no waiting on hold!" — Priya S.',
-          '"Dr. Mehta explained everything so clearly. Highly recommend!" — Rohan K.',
-          '"The video consultation saved me so much time. Great experience." — Meena T.',
-          '"Finally a clinic that has its act together digitally!" — Arun D.',
+          '"Booking online was so easy, no waiting on hold!" - Priya S.',
+          '"Dr. Mehta explained everything so clearly. Highly recommend!" - Rohan K.',
+          '"The video consultation saved me so much time. Great experience." - Meena T.',
+          '"Finally a clinic that has its act together digitally!" - Arun D.',
         ],
       },
     },
@@ -378,7 +378,7 @@ async function main() {
         items: [
           'Do you accept insurance?|We work with most major insurers. Bring your card to your first visit.',
           'How do I cancel an appointment?|Go to My Appointments in your account and cancel up to 2 hours before.',
-          'Are video consultations available?|Yes — video visits are available for most non-emergency concerns at ₹600.',
+          'Are video consultations available?|Yes: video visits are available for most non-emergency concerns at ₹600.',
           'Do you offer same-day appointments?|We keep slots open daily for urgent needs. Book early to grab one.',
         ],
       },
@@ -407,7 +407,7 @@ async function main() {
       sectionsJson: sectionsJson as any,
       draftSectionsJson: sectionsJson as any,
       publishedAt: new Date(),
-      seoTitle: 'Advertout Wellness Clinic — Your health, our priority',
+      seoTitle: 'Advertout Wellness Clinic: Your health, our priority',
       seoDescription:
         'Book a consultation, connect with your doctor, and manage your health all in one place.',
     },
@@ -416,7 +416,7 @@ async function main() {
 
   // ─── Summary ──────────────────────────────────────────────────────────────
   console.log('\n═══════════════════════════════════════════════════')
-  console.log('  ADVERTOUT SEED COMPLETE — credentials')
+  console.log('  ADVERTOUT SEED COMPLETE: credentials')
   console.log('═══════════════════════════════════════════════════')
   console.log(`  Platform admin   ${PLATFORM_ADMIN_EMAIL}  /  ${PLATFORM_ADMIN_PASS}`)
   console.log(`  Clinic owner     ${CLINIC_OWNER_EMAIL}  /  ${CLINIC_OWNER_PASS}`)

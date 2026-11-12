@@ -1,17 +1,17 @@
 'use client'
 
 /**
- * MedoflowLoader — the one loader primitive used across the app.
+ * MedoflowLoader: the one loader primitive used across the app.
  *
  * Design: a single stroke-drawn SVG that reads simultaneously as the
- * Medoflow "M" mark and as an EKG heartbeat — the line draws in from
+ * Medoflow "M" mark and as an EKG heartbeat, the line draws in from
  * the left, holds, then sweeps off to the right, and repeats.
  * On brand + clinically appropriate + much classier than a CSS spinner.
  *
  * Three use-sites:
- *   • <MedoflowLoader size="sm" /> — inline inside buttons and fields.
- *   • <MedoflowLoader size="lg" /> — card / section-level spinners.
- *   • <MedoflowFullScreen … />    — page-level blocking load.
+ *   • <MedoflowLoader size="sm" />, inline inside buttons and fields.
+ *   • <MedoflowLoader size="lg" />, card / section-level spinners.
+ *   • <MedoflowFullScreen … />, page-level blocking load.
  *
  * The underlying stroke-draw animation lives in globals.css as
  * `mf-ekg-draw` so we don't ship a JS animation loop.
@@ -71,13 +71,13 @@ export function MedoflowLoader({
           </linearGradient>
         </defs>
 
-        {/* Barely-visible frame ring — grounds the mark so it doesn't
+        {/* Barely-visible frame ring: grounds the mark so it doesn't
             float naked on empty canvas. Skipped on sm for cleanliness. */}
         {size !== 'sm' && (
           <circle cx="20" cy="20" r="18" stroke={solid} strokeOpacity={0.14} strokeWidth="1.25" />
         )}
 
-        {/* EKG line — the star of the show */}
+        {/* EKG line: the star of the show */}
         <path
           d={EKG_PATH}
           stroke={`url(#${gradientId})`}
@@ -97,7 +97,7 @@ export function MedoflowLoader({
 // ─────────────────────────── Full-screen wrapper ─────────────────────
 
 type FullScreenProps = {
-  /** Display title — defaults to the wordmark. */
+  /** Display title: defaults to the wordmark. */
   title?: string
   /** Optional one-liner below the wordmark. */
   subtitle?: string

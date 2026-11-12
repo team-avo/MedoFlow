@@ -8,7 +8,7 @@
  *
  * Envelope:  fle:v1:<kid>:<Model.field>:<s|j>:<iv>:<tag>:<ciphertext>   (base64url)
  *   kid          which key sealed it (rotation)
- *   Model.field  authenticated as AAD — a value copied into another column fails
+ *   Model.field  authenticated as AAD: a value copied into another column fails
  *   s | j        string column, or JSON column (the JSON is sealed as text and
  *                stored as a JSON string)
  *
@@ -68,7 +68,7 @@ export function sealField(model: string, field: string, kind: FieldKind, value: 
     }
     if (!warnedUnconfigured) {
       warnedUnconfigured = true
-      console.warn('[field-encryption] no keys configured — clinical text is stored unencrypted')
+      console.warn('[field-encryption] no keys configured: clinical text is stored unencrypted')
     }
     return value
   }
@@ -124,7 +124,7 @@ export function parseEnvelope(
 
 /**
  * Opens one sealed value. `expectField`, when given, must match the field
- * the envelope was sealed for — a value moved to another column is refused.
+ * the envelope was sealed for, a value moved to another column is refused.
  */
 export function openField(sealed: string, expectField?: string): unknown {
   const env = parseEnvelope(sealed)

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * F2.5 — "Record over time": the patient's prior approved visits in this
+ * F2.5: "Record over time": the patient's prior approved visits in this
  * clinic, beside the draft being reviewed (FR-7). Straight from the record
  * (no AI); every read is audited server-side.
  */
@@ -48,7 +48,7 @@ export function LongitudinalPanel({ sessionId }: { sessionId: string }) {
           <p className="text-xs text-slate-500">Prior visits could not be loaded.</p>
         ) : !visits?.length ? (
           <p className="text-xs text-slate-500">
-            First approved visit for this patient — there is no earlier note to build on.
+            First approved visit for this patient; there is no earlier note to build on.
           </p>
         ) : (
           <ol className="space-y-4">

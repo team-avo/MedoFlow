@@ -6,7 +6,7 @@
  *   pnpm run ops:encrypt-phi -- --clinic <id> [--clinic <id>…]   # staged rollout / one clinic
  *
  * Needs the same DATABASE_URL and FIELD_ENCRYPTION_* settings as the API.
- * Prints counts only — never field values.
+ * Prints counts only: never field values.
  */
 import 'dotenv/config'
 import prisma from '../config/prisma'

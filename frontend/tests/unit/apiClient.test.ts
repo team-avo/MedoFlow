@@ -1,8 +1,8 @@
 /**
- * F0.4.2 (a) — the refresh interceptor: 401 → ONE refresh for every request
+ * F0.4.2 (a): the refresh interceptor: 401 → ONE refresh for every request
  * in flight → each request replayed with the new token; refresh failure →
  * the auth-failure handler runs (AuthProvider then clears data + routes to
- * sign-in). F0.2.3 — the access token is memory-only.
+ * sign-in). F0.2.3: the access token is memory-only.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import axios, { AxiosError, type AxiosAdapter, type InternalAxiosRequestConfig } from 'axios'
@@ -97,7 +97,7 @@ describe('refresh interceptor', () => {
     expect(seen.filter((c) => !isRefresh(c))).toHaveLength(2)
   })
 
-  it('a 401 from login / MFA verify is a wrong password or code — never a refresh', async () => {
+  it('a 401 from login / MFA verify is a wrong password or code, never a refresh', async () => {
     handler = () => ({ status: 401, data: { code: 'mfa_invalid_code' } })
     await expect(api.post('/auth/login', {})).rejects.toBeInstanceOf(AxiosError)
     await expect(api.post('/auth/mfa/verify', {})).rejects.toBeInstanceOf(AxiosError)

@@ -29,13 +29,13 @@ export const patientSummaryEditSchema = z
   })
   .strict()
 
-/** PUT /ai-scribe/session/:id/draft — the provider's edits to the note and the patient summary. */
+/** PUT /ai-scribe/session/:id/draft: the provider's edits to the note and the patient summary. */
 export const updateDraftSchema = soapEditSchema
   .extend({ clinicId: id.optional(), patientSummary: patientSummaryEditSchema.optional() })
   .strict()
 
 /**
- * POST /ai-scribe/session/:id/consent — the provider attests the patient gave
+ * POST /ai-scribe/session/:id/consent: the provider attests the patient gave
  * verbal consent (in-person visits). Both fields must be exactly these values.
  */
 export const attestConsentSchema = z

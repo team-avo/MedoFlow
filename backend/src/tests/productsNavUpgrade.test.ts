@@ -1,5 +1,5 @@
 /**
- * WS3 — upgrading an existing site to the Products / Medicine store defaults
+ * WS3: upgrading an existing site to the Products / Medicine store defaults
  * (src/site/services/productsNavUpgrade.ts, used by
  * scripts/site-add-products-nav.ts): adds what's missing, keeps the clinic's
  * own choices, and is idempotent.

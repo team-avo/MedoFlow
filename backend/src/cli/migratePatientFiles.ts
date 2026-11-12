@@ -5,7 +5,7 @@
  *   pnpm run ops:migrate-patient-files
  *
  * Needs the API's DATABASE_URL and S3_* settings. Prints counts and row ids
- * only — never filenames.
+ * only: never filenames.
  */
 import 'dotenv/config'
 import prisma from '../config/prisma'

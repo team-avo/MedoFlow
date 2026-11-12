@@ -1,5 +1,5 @@
 /**
- * Component 1 — Scheduling: booking integrity (B1.1–B1.4) and the recurring
+ * Component 1: Scheduling: booking integrity (B1.1–B1.4) and the recurring
  * series cancel endpoint behind the F1.2 UI. Runs against a real Postgres as
  * the non-owner app role (RLS + tenant guard live), like every integration
  * suite. Synthetic data only.
@@ -8,7 +8,7 @@
  *        (direct INSERT bypassing the app), allows the legitimate shapes, and
  *        the advisory lock still answers the app-level 409 first
  *  B1.2  converting a slot hold whose slot became taken → clean 409, nothing
- *        written, the hold stays ACTIVE — via the app check and via the
+ *        written, the hold stays ACTIVE, via the app check and via the
  *        constraint itself; reschedule is atomic
  *  B1.3  set-based getAvailableDatesInRange matches the pre-B1.3 N×M
  *        implementation on a multi-provider, multi-timezone fixture and issues
@@ -46,7 +46,7 @@ afterAll(() => server.close())
 
 const OVERLAP_CONSTRAINT = 'Appointment_provider_no_overlap'
 
-/** Raw INSERT as the owner — no app code, no advisory lock, no RLS. */
+/** Raw INSERT as the owner, no app code, no advisory lock, no RLS. */
 async function rawInsertAppointment(opts: {
   id: string
   clinicId: string
@@ -73,7 +73,7 @@ const at = (s: { startTime: string; endTime: string }) => ({
 })
 const errorText = (e: unknown) => String((e as { message?: string })?.message ?? e)
 
-describe('B1.1 — Postgres exclusion constraint on Appointment overlap', () => {
+describe('B1.1: Postgres exclusion constraint on Appointment overlap', () => {
   const base = () => ({
     clinicId: A.clinicId,
     providerId: A.providerId,
@@ -180,7 +180,7 @@ describe('B1.1 — Postgres exclusion constraint on Appointment overlap', () => 
   })
 })
 
-describe('B1.2 — slot-hold → appointment conversion honours the constraint', () => {
+describe('B1.2: slot-hold → appointment conversion honours the constraint', () => {
   async function holdSlot(s: { startTime: string; endTime: string }) {
     const res = await api(server.url, '/public/slots/hold', {
       body: {
@@ -254,7 +254,7 @@ describe('B1.2 — slot-hold → appointment conversion honours the constraint',
   it('slot taken where only the constraint can see it → the DB rejects, the API still answers a clean 409', async () => {
     // A row for the same provider under another clinic id: RLS hides it from
     // the app role and the app's clinic-scoped checks, so the INSERT itself
-    // is what fails — exercising the constraint → 409 mapping.
+    // is what fails: exercising the constraint → 409 mapping.
     const s = slot(41, 9)
     const holdId = await holdSlot(s)
     await rawInsertAppointment({
@@ -405,7 +405,7 @@ describe('B1.2 — slot-hold → appointment conversion honours the constraint',
   })
 })
 
-describe('B1.3 — set-based getAvailableDatesInRange', () => {
+describe('B1.3: set-based getAvailableDatesInRange', () => {
   let C: ClinicFixture
   let providerLA = ''
   let providerIN = ''
@@ -648,7 +648,7 @@ describe('B1.3 — set-based getAvailableDatesInRange', () => {
   })
 })
 
-describe('B1.4 — booking race', () => {
+describe('B1.4: booking race', () => {
   it('ten concurrent bookings of one slot by different patients → exactly one 201, nine 409', async () => {
     const s = slot(50, 9)
     const patients = await Promise.all(
@@ -711,7 +711,7 @@ describe('B1.4 — booking race', () => {
     const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected')
     expect(rejected).toHaveLength(7)
     // Concurrent inserters waiting on the same GiST exclusion entry can also
-    // be aborted with a deadlock (40P01) under load — still a DB refusal.
+    // be aborted with a deadlock (40P01) under load: still a DB refusal.
     for (const r of rejected) expect(errorText(r.reason)).toMatch(/23P01|no_overlap|40P01/)
   })
 })

@@ -1,4 +1,4 @@
-/** Clinic onboarding — CLINIC_REVIEW_MODE and the reviewer inbox. */
+/** Clinic onboarding: CLINIC_REVIEW_MODE and the reviewer inbox. */
 import { describe, expect, it } from 'vitest'
 import {
   clinicReviewMode,

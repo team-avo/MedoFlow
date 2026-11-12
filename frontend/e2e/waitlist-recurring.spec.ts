@@ -1,5 +1,5 @@
 /**
- * F1.2 — waitlist + recurring UI:
+ * F1.2: waitlist + recurring UI:
  *  - a patient joins the waitlist for a clinician from a fully booked date;
  *  - a front-desk user books a weekly recurring series (one week conflicts:
  *    reviewed and kept as a partial series), then cancels the whole series.
@@ -72,7 +72,7 @@ test('F1.2 front desk books a weekly recurring series, then cancels it', async (
   const conflicts = page.getByRole('dialog', { name: 'Some dates could not be booked' })
   await expect(conflicts).toContainText('3 appointments were created')
   await conflicts.getByRole('button', { name: 'Proceed with 3 bookings' }).click()
-  await expect(page.getByText('Recurring series booked — 3 weekly visits')).toBeVisible()
+  await expect(page.getByText('Recurring series booked: 3 weekly visits')).toBeVisible()
 
   const created = api.appointments.filter((a) => a.recurringSeriesId)
   expect(created).toHaveLength(3)
@@ -89,7 +89,7 @@ test('F1.2 front desk books a weekly recurring series, then cancels it', async (
     .click()
   const confirm = page.getByRole('alertdialog', { name: 'Cancel the whole series?' })
   await confirm.getByRole('button', { name: 'Cancel series' }).click()
-  await expect(page.getByText('Series cancelled — 3 upcoming visits cancelled')).toBeVisible()
+  await expect(page.getByText('Series cancelled: 3 upcoming visits cancelled')).toBeVisible()
   expect(api.appointments.filter((a) => a.recurringSeriesId).map((a) => a.status)).toEqual([
     'CANCELLED',
     'CANCELLED',

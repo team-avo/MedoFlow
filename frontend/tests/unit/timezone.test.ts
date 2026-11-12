@@ -1,5 +1,5 @@
 /**
- * lib/timezone — one display zone for appointment times: the configured
+ * lib/timezone: one display zone for appointment times: the configured
  * NEXT_PUBLIC_DISPLAY_TIMEZONE when valid, otherwise the system zone.
  * Each case pins the zone so the suite passes on any machine.
  */

@@ -269,7 +269,7 @@ function computeProviderDaySlots(
 
 /**
  * Every blocker for the given providers that overlaps [from, to): live
- * appointments, active holds and unavailability days — three queries no
+ * appointments, active holds and unavailability days, three queries no
  * matter how many providers or days are asked about.
  */
 async function loadBlockers(
@@ -595,7 +595,7 @@ export const createUnavailability = async (
  * free slot for the service. Set-based (B1.3): one query each for the
  * service and the providers (with schedules + locations), then the three
  * blocker tables once over the whole window, then a pure per-day/per-provider
- * pass in memory — a bounded number of queries instead of a round of queries
+ * pass in memory: a bounded number of queries instead of a round of queries
  * per day per provider. Results are identical to calling getAvailableSlots
  * for every day/provider (tested against that reference).
  */

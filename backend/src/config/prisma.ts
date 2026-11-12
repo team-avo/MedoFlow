@@ -45,7 +45,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 /**
- * Models with a direct `clinicId` column — derived from schema.prisma. Must
+ * Models with a direct `clinicId` column: derived from schema.prisma. Must
  * be kept in sync if new clinic-scoped models are added (a test diffs this
  * list against the Prisma DMMF). User is intentionally omitted (auth
  * primitive; look-ups happen by email/id before any clinic context exists).
@@ -116,9 +116,9 @@ type WhereLike = Record<string, unknown> | undefined | null
 
 /**
  * Result of reading the clinic constraint out of a where clause:
- *  - string[]  — the query is limited to these clinics
- *  - 'none'    — no clinic constraint at all
- *  - 'invalid' — a clinicId filter the guard can't verify (`not`, `startsWith`, …)
+ *  - string[]: the query is limited to these clinics
+ *  - 'none', no clinic constraint at all
+ *  - 'invalid', a clinicId filter the guard can't verify (`not`, `startsWith`, …)
  */
 type ClinicConstraint = string[] | 'none' | 'invalid'
 
@@ -142,7 +142,7 @@ function readClinicValue(value: unknown): ClinicConstraint {
  *      `{ clinicId_name: { clinicId: 'x', name: 'y' } }`, OR
  *  - any entry in a top-level `AND` array sets `clinicId`.
  *
- * Top-level OR clauses are treated as unscoped — OR-mixing is an easy
+ * Top-level OR clauses are treated as unscoped, OR-mixing is an easy
  * footgun, and callers can rewrite to AND(clinicId, OR(...)).
  */
 export function readWhereClinicConstraint(where: WhereLike): ClinicConstraint {
@@ -206,7 +206,7 @@ const CREATE_OPERATIONS = new Set(['create', 'createMany', 'createManyAndReturn'
 
 /**
  * A violation message that is safe to log: model, operation and the *keys*
- * of the where/data object only. Values are never logged — they can carry
+ * of the where/data object only. Values are never logged, they can carry
  * patient names, emails or note text (B0.3.5).
  */
 function describeViolation(model: string, op: string, args: unknown): string {
@@ -346,7 +346,7 @@ export function assertDeletePolicy(
  * their first statement (see the `$transaction` proxy below).
  *
  * RLS only engages when the app connects as a role that is neither a
- * superuser nor BYPASSRLS — `assertDatabaseRoleEnforcesRls()` checks that at
+ * superuser nor BYPASSRLS: `assertDatabaseRoleEnforcesRls()` checks that at
  * boot.
  */
 export function isRlsEnabled(): boolean {
@@ -415,7 +415,7 @@ const extended = basePrisma.$extends({
 })
 
 /**
- * Maintenance only (B3.2 backfill / key rotation): rows exactly as stored —
+ * Maintenance only (B3.2 backfill / key rotation): rows exactly as stored,
  * encrypted fields stay sealed. Goes around the query extension, so it is
  * restricted to an explicit tenant-bypass scope; RLS variables are still set.
  */

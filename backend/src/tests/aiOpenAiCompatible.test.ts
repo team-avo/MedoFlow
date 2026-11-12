@@ -1,5 +1,5 @@
 /**
- * B2.1 / FR-12 — the OpenAI-compatible adapter against a local HTTP stub.
+ * B2.1 / FR-12: the OpenAI-compatible adapter against a local HTTP stub.
  * Proves the request shapes for each vendor style (OpenAI json_schema, Groq /
  * Ollama json_object, Azure api-key, Gemini chat-audio), and that failures
  * become safe AiError codes that never carry provider text, keys or hosts.

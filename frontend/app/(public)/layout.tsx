@@ -24,7 +24,7 @@ import { MedoflowFullScreen } from '@/components/common/MedoflowLoader'
 import { cn } from '@/lib/utils'
 
 // Routes within (public) that require authentication.
-// `/book` is intentionally NOT here — the clinic page handles its own
+// `/book` is intentionally NOT here: the clinic page handles its own
 // patient auth via the in-page modal so we never bounce a clinic visitor
 // to the Medoflow marketing site.
 const GATED_PREFIXES = ['/store', '/checkout', '/payment', '/intake', '/account']
@@ -34,7 +34,7 @@ function isGatedPath(pathname: string | null): boolean {
   return GATED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 }
 
-// On any clinic-owned route the visitor is a patient — they should never
+// On any clinic-owned route the visitor is a patient, they should never
 // see the Medoflow marketing chrome (nav + footer).
 //
 // /checkout is shared between Medoflow and clinic flows, so it's only
@@ -82,7 +82,7 @@ function PublicLayoutInner({ children }: { children: React.ReactNode }) {
           <ProductDetailProvider>
             <BookingModalProvider>
               <div className="min-h-screen bg-canvas">
-                {/* Hide Medoflow chrome on clinic-owned URLs — patient never
+                {/* Hide Medoflow chrome on clinic-owned URLs, patient never
                   sees the marketing brand. The clinic page renders its
                   own themed header + footer. */}
                 {!onClinicSite && <PublicNav />}

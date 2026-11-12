@@ -1,5 +1,5 @@
 /**
- * F1.3 — cancel / reschedule surfaces respect the clinic's policy:
+ * F1.3: cancel / reschedule surfaces respect the clinic's policy:
  *  - the policy (free-until time and fee) is stated before acting;
  *  - a patient reschedules (the slot-taken case recovers in place), then
  *    cancels inside the free window;
@@ -76,7 +76,7 @@ test('F1.3 inside the cancellation window the fee is stated up front and reporte
   await page.getByRole('button', { name: 'Cancel appointment' }).click()
   const cancel = page.getByRole('alertdialog', { name: 'Cancel appointment?' })
   await expect(cancel.getByTestId('cancellation-policy')).toContainText(
-    'cancelling now incurs a $25.00 fee'
+    'Cancelling now incurs a $25.00 fee'
   )
   await cancel.getByRole('button', { name: 'Cancel appointment' }).click()
   await expect(page.getByText('A late-cancellation fee of $25.00 applies')).toBeVisible()

@@ -1,7 +1,7 @@
 /**
  * Stateful stand-in for the MedoFlow API, installed with page.route(). It
- * implements the auth contract the app depends on — login (+ MFA challenge),
- * refresh cookie, /auth/me, logout, MFA setup/enable — and verifies real
+ * implements the auth contract the app depends on, login (+ MFA challenge),
+ * refresh cookie, /auth/me, logout, MFA setup/enable, and verifies real
  * RFC 6238 TOTP codes, so the browser flow is exercised exactly as against
  * the backend. Every other API call gets an empty success response.
  * Synthetic data only.
@@ -236,7 +236,7 @@ export async function installMockApi(
         return issue(route)
       case 'POST /auth/mfa/verify':
         if (body.mfaToken !== 'mfa-challenge-e2e')
-          return fail(route, 401, 'mfa_challenge_invalid', 'MFA challenge expired — sign in again')
+          return fail(route, 401, 'mfa_challenge_invalid', 'MFA challenge expired: sign in again')
         if (!state.secret || body.code !== totp(state.secret)) {
           return fail(route, 401, 'mfa_invalid_code', 'Invalid verification code')
         }

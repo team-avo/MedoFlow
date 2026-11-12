@@ -82,7 +82,7 @@ const LIST_SELECT = {
   createdAt: true,
 } as const
 
-/** Inbox list: contact details only — the message body is read one at a time. */
+/** Inbox list: contact details only, the message body is read one at a time. */
 export async function listLeads(
   clinicId: string,
   opts: { status?: 'NEW' | 'READ' | 'ARCHIVED'; take?: number } = {}

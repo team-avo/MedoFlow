@@ -1,5 +1,5 @@
 /**
- * Component 2 — AI Scribe / EMR in the browser (mocked API).
+ * Component 2: AI Scribe / EMR in the browser (mocked API).
  *  FR-1   no recording without consent: the provider attests verbal consent;
  *         a patient can decline from their join link
  *  F2.1   one review core: edit note + patient summary, "Approve & send"

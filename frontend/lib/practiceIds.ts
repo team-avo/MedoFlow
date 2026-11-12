@@ -1,10 +1,10 @@
 /**
  * Practice identifiers collected during clinic onboarding: NPI, EIN and DEA
  * registration numbers, plus the US state list. These are format and checksum
- * checks only — nothing is looked up against an external registry; the
+ * checks only: nothing is looked up against an external registry; the
  * platform reviewer verifies the numbers before approving a clinic.
  *
- * Mirror of backend/src/utils/practiceIds.ts — keep the two identical. Both
+ * Mirror of backend/src/utils/practiceIds.ts: keep the two identical. Both
  * test suites load shared/validation-cases/practice-ids.json.
  */
 

@@ -1,5 +1,5 @@
 /**
- * Component 8 — builder controls: generated field editors, the typed link
+ * Component 8: builder controls: generated field editors, the typed link
  * picker, upload pre-checks and the Domains screen (DNS records, plan lock).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'

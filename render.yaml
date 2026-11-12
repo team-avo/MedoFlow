@@ -1,4 +1,4 @@
-# Render Blueprint — MedoFlow backend (Express + Prisma + BullMQ)
+# Render Blueprint: MedoFlow backend (Express + Prisma + BullMQ)
 # https://render.com/docs/blueprint-spec
 #
 # Deploys are driven by GitHub Actions (.github/workflows/deploy.yml): CI builds and
@@ -7,7 +7,7 @@
 # The service must be connected to team-avo/MedoFlow, branch `development`, so the
 # hook's ?ref=<sha> resolves to a commit in that repo.
 #
-# The frontend is NOT on Render — it is deployed to Cloudflare Workers by the same workflow.
+# The frontend is NOT on Render, it is deployed to Cloudflare Workers by the same workflow.
 
 services:
   - type: web
@@ -42,7 +42,7 @@ services:
       # B0.3.6: audit rows are kept at least 6 years.
       - key: AUDIT_RETENTION_YEARS
         value: '6'
-      # WS4: the hosted demo shows plans for display only — every clinic is
+      # WS4: the hosted demo shows plans for display only, every clinic is
       # ACTIVE with the top limits and nothing expires (config/billingMode.ts).
       # Remove (or set to trial) for a real deployment.
       - key: BILLING_MODE
@@ -88,7 +88,7 @@ services:
         sync: false
       - key: MFA_ENCRYPTION_KEY # B0.2.2: openssl rand -hex 32
         sync: false
-      # B3.2 field-level encryption — required in production (boot refuses without it).
+      # B3.2 field-level encryption: required in production (boot refuses without it).
       - key: FIELD_ENCRYPTION_KEYS # k1:<openssl rand -hex 32>; then run ops:encrypt-phi
         sync: false
       - key: FIELD_ENCRYPTION_ACTIVE_KID
@@ -114,7 +114,7 @@ services:
         sync: false
       - key: VIDEO_PHI_POLICY
         sync: false
-      # R2 (S3-compatible) file storage — required in production (B3.1: patient
+      # R2 (S3-compatible) file storage: required in production (B3.1: patient
       # files are only reached through presigned URLs; boot refuses local disk).
       - key: S3_SSE # R2 always encrypts at rest and rejects the SSE header
         value: provider-default

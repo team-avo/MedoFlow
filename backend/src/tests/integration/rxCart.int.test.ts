@@ -1,5 +1,5 @@
 /**
- * Component 5 — Prescription → Cart over HTTP against Postgres (enforce + RLS).
+ * Component 5: Prescription → Cart over HTTP against Postgres (enforce + RLS).
  *
  *  B5.1 scribe orders are mapped to clinic SKUs; unmapped items are surfaced
  *  B5.2 no cart without an explicit, audited provider confirmation
@@ -156,7 +156,7 @@ describe('B5.1 mapping scribe orders to the clinic catalog', () => {
     const proposal = await proposalFor(sessionId)
     expect(proposal?.status).toBe('PENDING')
     const lines = proposal!.lines
-    expect(lines).toHaveLength(4) // one line per scribe order — none dropped
+    expect(lines).toHaveLength(4) // one line per scribe order, none dropped
 
     expect(lineFor(lines, products.mag)).toMatchObject({ quantity: 2, route: 'CART' })
     expect(lineFor(lines, products.arnica)).toMatchObject({ quantity: 1, route: 'CART' })
@@ -569,7 +569,7 @@ describe('B5.4 card + address on file from booking, one-click checkout', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.status).toBe('succeeded')
 
-    // Off-session charge of the saved card — no card details sent from the client.
+    // Off-session charge of the saved card, no card details sent from the client.
     expect(intentArgs).toMatchObject({
       customer: 'cus_synthetic_a',
       payment_method: 'pm_synthetic_visa',

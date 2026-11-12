@@ -46,7 +46,7 @@ test('validateProductionEnv warns when STRIPE_WEBHOOK_SECRET is missing in produ
     // Simulate the warning check logic from envValidation
     if (!process.env.STRIPE_WEBHOOK_SECRET) {
       console.warn(
-        '[WARN] STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is DISABLED. ' +
+        '[WARN] STRIPE_WEBHOOK_SECRET is not set, Stripe webhook signature verification is DISABLED. ' +
           'Any party can send spoofed webhook events. Set this before accepting live payments.'
       )
     }
@@ -104,7 +104,7 @@ test('handleAppointmentPaymentIntentSucceeded returns early if payment already P
       status: 'PAID',
     })
 
-    // The payment for this intent already exists and is PAID — idempotency guard
+    // The payment for this intent already exists and is PAID, idempotency guard
     ;(prisma.payment.findUnique as any) = async ({ where }: any) => {
       if (where?.stripePaymentIntentId === 'pi_already_paid') {
         return { id: 'pay-1', status: PaymentStatus.PAID }
@@ -159,7 +159,7 @@ test('handleAppointmentPaymentIntentSucceeded exits early when no appointmentId 
       client_secret: null,
     })
 
-    // Should return immediately — no metadata appointmentId
+    // Should return immediately: no metadata appointmentId
     assert.equal(queriedDb, false, 'Should not query DB when no appointmentId in metadata')
   } finally {
     restore(prisma.payment, 'findUnique', originalPaymentFindUnique)

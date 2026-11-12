@@ -121,7 +121,7 @@ export const locationUpsertSchema = {
   }),
 }
 
-/** PATCH /locations/:id — every field optional; whatever is sent is updated. */
+/** PATCH /locations/:id: every field optional; whatever is sent is updated. */
 export const locationPatchSchema = {
   params: z.object({ id: cuidSchema }),
   body: locationUpsertSchema.body.omit({ id: true }).extend({

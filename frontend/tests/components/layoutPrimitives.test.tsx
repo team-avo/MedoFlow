@@ -1,5 +1,5 @@
 /**
- * Frontend smoothness pass — shared primitives hold their layout with long
+ * Frontend smoothness pass: shared primitives hold their layout with long
  * text, so pages don't wrap labels onto two lines or push the page sideways.
  */
 import { describe, expect, it } from 'vitest'

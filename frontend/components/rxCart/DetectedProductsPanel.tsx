@@ -1,13 +1,13 @@
 'use client'
 
 /**
- * F5.1 — the products the AI scribe detected in this visit, as removable
+ * F5.1: the products the AI scribe detected in this visit, as removable
  * chips the provider confirms before "Approve & send".
  *
  *  - matched items are chips: name × quantity, a route badge ("Cart" or
  *    "e-Prescribe") and a remove / restore button;
  *  - items the catalog could not match are listed separately and can be
- *    mapped to a product — they are never hidden;
+ *    mapped to a product: they are never hidden;
  *  - nothing is sent until the provider ticks the confirmation.
  *
  * The parent owns the approve button; this panel reports what would be sent
@@ -149,7 +149,7 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
       <div>
         <h3 className="text-sm font-bold text-slate-900">Detected products</h3>
         <p className="text-xs text-slate-500">
-          From this conversation. Remove anything you did not prescribe — only what is left is sent
+          From this conversation. Remove anything you did not prescribe. Only what is left is sent
           when you approve.
         </p>
       </div>
@@ -189,7 +189,7 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Not matched to your catalog — map it to a product, or it will not be sent
+            Not matched to your catalog. Map it to a product, or it will not be sent
           </p>
           <ul className="space-y-2">
             {unmapped.map((line) => (
@@ -216,7 +216,7 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
                   <option value="">Choose a product…</option>
                   {catalog.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {money(p.price)}
+                      {p.name}: {money(p.price)}
                     </option>
                   ))}
                 </select>

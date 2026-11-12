@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS1 — the Review step's "who is this booking for" pieces:
+ * Demo feedback WS1: the Review step's "who is this booking for" pieces:
  * details come from the profile (no re-entry, no password), a missing phone
  * is asked for once, and a signed-out visitor gets the sign-in gate.
  */

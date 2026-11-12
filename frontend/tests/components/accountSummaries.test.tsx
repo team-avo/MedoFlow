@@ -1,5 +1,5 @@
 /**
- * F2.6 — the patient's Visit Summaries page lists published summaries only
+ * F2.6: the patient's Visit Summaries page lists published summaries only
  * (the API returns nothing else), and says so when there are none.
  */
 import React from 'react'

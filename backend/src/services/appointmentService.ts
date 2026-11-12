@@ -703,8 +703,8 @@ export const createAppointment = async (
     .catch((err: unknown) => {
       // B1.1/B1.2: the overlap constraint is the last line of defence when the
       // advisory lock and the checks above are bypassed (e.g. a concurrent
-      // writer outside this code path). The transaction has rolled back — the
-      // slot hold is still ACTIVE, nothing was written — so answer a clean 409.
+      // writer outside this code path). The transaction has rolled back, the
+      // slot hold is still ACTIVE, nothing was written, so answer a clean 409.
       if (isAppointmentOverlapError(err)) throw slotTakenError()
       throw err
     })

@@ -3,7 +3,7 @@
  * (commit 711aec6), kept only so the integration suite can prove the
  * set-based getAvailableDatesInRange / getAvailableSlots return exactly the
  * same answers. Its per-day, per-provider queries are the N×M pattern B1.3
- * removed — do not use it from application code.
+ * removed: do not use it from application code.
  */
 import { DateTime } from 'luxon'
 import prisma from '../../config/prisma'

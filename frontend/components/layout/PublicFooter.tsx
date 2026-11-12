@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * PublicFooter — premium cinematic close.
+ * PublicFooter: premium cinematic close.
  *
  * Layout: oversized brand statement → trust strip → newsletter →
  * refined link columns → quiet legal bar. Each row separated by a
@@ -74,7 +74,7 @@ export function PublicFooter() {
     <footer className="relative overflow-hidden bg-[#0B1E35]">
       <BrandGradient variant="navy" />
 
-      {/* Fine grid texture — only at top, fading down */}
+      {/* Fine grid texture: only at top, fading down */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 h-[60vh] opacity-[0.06]"
         style={{
@@ -129,7 +129,7 @@ export function PublicFooter() {
             </div>
           </div>
 
-          {/* Newsletter — refined */}
+          {/* Newsletter: refined */}
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
             <p className="mf-eyebrow text-[#5EEAD4]">Stay in the loop</p>
             <h4 className="mf-display mt-3 text-[22px] leading-snug text-white">
@@ -249,7 +249,7 @@ export function PublicFooter() {
         </div>
       </div>
 
-      {/* Giant low-opacity wordmark — Stripe/Linear-style premium touch */}
+      {/* Giant low-opacity wordmark: Stripe/Linear-style premium touch */}
       <div
         aria-hidden
         className="pointer-events-none relative -mb-12 mt-4 select-none overflow-hidden"

@@ -4,7 +4,7 @@
  * Vertex's OpenAI-compatible endpoint takes a short-lived OAuth access token
  * as the bearer, not an API key. Sources, in order:
  *   1. a service-account key: GOOGLE_APPLICATION_CREDENTIALS (file path) or
- *      GOOGLE_APPLICATION_CREDENTIALS_JSON (inline) — signed JWT exchanged at
+ *      GOOGLE_APPLICATION_CREDENTIALS_JSON (inline): signed JWT exchanged at
  *      the key's token_uri (RFC 7523);
  *   2. the GCP metadata server (Cloud Run, GKE, GCE).
  * Tokens are cached until a minute before they expire. No SDK dependency.

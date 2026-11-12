@@ -1,4 +1,4 @@
-/** /api/v1/site/templates — the template gallery and installs. */
+/** /api/v1/site/templates: the template gallery and installs. */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'

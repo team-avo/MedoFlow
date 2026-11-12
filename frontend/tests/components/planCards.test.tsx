@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS4 — plan cards (pricing page / landing #pricing) and the
+ * Demo feedback WS4: plan cards (pricing page / landing #pricing) and the
  * sign-up helpers.
  */
 import { describe, expect, it, vi } from 'vitest'
@@ -61,7 +61,7 @@ describe('PlanCards', () => {
   it('trial: prices, a trial link per self-serve plan, sales for Enterprise, the trial note', async () => {
     getPlans.mockResolvedValue(catalog('trial'))
     wrap(<PlanCards />)
-    expect(await screen.findByRole('link', { name: 'Start free trial — Growth' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: 'Start free trial: Growth' })).toHaveAttribute(
       'href',
       '/get-started?plan=GROWTH'
     )
@@ -79,7 +79,7 @@ describe('PlanCards', () => {
     getPlans.mockResolvedValue(catalog('demo'))
     wrap(<PlanCards />)
     expect(await screen.findByTestId('demo-plans-banner')).toHaveTextContent(/illustrative/)
-    expect(screen.getByRole('link', { name: 'Create your clinic — Free' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Create your clinic: Free' })).toBeInTheDocument()
     expect(screen.queryByText(/14-day free trial/)).toBeNull()
   })
 })

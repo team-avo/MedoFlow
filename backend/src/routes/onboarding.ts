@@ -50,7 +50,7 @@ const brandSchema = {
       .regex(/^#[0-9a-fA-F]{6}$/)
       .nullable()
       .optional(),
-    // Accept any string — data URLs (data:image/png;base64,…) fail z.string().url(),
+    // Accept any string: data URLs (data:image/png;base64,…) fail z.string().url(),
     // so we validate format loosely (client is trusted for self-served tenants in Phase 2).
     logoUrl: z.string().min(1).max(5_000_000).nullable().optional(),
   }),

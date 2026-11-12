@@ -28,7 +28,7 @@ interface TopBarProps {
 /**
  * Prisma-style CUIDs (our default id format) always start with a lowercase `c`
  * and are ~24 chars of lowercase alphanumerics. UUIDs are the dashed 36-char
- * variant. We drop both from breadcrumbs — they're visual noise.
+ * variant. We drop both from breadcrumbs, they're visual noise.
  */
 function isOpaqueId(seg: string): boolean {
   return (
@@ -140,7 +140,7 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
 
       {/* Right: actions */}
       <div className="flex shrink-0 items-center gap-1">
-        {/* Alert indicator — SUPER_ADMIN / STAFF only */}
+        {/* Alert indicator: SUPER_ADMIN / STAFF only */}
         {isAdminRole && (
           <div className="relative" ref={alertMenuRef}>
             <button

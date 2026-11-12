@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS4 — the new-clinic path, in the browser (mocked API):
+ * Demo feedback WS4: the new-clinic path, in the browser (mocked API):
  * landing "Start free trial" → pricing → pick a plan → sign-up form (live
  * web-address check) → signed in → the clinic application (practice details).
  * Plus the demo banner when the server runs BILLING_MODE=demo.
@@ -92,7 +92,7 @@ test('landing → pricing → plan → sign up → signed in, on to onboarding',
     'href',
     /^mailto:/
   )
-  await page.getByRole('link', { name: 'Start free trial — Growth' }).click()
+  await page.getByRole('link', { name: 'Start free trial: Growth' }).click()
 
   await expect(page).toHaveURL(/\/get-started\?plan=GROWTH$/)
   await expect(page.getByRole('radio', { name: /Growth/ })).toHaveAttribute('aria-checked', 'true')
@@ -143,6 +143,6 @@ test('demo environment: plans are illustrative, everything unlocked', async ({ p
   await mockTenants(page, 'demo')
   await page.goto('/pricing')
   await expect(page.getByTestId('demo-plans-banner')).toContainText(/plans are illustrative/i)
-  await expect(page.getByRole('link', { name: 'Create your clinic — Growth' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create your clinic: Growth' })).toBeVisible()
   await expect(page.getByText(/14-day free trial/)).toHaveCount(0)
 })

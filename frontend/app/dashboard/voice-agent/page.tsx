@@ -1,12 +1,12 @@
 'use client'
 
 /**
- * AI Front Desk — Phase 1 admin page.
+ * AI Front Desk: Phase 1 admin page.
  *
  * Three tabs in one screen:
- *   1. Test       — talk to the agent in your browser via WebRTC + OpenAI Realtime
- *   2. Configure  — greeting, persona, voice, capabilities, business hours
- *   3. Call log   — recent calls with AI-summarized transcripts
+ *   1. Test: talk to the agent in your browser via WebRTC + OpenAI Realtime
+ *   2. Configure: greeting, persona, voice, capabilities, business hours
+ *   3. Call log: recent calls with AI-summarized transcripts
  */
 
 import React, { useState } from 'react'
@@ -41,7 +41,7 @@ export default function VoiceAgentPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-[14px] leading-relaxed text-ink-muted">
             Your tireless receptionist. Answers calls, books appointments, takes messages, and
-            transfers to a human when it matters. Test it in your browser first — phone-number setup
+            transfers to a human when it matters. Test it in your browser first; phone-number setup
             comes in Phase 2.
           </p>
         </div>

@@ -63,7 +63,7 @@ function formatMoney(amount?: string | number | null) {
 }
 
 function formatDate(iso?: string | null) {
-  if (!iso) return '—'
+  if (!iso) return 'Not set'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -243,7 +243,7 @@ export default function CommissionsPage() {
         description={
           isProvider
             ? 'View your commission ledger and payout status.'
-            : 'Configure commission rules and track provider earnings. Marking records as paid updates payout tracking only — it does not initiate a bank transfer or payroll disbursement.'
+            : 'Configure commission rules and track provider earnings. Marking records as paid updates payout tracking only; it does not initiate a bank transfer or payroll disbursement.'
         }
       />
 

@@ -119,7 +119,7 @@ export function LaunchWebsiteModal({
                 Launch your website
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-slate-600">
-                {step === 'template' && 'Pick a starting design — you can change everything later.'}
+                {step === 'template' && 'Pick a starting design: you can change everything later.'}
                 {step === 'brand' && 'Add your name, logo and colour.'}
                 {step === 'launching' && 'Building your pages…'}
                 {step === 'done' && 'Your website is ready.'}
@@ -235,8 +235,8 @@ export function LaunchWebsiteModal({
                   <Toggle label="Write my home page with AI" checked={useAi} onChange={setUseAi} />
                   <p className="text-xs text-slate-500">
                     <Sparkles className="mr-1 inline h-3 w-3" />
-                    Uses only your clinic name and service names — never patient information. You
-                    can edit every word afterwards.
+                    Uses only your clinic name and service names, never patient information. You can
+                    edit every word afterwards.
                   </p>
                   <Toggle
                     label="Publish straight away"
@@ -283,7 +283,7 @@ export function LaunchWebsiteModal({
               </p>
               {useAi && !result.aiUsed && (
                 <p className="text-xs text-amber-700">
-                  AI copy wasn’t available right now, so the template’s copy is used — edit it any
+                  AI copy wasn’t available right now, so the template’s copy is used. Edit it any
                   time.
                 </p>
               )}

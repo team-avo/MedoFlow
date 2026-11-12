@@ -147,7 +147,7 @@ export async function createClinicByPlatform(input: CreateClinicByPlatformInput)
       })
     }
 
-    // Owner created without a password — they'll set it via the invite link.
+    // Owner created without a password, they'll set it via the invite link.
     const user = await tx.user.create({
       data: {
         name: input.ownerName.trim(),

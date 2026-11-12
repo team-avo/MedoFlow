@@ -485,7 +485,7 @@ function MetricRow({
 }
 
 /**
- * WebsiteStatusBanner — sits above the Command Center KPIs so the patient
+ * WebsiteStatusBanner: sits above the Command Center KPIs so the patient
  * site is the first thing the admin sees on every visit.
  */
 /**

@@ -1,8 +1,8 @@
 /**
- * B3.2 — field-level encryption against Postgres. Transcripts, SOAP notes
+ * B3.2: field-level encryption against Postgres. Transcripts, SOAP notes
  * (and versions) and intake answers are ciphertext at rest (read with the
  * owner connection, which bypasses the app), plaintext through the API, and
- * existing plaintext rows are migrated by the backfill — which also rotates.
+ * existing plaintext rows are migrated by the backfill, which also rotates.
  */
 import crypto from 'crypto'
 import { Prisma } from '@prisma/client'
@@ -84,7 +84,7 @@ describe('B3.2 SOAP notes and their versions', () => {
     expect(versions.length).toBe(2)
     expect(versions.every((v) => isSealed(v.subjective) && isSealed(v.plan))).toBe(true)
 
-    // Create + edit are audited by section name / version id — never the text.
+    // Create + edit are audited by section name / version id, never the text.
     const audit = await adminDb.auditLog.findMany({
       where: { entityId: id, action: { in: ['VISIT_RECORD_CREATED', 'VISIT_RECORD_UPDATED'] } },
       orderBy: { createdAt: 'asc' },
@@ -267,7 +267,7 @@ describe('B3.2 scribe transcripts, AI drafts and voice transcripts', () => {
 
 describe('B3.2 migration of existing rows (ops:encrypt-phi)', () => {
   it('seals legacy plaintext, is idempotent, and rotates to a new key', async () => {
-    // The fixture wrote a plaintext SOAP note through the owner connection —
+    // The fixture wrote a plaintext SOAP note through the owner connection,
     // exactly what rows written before B3.2 look like.
     const before = await adminDb.visitRecord.findUniqueOrThrow({ where: { id: C.visitRecordId } })
     expect(before.subjective).toBe('Synthetic note: no real patient data.')

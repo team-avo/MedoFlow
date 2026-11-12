@@ -1,5 +1,5 @@
 /**
- * Component 8 — frontend content model: section schema parity with the
+ * Component 8: frontend content model: section schema parity with the
  * backend (shared/validation-cases/site-sections.json), markdown, theme,
  * links, client-side resolution, SEO, sitemap and the editor reducer.
  */
@@ -53,7 +53,7 @@ function expand(v: unknown): unknown {
   return v
 }
 
-describe('section schemas — shared parity cases', () => {
+describe('section schemas: shared parity cases', () => {
   it('types and variants match the shared definition exactly', () => {
     expect(
       Object.fromEntries(SECTION_DEFS.map((d) => [d.type, d.variants.map((v) => v.value)]))
@@ -65,7 +65,7 @@ describe('section schemas — shared parity cases', () => {
   it.each(sectionCases.invalid.map((c) => [c.name, c.section] as const))('rejects %s', (_n, s) => {
     expect(validateSection(expand(s))).toMatchObject({ ok: false })
   })
-  it('every new section is valid as created — except video, which needs a link first', () => {
+  it('every new section is valid as created, except video, which needs a link first', () => {
     for (const d of SECTION_DEFS) {
       const r = validateSection(newSection(d.type))
       expect(r.ok, d.type).toBe(d.type !== 'video')

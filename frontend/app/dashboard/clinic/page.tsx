@@ -50,7 +50,7 @@ const TABS = [
 ] as const
 
 /**
- * Clinic profile (owner only): the practice application after onboarding —
+ * Clinic profile (owner only): the practice application after onboarding,
  * review status, the signed agreement, and edits to practice details and
  * practitioners. When changes were requested, the owner resubmits from here.
  */

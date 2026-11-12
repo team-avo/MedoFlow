@@ -318,7 +318,7 @@ export default function PatientsPage() {
                               header: 'Service',
                               render: (apt) => (
                                 <div className="text-sm font-medium text-slate-600">
-                                  {apt.service?.name ?? '—'}
+                                  {apt.service?.name ?? 'Not set'}
                                 </div>
                               ),
                             },

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * F2.1 — everything after the recording, identical on both scribe screens:
+ * F2.1: everything after the recording, identical on both scribe screens:
  * processing → (failed | review) → approved, with the transcript, the
  * clinical timeline and the patient's record over time alongside.
  */

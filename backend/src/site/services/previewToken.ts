@@ -1,7 +1,7 @@
 /**
  * Draft-preview links (B8.6). A token lets anyone holding the link view one
- * page's draft for 30 minutes — so the owner can check it on the real site
- * host or send it to a colleague — without publishing. HMAC-SHA256 over
+ * page's draft for 30 minutes, so the owner can check it on the real site
+ * host or send it to a colleague, without publishing. HMAC-SHA256 over
  * clinic, page and expiry; constant-time comparison.
  */
 import crypto from 'crypto'

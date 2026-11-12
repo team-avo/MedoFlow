@@ -227,7 +227,7 @@ export async function sendClinicAgreementConfirmation(params: {
 }): Promise<void> {
   const { to, clinicName, acceptedByName, acceptedAt, termsVersion, plan, acknowledgements } =
     params
-  const subject = `Agreement countersigned — Welcome to Medoflow, ${clinicName}`
+  const subject = `Agreement countersigned: Welcome to Medoflow, ${clinicName}`
   const acceptedAtStr = acceptedAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
   const ackList = acknowledgements.map((a) => `<li style="margin: 4px 0;">${a}</li>`).join('')
   const ackText = acknowledgements.map((a) => `  • ${a}`).join('\n')
@@ -302,7 +302,7 @@ If you didn't expect this invite, you can safely ignore this email.
 
 /**
  * New contact-form enquiry on a clinic website (B8.5). The email carries no
- * enquiry content — contact-form messages are PHI and are read only inside
+ * enquiry content: contact-form messages are PHI and are read only inside
  * the dashboard, where every read is audited.
  */
 export async function sendSiteLeadNotification(params: {
@@ -348,13 +348,13 @@ export async function sendClinicApplicationReceived(params: {
   const html = emailShell(
     'Application received',
     `<p>Hi ${name},</p>
-      <p>Thanks — we have the application for <strong>${clinic}</strong>. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.</p>
+      <p>Thanks, we have the application for <strong>${clinic}</strong>. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.</p>
       <p>You can keep setting up services, team and website in the meantime. Your public website and online booking switch on as soon as the clinic is approved.</p>
       <p><a href="${params.dashboardUrl}">Continue setup</a></p>`
   )
   const text = `Hi ${params.name},
 
-Thanks — we have the application for ${params.clinicName}. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.
+Thanks, we have the application for ${params.clinicName}. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.
 
 You can keep setting up services, team and website in the meantime. Your public website and online booking switch on as soon as the clinic is approved.
 
@@ -401,7 +401,7 @@ export async function sendClinicReviewDecision(params: {
     : ''
   const copy = {
     APPROVED: {
-      subject: `${params.clinicName} is approved — you're live`,
+      subject: `${params.clinicName} is approved: you're live`,
       title: 'Your clinic is approved',
       body: `<p><strong>${clinic}</strong> has been approved. Your public website and online booking are now switched on.</p>`,
       text: `${params.clinicName} has been approved. Your public website and online booking are now switched on.`,

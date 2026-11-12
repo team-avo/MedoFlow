@@ -1,5 +1,5 @@
 /**
- * Clinic-site route registry — frontend mirror of backend/src/site/routing/*.
+ * Clinic-site route registry: frontend mirror of backend/src/site/routing/*.
  * Both are held to shared/validation-cases/site-routes.json, so a route can't
  * exist on one side only. Every clinic-site URL in the frontend is built
  * with buildSitePath + withSiteBase; nothing joins URL strings by hand.
@@ -185,7 +185,7 @@ export function withSiteBase(base: string, path: string): string {
   return /^https?:\/\//.test(b) ? `${b}/` : b
 }
 
-/** Safe path or null — for building links to optional entities. */
+/** Safe path or null: for building links to optional entities. */
 export function trySitePath(key: SiteRouteKey, params: SiteRouteParams = {}): string | null {
   try {
     return buildSitePath(key, params)

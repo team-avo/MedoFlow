@@ -62,9 +62,7 @@ export function ContactFormSection({ section }: { section: Section }) {
         style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}
       >
         <CheckCircle2 aria-hidden style={{ color: 'var(--site-primary)', flexShrink: 0 }} />
-        <p style={{ margin: 0 }}>
-          {str(s.successMessage, 'Thanks — we will be in touch shortly.')}
-        </p>
+        <p style={{ margin: 0 }}>{str(s.successMessage, 'Thanks, we will be in touch shortly.')}</p>
       </div>
     ) : (
       <form className="mf-card" onSubmit={onSubmit} aria-label="Contact form" noValidate={false}>

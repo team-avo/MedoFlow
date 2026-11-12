@@ -13,7 +13,7 @@ export default function PricingPage() {
           One platform. One simple plan.
         </h1>
         <p className="mt-4 text-lg text-slate-600">
-          Scheduling, records, payments, an AI scribe, video visits and your clinic website — pick
+          Scheduling, records, payments, an AI scribe, video visits and your clinic website. Pick
           the plan that fits and set up your clinic in minutes.
         </p>
       </div>

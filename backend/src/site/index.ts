@@ -1,5 +1,5 @@
 /**
- * Component 8 — clinic website platform. Two routers, mounted once each in
+ * Component 8: clinic website platform. Two routers, mounted once each in
  * routes/index.ts:
  *   siteAdminRouter   /api/v1/site/*            builder (authenticated)
  *   sitePublicRouter  /api/v1/public/sites/*    render, resolve, sitemap, leads

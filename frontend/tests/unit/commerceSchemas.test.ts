@@ -1,5 +1,5 @@
 /**
- * F5.3 — Zod parity with the backend for the shipping address. The shared
+ * F5.3: Zod parity with the backend for the shipping address. The shared
  * cases (shared/validation-cases/commerce.json) also run in
  * backend/src/tests/commerceValidation.test.ts against the API's schema.
  */

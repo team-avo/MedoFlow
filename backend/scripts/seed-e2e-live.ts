@@ -5,7 +5,7 @@
  * development-log-docs/commerce-pres-cart-WALKTHROUGH-AND-VERIFICATION.md) and
  * Component 8 (frontend/e2e/live-site.spec.ts, and the manual guide in
  * development-log-docs/component-website-builder-WALKTHROUGH-AND-VERIFICATION.md).
- * Development databases only — never point this at a database holding real data.
+ * Development databases only: never point this at a database holding real data.
  *
  *   E2E_LIVE_PASSWORD=<any synthetic password> \
  *   DATABASE_URL=<owner url of a dev database> \
@@ -169,7 +169,7 @@ async function main() {
     },
   })
 
-  // Component 2: a visit for the full scribe pipeline — booked WITHOUT AI
+  // Component 2: a visit for the full scribe pipeline, booked WITHOUT AI
   // consent, so the provider must record verbal consent before recording.
   const scribeStart = new Date(start.getTime() - 48 * 3_600_000)
   const scribeAppointment = await db.appointment.create({

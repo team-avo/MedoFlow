@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * WrongClinicBlock — full-page hard block shown when an authenticated
+ * WrongClinicBlock: full-page hard block shown when an authenticated
  * patient lands on a clinic site that isn't theirs. No header, no
- * landing content — just a clean access-denied page with a logout
+ * landing content: just a clean access-denied page with a logout
  * button so they can switch accounts.
  */
 
@@ -35,8 +35,8 @@ export function WrongClinicBlock({ clinicName, themeColor }: Props) {
       </h1>
 
       <p className="mx-auto mt-4 max-w-md text-base leading-relaxed text-slate-500">
-        You're signed in to a different clinic. {clinicName} is private —
-        only its own patients can access this site.
+        You're signed in to a different clinic. {clinicName} is private: only its own patients can
+        access this site.
       </p>
 
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

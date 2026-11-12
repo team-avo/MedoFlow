@@ -86,7 +86,7 @@ const config: Config = {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
         },
-        // MedoFlow semantic tokens — used by landing design system
+        // MedoFlow semantic tokens: used by landing design system
         navy: {
           DEFAULT: '#1E3A5F',
           soft: 'rgba(255, 255, 255, 0.72)',

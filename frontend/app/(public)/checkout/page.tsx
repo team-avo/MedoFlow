@@ -44,7 +44,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Clinic context — set when the patient is checking out from inside a
+  // Clinic context: set when the patient is checking out from inside a
   // clinic-branded site. We can't read the path here (we're at /checkout),
   // so the cart drawer in the clinic site passes the clinic via ?clinic=
   // query param. Falls back to no clinic if unset.

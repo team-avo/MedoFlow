@@ -1,4 +1,4 @@
-/** F0.2.1 — idle warning, then sign-out; "Stay signed in" and heartbeats. */
+/** F0.2.1: idle warning, then sign-out; "Stay signed in" and heartbeats. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 

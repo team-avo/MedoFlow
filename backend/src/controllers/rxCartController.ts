@@ -19,7 +19,7 @@ const providerScope = async (req: Request): Promise<{ providerId: string; clinic
   return { providerId: provider.id, clinicId }
 }
 
-/** GET /rx-cart/sessions/:sessionId/proposal — the detected products for review. */
+/** GET /rx-cart/sessions/:sessionId/proposal: the detected products for review. */
 export const getProposal = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { providerId, clinicId } = await providerScope(req)
@@ -32,7 +32,7 @@ export const getProposal = asyncHandler(
   }
 )
 
-/** GET /rx-cart/catalog — active products the provider can map an item to. */
+/** GET /rx-cart/catalog: active products the provider can map an item to. */
 export const getCatalog = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { clinicId } = await providerScope(req)
@@ -45,7 +45,7 @@ export const getCatalog = asyncHandler(
   }
 )
 
-/** PUT /rx-cart/proposals/:id/lines — edit lines before confirming. */
+/** PUT /rx-cart/proposals/:id/lines: edit lines before confirming. */
 export const updateLines = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { providerId, clinicId } = await providerScope(req)
@@ -60,7 +60,7 @@ export const updateLines = asyncHandler(
   }
 )
 
-/** POST /rx-cart/proposals/:id/confirm — send products for an already-approved note. */
+/** POST /rx-cart/proposals/:id/confirm: send products for an already-approved note. */
 export const confirm = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { providerId, clinicId } = await providerScope(req)

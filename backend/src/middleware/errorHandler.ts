@@ -34,7 +34,7 @@ export const errorHandler = (
   }
   const statusCode = (err as ApiError).statusCode || 500
   // Unexpected (5xx) errors can carry query arguments or record contents in
-  // their message (e.g. Prisma errors) — never echo them to the client in
+  // their message (e.g. Prisma errors): never echo them to the client in
   // production (B0.3.5). Deliberate 4xx messages are written for the client.
   const message =
     statusCode >= 500 && process.env.NODE_ENV === 'production'

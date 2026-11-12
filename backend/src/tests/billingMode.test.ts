@@ -1,4 +1,4 @@
-/** Demo feedback WS4 — BILLING_MODE: trial by default; demo = nothing expires, nothing gated. */
+/** Demo feedback WS4: BILLING_MODE: trial by default; demo = nothing expires, nothing gated. */
 import { describe, expect, it } from 'vitest'
 import { billingMode, effectivePlan, newTenantBilling } from '../config/billingMode'
 

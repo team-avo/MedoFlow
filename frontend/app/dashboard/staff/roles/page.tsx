@@ -508,7 +508,7 @@ export default function RolesPage() {
     <PageContainer className="space-y-8">
       <AppPageHeader
         title="Roles & Permissions"
-        description="Define custom roles with granular permissions — just like Shopify."
+        description="Define custom roles with granular permissions, just like Shopify."
         actions={
           <div className="flex flex-wrap gap-2">
             {roles.filter((r) => r.isPreset).length === 0 && (

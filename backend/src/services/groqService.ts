@@ -1,5 +1,5 @@
 /**
- * Groq client — Whisper STT + Llama chat with tool calling.
+ * Groq client: Whisper STT + Llama chat with tool calling.
  *
  * Groq is OpenAI-compatible (same /v1/* shape) so we can use the OpenAI SDK
  * format directly. Two endpoints we use:
@@ -176,7 +176,7 @@ export const chatWithTools = async (
     // Try to salvage tool_use_failed regardless of which model said it.
     const salvaged = trySalvageToolUseFailure(r.body)
     if (salvaged) return salvaged
-    // If it's not a quota issue, no point trying another model — fail now.
+    // If it's not a quota issue, no point trying another model, fail now.
     if (!isQuotaError(r.status, r.body)) break
     console.warn(`[groq] ${model} quota-limited, falling back to next model`)
   }
@@ -203,7 +203,7 @@ const trySalvageToolUseFailure = (bodyText: string): ChatResponse | null => {
     if (parsed.error?.code !== 'tool_use_failed') return null
     const fg = parsed.error.failed_generation ?? ''
 
-    // Very permissive — match <function=NAME …{args}…></function> in any of:
+    // Very permissive: match <function=NAME …{args}…></function> in any of:
     //  <function=NAME>{args}</function>
     //  <function=NAME{args}</function>
     //  <function=NAME {args}></function>

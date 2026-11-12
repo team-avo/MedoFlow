@@ -1,4 +1,4 @@
-/** /api/v1/site/pages — page CRUD, publish, revisions. */
+/** /api/v1/site/pages: page CRUD, publish, revisions. */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'

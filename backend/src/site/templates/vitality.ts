@@ -78,7 +78,7 @@ export const vitality: SiteTemplate = {
     seo: {
       titleSuffix: '',
       description:
-        'Physiotherapy and sports medicine that gets you moving again — fast assessments, clear plans.',
+        'Physiotherapy and sports medicine that gets you moving again: fast assessments, clear plans.',
       ogImage: null,
     },
   },
@@ -88,7 +88,7 @@ export const vitality: SiteTemplate = {
       slug: 'home',
       title: 'Home',
       seoDescription:
-        'Physiotherapy and sports medicine that gets you moving again — fast assessments, clear plans.',
+        'Physiotherapy and sports medicine that gets you moving again: fast assessments, clear plans.',
       showInNav: false,
       sections: [
         sec('hero', 'image', {
@@ -132,7 +132,7 @@ export const vitality: SiteTemplate = {
         }),
         sec('medicine-store', 'grid', {
           heading: 'Medicine store',
-          intro: 'Pain relief, recovery aids and supplements — no prescription needed.',
+          intro: 'Pain relief, recovery aids and supplements, no prescription needed.',
           maxItems: 4,
         }),
         sec('gallery', 'grid', {
@@ -166,7 +166,7 @@ export const vitality: SiteTemplate = {
       sections: [
         sec('rich-text', 'left', {
           heading: 'Conditions we treat',
-          body: 'We help with a wide range of musculoskeletal problems, including:\n\n- Back and neck pain\n- Sports injuries — sprains, strains and tendon problems\n- Knee, hip and shoulder pain\n- Post-surgical rehabilitation\n- Headaches linked to posture and tension\n- Work and desk-related aches\n\nNot on the list? [Get in touch](/contact) — if we can’t help, we will point you to someone who can.',
+          body: 'We help with a wide range of musculoskeletal problems, including:\n\n- Back and neck pain\n- Sports injuries, sprains, strains and tendon problems\n- Knee, hip and shoulder pain\n- Post-surgical rehabilitation\n- Headaches linked to posture and tension\n- Work and desk-related aches\n\nNot on the list? [Get in touch](/contact): if we can’t help, we will point you to someone who can.',
         }),
         sec('faq', 'accordion', {
           heading: 'Before your first visit',
@@ -174,7 +174,7 @@ export const vitality: SiteTemplate = {
             {
               question: 'Do I need a referral?',
               answer:
-                'No. You can book directly. Some insurers require one for reimbursement — check your plan.',
+                'No. You can book directly. Some insurers require one for reimbursement, so check your plan.',
             },
             {
               question: 'What should I wear?',

@@ -1,4 +1,4 @@
-/** /api/v1/site/domains — subdomain and custom domains (owners only). */
+/** /api/v1/site/domains: subdomain and custom domains (owners only). */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'
@@ -38,7 +38,7 @@ router.post(
       actorFrom(req),
       (req.body as { hostname: string }).hostname
     )
-    successResponse(res, 201, 'Domain added — create the DNS records below, then verify', d)
+    successResponse(res, 201, 'Domain added: create the DNS records below, then verify', d)
   })
 )
 

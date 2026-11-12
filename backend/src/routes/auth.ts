@@ -7,7 +7,7 @@ import { authRateLimit, publicApiRateLimit, refreshRateLimit } from '../middlewa
 
 const router = Router()
 
-// Pre-auth endpoints run outside any clinic scope — they have to, the user
+// Pre-auth endpoints run outside any clinic scope, they have to, the user
 // isn't authenticated yet. Wrap them in a named bypass so the Prisma guard
 // permits the email/token/clinic lookups these flows perform.
 router.post(
@@ -45,7 +45,7 @@ router.post(
 )
 
 // Session handoff to a clinic's own domain (services/authHandoffService).
-// start: optional auth — a signed-in patient gets a code, anyone else `none`.
+// start: optional auth: a signed-in patient gets a code, anyone else `none`.
 // exchange: public; the one-time code is the credential, failures are counted.
 router.post(
   '/handoff/start',

@@ -116,7 +116,7 @@ export default function SiteOverviewPage() {
         <h1 className="mt-4 text-2xl font-semibold text-slate-900">Build your clinic’s website</h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">
           Pick a template designed for your kind of practice. Your services, team, products and
-          opening hours fill in automatically — then make it yours.
+          opening hours fill in automatically; then make it yours.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <AppButton onClick={() => router.push('/dashboard/site/templates')}>
@@ -369,7 +369,7 @@ export default function SiteOverviewPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New page"
-        description="It starts as a draft — publish it when it’s ready."
+        description="It starts as a draft; publish it when it’s ready."
         primaryAction={{
           label: 'Create page',
           disabled: !newTitle.trim() || !newSlug || !!slugError || busy === 'create',

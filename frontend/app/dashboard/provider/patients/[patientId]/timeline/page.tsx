@@ -50,7 +50,7 @@ function buildTimelineEvents(
       events.push({
         id: `apt-${a.id}`,
         type: 'APPOINTMENT',
-        title: `${a.service.name} — ${a.location.name}`,
+        title: `${a.service.name}: ${a.location.name}`,
         description: `${a.provider.firstName} ${a.provider.lastName}`,
         date: a.startTime,
         appointmentId: a.id,

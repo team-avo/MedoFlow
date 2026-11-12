@@ -10,7 +10,7 @@ export interface CreateClinicData {
   subscriptionPlan?: string
   /**
    * Required. The tenant this clinic belongs to. Callers must resolve the
-   * correct tenantId before calling — usually by creating a Tenant first
+   * correct tenantId before calling: usually by creating a Tenant first
    * (see `tenantService.provisionTenant`) or by reading the acting user's
    * existing tenant context.
    */
@@ -106,7 +106,7 @@ export const getClinicForUser = async (userId: string) => {
 /**
  * Resolves the tenant the given SUPER_ADMIN belongs to, creating one if none
  * exists. This path is only reached by legacy accounts that predate the
- * tenantService.provisionTenant signup flow — new signups always have a
+ * tenantService.provisionTenant signup flow: new signups always have a
  * tenant already. The slug is derived from the user's email so re-runs are
  * idempotent (no duplicate tenants per owner).
  */

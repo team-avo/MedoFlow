@@ -1,7 +1,7 @@
 /**
  * The small, safe markdown subset clinic copy may use: paragraphs, "- "
  * lists, **bold**, *italic* and [links](…). Parsed to a tree and rendered as
- * React elements — never as HTML — so stored copy can't inject markup.
+ * React elements: never as HTML, so stored copy can't inject markup.
  * Links may be https / mailto / tel, or a site path ("/contact").
  */
 import { isSafeExternalHref } from './links'

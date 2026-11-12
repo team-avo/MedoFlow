@@ -1,13 +1,13 @@
 /**
  * Booking failures the patient can recover from by picking another time:
- * the slot was taken by someone else (409 `conflict` — the API's own check or
+ * the slot was taken by someone else (409 `conflict`, the API's own check or
  * the database overlap constraint, B1.1/B1.2), the hold no longer matches the
  * slot (`invalid_slot`), or the hold expired (`expired_hold`). The UI turns
- * these into a "slot taken — pick another time" step, never a raw error.
+ * these into a "slot taken: pick another time" step, never a raw error.
  */
 
 export const SLOT_TAKEN_MESSAGE =
-  'That time was just taken. Please pick another — the times shown are still open.'
+  'That time was just taken. Please pick another; the times shown are still open.'
 
 const RECOVERABLE_CODES = new Set(['conflict', 'invalid_slot', 'expired_hold'])
 

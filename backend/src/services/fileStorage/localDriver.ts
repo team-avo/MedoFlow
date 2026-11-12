@@ -8,7 +8,7 @@ import type {
   DownloadUrlOptions,
 } from './types'
 
-/** Local-disk store root. Development and CI only — refused at production boot. */
+/** Local-disk store root. Development and CI only, refused at production boot. */
 export const UPLOAD_BASE = path.resolve(process.cwd(), 'uploads')
 
 export const BLOB_ROUTE = '/api/v1/files/blob'

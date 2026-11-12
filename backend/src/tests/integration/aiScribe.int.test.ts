@@ -1,5 +1,5 @@
 /**
- * Component 2 — AI Scribe / EMR over HTTP against Postgres (enforce + RLS),
+ * Component 2: AI Scribe / EMR over HTTP against Postgres (enforce + RLS),
  * with the deterministic in-process AI (AI_SCRIBE_*_PROVIDER=mock).
  *
  *  FR-1  consent before recording (booking / patient / provider-attested; decline blocks)
@@ -53,7 +53,7 @@ const sessionsCreated: string[] = []
 let hours = 0
 /**
  * A fresh appointment + open visit record for patient A. Each one is later
- * than the last (all in the past, never overlapping — B1.1), like real visits.
+ * than the last (all in the past, never overlapping, B1.1), like real visits.
  */
 async function newVisit(opts: { bookingConsent?: boolean } = {}) {
   hours += 1
@@ -222,7 +222,7 @@ describe('FR-1 consent before recording', () => {
     ).toBe('BOOKING')
   })
 
-  it('the provider can attest verbal consent (audited) — but never over a patient decline', async () => {
+  it('the provider can attest verbal consent (audited): but never over a patient decline', async () => {
     const visit = await newVisit()
     const session = await start(visit.visitRecordId)
     const ok = await attest(session.id)

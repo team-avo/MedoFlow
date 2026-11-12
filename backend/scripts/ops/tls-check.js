@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * B0.6.2 — TLS scan: each host must accept TLS 1.2 and 1.3 and refuse 1.0
+ * B0.6.2: TLS scan: each host must accept TLS 1.2 and 1.3 and refuse 1.0
  * and 1.1, and send HSTS.
  *
  *   node scripts/ops/tls-check.js medoflow-backend-6pd5.onrender.com medoflow-web.advertout-medoflow.workers.dev

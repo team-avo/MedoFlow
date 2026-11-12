@@ -24,7 +24,7 @@ import {
 import { useAppToast } from '@/hooks/useAppToast'
 import type { TimeSlot } from '@/lib/types/booking'
 
-/** The fields a reschedule needs — satisfied by both patient and staff appointment shapes. */
+/** The fields a reschedule needs, satisfied by both patient and staff appointment shapes. */
 export interface ReschedulableAppointment {
   id: string
   clinicId: string

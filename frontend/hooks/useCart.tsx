@@ -5,8 +5,8 @@
  *
  * The hook itself is a thin reader of the singleton context held by
  * <CartProvider>. Mounting the provider once at the app root (in
- * (public)/layout.tsx) means every consumer — the cart drawer, the
- * navbar badge, individual product cards — share the SAME state. When
+ * (public)/layout.tsx) means every consumer: the cart drawer, the
+ * navbar badge, individual product cards, share the SAME state. When
  * one of them adds an item, the badge in the navbar updates immediately.
  *
  * Public API is unchanged from the previous per-component hook, so no

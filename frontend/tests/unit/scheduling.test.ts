@@ -1,5 +1,5 @@
 /**
- * Component 1 — Scheduling helpers: the slot-taken classifier behind the
+ * Component 1: Scheduling helpers: the slot-taken classifier behind the
  * booking recovery step (F1.1) and the cancellation-policy wording shown
  * before cancel/reschedule (F1.3).
  */
@@ -69,7 +69,7 @@ describe('cancellation policy', () => {
 
     const late = cancellationTerms(policy, { startTime: start }, new Date('2026-11-10T09:00:00Z'))
     expect(late.lateNow).toBe(true)
-    expect(describeCancellationPolicy(late, fmt)).toContain('cancelling now incurs a $25.00 fee')
+    expect(describeCancellationPolicy(late, fmt)).toContain('Cancelling now incurs a $25.00 fee')
   })
 
   it('a percentage fee is computed from the booked price', () => {

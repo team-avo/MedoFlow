@@ -1,5 +1,5 @@
 /**
- * F3.1 / F3.3 — PatientFilesSection: invalid files are blocked before any
+ * F3.1 / F3.3: PatientFilesSection: invalid files are blocked before any
  * request, uploads and downloads go through the presigned-URL helpers, a
  * refused (unauthorised) download shows a clear message, and no toast ever
  * carries the filename.

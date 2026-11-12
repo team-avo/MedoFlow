@@ -7,9 +7,9 @@
  *   - HTTPS-only: plain-HTTP requests are redirected (GET/HEAD) or refused.
  *   - Origin allow-list: a browser request from an Origin not in CORS_ORIGIN
  *     is rejected with 403 before it reaches the API.
- *   - /api/v1/edge/health — edge liveness.
- *   - /api/v1/edge/db     — Postgres read+write round-trip through Hyperdrive.
- *   - cron — keeps the single backend instance warm so its node-cron jobs and
+ *   - /api/v1/edge/health: edge liveness.
+ *   - /api/v1/edge/db: Postgres read+write round-trip through Hyperdrive.
+ *   - cron: keeps the single backend instance warm so its node-cron jobs and
  *     BullMQ worker keep running.
  *
  * The `BACKEND` binding only exists in the `container` wrangler env (Workers

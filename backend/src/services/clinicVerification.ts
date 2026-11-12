@@ -1,7 +1,7 @@
 /**
  * Go-live gate (clinic onboarding). A clinic that signs up starts in
  * PENDING_REVIEW: its owner can set everything up, but nothing patient-facing
- * is reachable until a platform admin approves the application — no public
+ * is reachable until a platform admin approves the application, no public
  * website, no public clinic API, no slot holds or bookings, no enquiry forms.
  *
  * Public code paths look clinics up with `liveClinicWhere` instead of a bare

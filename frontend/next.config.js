@@ -15,7 +15,7 @@ const nextConfig = {
         destination: '/dashboard/appointments',
         permanent: false,
       },
-      // Phase 2: killed /dashboard/patient/* — patients live on /account/*
+      // Phase 2: killed /dashboard/patient/*, patients live on /account/*
       {
         source: '/dashboard/patient',
         destination: '/account',

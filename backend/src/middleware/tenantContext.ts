@@ -13,8 +13,8 @@ import prisma from '../config/prisma'
  * must explicitly annotate routes with requirePlatformAdmin().
  *
  * Sets:
- *   req.tenantId       — the resolved tenantId (null for PLATFORM_ADMIN)
- *   req.tenantContext  — full tenant object with status/plan
+ *   req.tenantId: the resolved tenantId (null for PLATFORM_ADMIN)
+ *   req.tenantContext: full tenant object with status/plan
  */
 export async function resolveTenantContext(
   req: Request,

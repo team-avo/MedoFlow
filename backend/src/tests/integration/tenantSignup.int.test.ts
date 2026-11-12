@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS4 — new clinic sign-up with a plan, and the demo billing mode.
+ * Demo feedback WS4: new clinic sign-up with a plan, and the demo billing mode.
  *
  *  - GET /tenants/plans lists the plans, the billing mode and the trial length.
  *  - Sign-up stores the chosen plan; in `trial` mode the clinic is TRIAL for

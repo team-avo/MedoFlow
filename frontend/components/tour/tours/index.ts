@@ -15,7 +15,7 @@ export interface TourScript {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Clinic Owner / Super Admin — 5 steps per PRD §6.4
+// Clinic Owner / Super Admin, 5 steps per PRD §6.4
 // ─────────────────────────────────────────────────────────────────────────────
 export const superAdminTour: TourScript = {
   id: 'super-admin',
@@ -44,7 +44,7 @@ export const superAdminTour: TourScript = {
       anchor: 'nav-dashboard-patients',
       placement: 'right',
       title: 'Patients',
-      body: 'Patient records, EMR history, and scribe notes — one row per person, full timeline one click away.',
+      body: 'Patient records, EMR history, and scribe notes: one row per person, full timeline one click away.',
     },
     {
       anchor: 'nav-dashboard-services',
@@ -56,13 +56,13 @@ export const superAdminTour: TourScript = {
       anchor: 'nav-dashboard-analytics',
       placement: 'right',
       title: 'Analytics',
-      body: 'Revenue trends, provider utilization, and cohort performance — refreshed nightly.',
+      body: 'Revenue trends, provider utilization, and cohort performance, refreshed nightly.',
     },
   ],
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Provider — 3 steps (Schedule, Patient records, AI Scribe)
+// Provider: 3 steps (Schedule, Patient records, AI Scribe)
 // ─────────────────────────────────────────────────────────────────────────────
 export const providerTour: TourScript = {
   id: 'provider',
@@ -84,7 +84,7 @@ export const providerTour: TourScript = {
       anchor: 'nav-dashboard-appointments',
       placement: 'right',
       title: 'Patient Records',
-      body: 'Open any visit to see the full patient timeline — previous notes, medications, and files.',
+      body: 'Open any visit to see the full patient timeline: previous notes, medications, and files.',
     },
     {
       anchor: 'kpi-ai-scribe',
@@ -96,7 +96,7 @@ export const providerTour: TourScript = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Front Desk — 3 steps (Appointments, Billing/POS, Patients)
+// Front Desk: 3 steps (Appointments, Billing/POS, Patients)
 // ─────────────────────────────────────────────────────────────────────────────
 export const frontDeskTour: TourScript = {
   id: 'front-desk',
@@ -112,7 +112,7 @@ export const frontDeskTour: TourScript = {
       anchor: 'nav-dashboard-appointments',
       placement: 'right',
       title: 'Appointments',
-      body: "Today's schedule, check-ins, and rescheduling — all in one place.",
+      body: "Today's schedule, check-ins, and rescheduling, all in one place.",
     },
     {
       anchor: 'nav-dashboard-front-desk-pos',
@@ -130,7 +130,7 @@ export const frontDeskTour: TourScript = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Patient — 3 steps on the public site / My Account
+// Patient: 3 steps on the public site / My Account
 // ─────────────────────────────────────────────────────────────────────────────
 export const patientTour: TourScript = {
   id: 'patient',
@@ -140,7 +140,7 @@ export const patientTour: TourScript = {
       anchor: 'account-overview',
       placement: 'bottom',
       title: 'Your clinic, in your pocket',
-      body: 'Everything you need — upcoming visits, records, and billing — lives right here.',
+      body: 'Everything you need (upcoming visits, records, and billing) lives right here.',
     },
     {
       anchor: 'account-book',

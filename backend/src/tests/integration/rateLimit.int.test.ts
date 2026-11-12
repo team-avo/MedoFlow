@@ -1,5 +1,5 @@
 /**
- * B0.2.4 — rate limiting on auth endpoints, with the real production limits.
+ * B0.2.4: rate limiting on auth endpoints, with the real production limits.
  * Own file: the limiter is in-memory per process and keyed by client IP.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

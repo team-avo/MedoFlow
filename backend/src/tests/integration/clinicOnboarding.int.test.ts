@@ -1,5 +1,5 @@
 /**
- * Clinic onboarding — practice application, signed agreement, platform review
+ * Clinic onboarding: practice application, signed agreement, platform review
  * and the go-live gate.
  *
  *  - A clinic that signs up is PENDING_REVIEW: none of its public surfaces

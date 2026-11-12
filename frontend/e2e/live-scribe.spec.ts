@@ -1,8 +1,8 @@
 /**
- * Component 2 — LIVE front-end ↔ back-end run of the AI scribe (no mocks in
+ * Component 2: LIVE front-end ↔ back-end run of the AI scribe (no mocks in
  * the browser). Opt-in: runs only when E2E_LIVE_API is set, against a real
  * backend (Postgres with RLS + field encryption, Redis + the BullMQ worker)
- * whose AI is `AI_SCRIBE_*_PROVIDER=mock` — or any real provider — and a
+ * whose AI is `AI_SCRIBE_*_PROVIDER=mock`, or any real provider, and a
  * frontend built with NEXT_PUBLIC_API_URL pointing at it. Synthetic data from
  * backend/scripts/seed-e2e-live.ts. See the Component 2 walkthrough §4.
  *
@@ -92,7 +92,7 @@ test('provider: consent → upload → AI draft → review → "Approve & send"'
   expectNoPhiInUrls()
 })
 
-test('patient: the approved summary is in the portal — and nothing else from the visit', async ({
+test('patient: the approved summary is in the portal, and nothing else from the visit', async ({
   page,
 }) => {
   page.on('request', (r) => urls.push(r.url()))

@@ -174,7 +174,7 @@ export const getClinicProducts = asyncHandler(
         // B5.5: prescription products are never sold from the storefront.
         fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
       },
-      // Stock level only — supplier, batch, expiry and storage stay internal (B8.5).
+      // Stock level only: supplier, batch, expiry and storage stay internal (B8.5).
       include: {
         inventoryItem: { select: { quantityInStock: true } },
       },
@@ -231,7 +231,7 @@ export const getProduct = asyncHandler(
         isActive: true,
         fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
       },
-      // Stock level only — supplier, batch, expiry and storage stay internal (B8.5).
+      // Stock level only: supplier, batch, expiry and storage stay internal (B8.5).
       include: {
         inventoryItem: { select: { quantityInStock: true } },
       },

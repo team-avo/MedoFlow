@@ -16,7 +16,7 @@ export interface ModelReport {
   sealed: number
   /** rows that held a value sealed with a non-active key */
   resealed: number
-  /** rows that could not be opened (unknown key / integrity) — left untouched */
+  /** rows that could not be opened (unknown key / integrity): left untouched */
   failed: number
 }
 
@@ -63,7 +63,7 @@ export async function encryptPhiFields(
 
       let cursor: string | undefined
       for (;;) {
-        // Values as stored (sealed stays sealed) — the app client would open them.
+        // Values as stored (sealed stays sealed): the app client would open them.
         const rows = (await findManyAsStored(delegateName(model), {
           select,
           ...(opts.clinicIds ? { where: clinicFilter(model, opts.clinicIds) } : {}),

@@ -63,7 +63,7 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'package.json'
 
-  # B0.5 — blocking backend quality gate: typecheck, lint (zero warnings),
+  # B0.5: blocking backend quality gate: typecheck, lint (zero warnings),
   # synthetic-fixture scan, unit tests + coverage ratchet, migrations on a
   # fresh Postgres, integration suites (tenant isolation, RLS, auth
   # safeguards, authZ matrix, booking race + overlap constraint (B1), invoice
@@ -107,6 +107,8 @@ jobs:
         run: pnpm run lint
       - name: Fixtures are synthetic only (B0.5.5)
         run: node scripts/check-synthetic-fixtures.js
+      - name: No em dashes in source (CTO-11)
+        run: node ../scripts/check-no-em-dash.js backend shared
       - name: Unit tests + coverage threshold (B0.5.2)
         run: pnpm run test:coverage
       - name: Migrations apply cleanly to an empty database
@@ -120,7 +122,7 @@ jobs:
           INTEGRATION_DATABASE_URL: ${{ env.APP_URL }}
           INTEGRATION_ADMIN_DATABASE_URL: ${{ env.OWNER_URL }}
         run: pnpm run test:integration:coverage
-      - name: Dependency audit — no high/critical in backend production deps
+      - name: Dependency audit, no high/critical in backend production deps
         # Frontend advisories are tracked under F0.1; accepted, dated exceptions
         # live in backend/scripts/audit-exceptions.json.
         run: node scripts/audit-backend.js
@@ -129,7 +131,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # F0.1 / F0.4 — blocking frontend quality gate: typecheck, lint (zero
+  # F0.1 / F0.4: blocking frontend quality gate: typecheck, lint (zero
   # warnings, no-console), unit + component tests with coverage ratchet
   # (refresh interceptor, role guards, PHI boundary, no-PHI-in-URL / telemetry
   # guards), dependency audit, production build (type errors fail it), and
@@ -158,11 +160,13 @@ jobs:
         run: pnpm run typecheck
       - name: Lint (zero warnings)
         run: pnpm run lint
+      - name: No em dashes in source (CTO-11)
+        run: node ../scripts/check-no-em-dash.js frontend
       - name: Unit + component tests + coverage threshold (F0.4)
         run: pnpm run test:coverage
-      - name: Dependency audit — no high/critical in frontend production deps
+      - name: Dependency audit, no high/critical in frontend production deps
         run: node scripts/audit-frontend.js
-      - name: Production build (a type error fails it — F0.1.1)
+      - name: Production build (a type error fails it, F0.1.1)
         env:
           # e2e build: the API is simulated in the browser (e2e/mockApi.ts).
           NEXT_PUBLIC_API_URL: http://127.0.0.1:3999
@@ -197,19 +201,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Backend — prisma generate, typecheck, build
+      - name: Backend (prisma generate, typecheck, build)
         working-directory: backend
         run: |
           pnpm exec prisma generate
           pnpm run typecheck
           pnpm run build
 
-      - name: Backend — Docker image builds (what Render runs)
+      - name: Backend Docker image builds (what Render runs)
         run: docker build -t medoflow-backend:ci backend
 
       # Build gate only. This job has no environment, so it cannot see the
       # medoflow-dev-env values; deploy-frontend rebuilds with the real API URL.
-      - name: Frontend — OpenNext build for Cloudflare Workers
+      - name: Frontend OpenNext build for Cloudflare Workers
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
@@ -240,7 +244,7 @@ jobs:
   #           if [ "$commit" = "$GITHUB_SHA" ]; then echo "Render is serving $GITHUB_SHA"; exit 0; fi
   #           echo "[$i] live commit: ${commit:-unknown}; waiting…"; sleep 10
   #         done
-  #         echo "::error::Render did not start serving $GITHUB_SHA within 15 minutes — check the Render deploy logs"
+  #         echo "::error::Render did not start serving $GITHUB_SHA within 15 minutes, check the Render deploy logs"
   #         exit 1
 
   deploy-frontend:

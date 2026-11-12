@@ -1,5 +1,5 @@
 /**
- * /api/v1/public/sites — everything a clinic website needs at request time.
+ * /api/v1/public/sites: everything a clinic website needs at request time.
  * Mounted inside the public router (tenant guard bypassed): every handler
  * scopes by the clinic it resolved from the host or slug.
  */

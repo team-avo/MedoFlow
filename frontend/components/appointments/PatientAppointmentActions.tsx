@@ -5,7 +5,7 @@
  * cancel, with the clinic's cancellation policy stated before either. Only
  * offered while the visit is in the future and still live; past, completed,
  * cancelled or already-rescheduled visits show no actions. URLs carry the
- * appointment id only — no patient details.
+ * appointment id only: no patient details.
  */
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'

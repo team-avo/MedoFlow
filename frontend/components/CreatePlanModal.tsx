@@ -27,7 +27,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 
 // ───────────────────────── Schema ─────────────────────────
 
-// Same limits as the API (F3.2 parity — lib/schemas/clinicalRecords.ts).
+// Same limits as the API (F3.2 parity: lib/schemas/clinicalRecords.ts).
 const planSchema = treatmentPlanFormSchema
 
 type PlanFormData = z.infer<typeof planSchema>
@@ -369,7 +369,7 @@ export function CreatePlanModal({
               {errors.totalSessions && <p className={errorCls}>{errors.totalSessions.message}</p>}
             </div>
 
-            {/* Sessions Completed (edit only) — auto-complete when >= total */}
+            {/* Sessions Completed (edit only): auto-complete when >= total */}
             {isEditMode && (
               <div>
                 <label className={labelCls}>Sessions Completed</label>
@@ -402,7 +402,7 @@ export function CreatePlanModal({
               </div>
             </div>
 
-            {/* Goals — Add Goal (string[]) */}
+            {/* Goals: Add Goal (string[]) */}
             <div>
               <label className={labelCls}>Goals</label>
               <div className="space-y-2">

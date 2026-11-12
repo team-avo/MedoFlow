@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * DayInTheLifeSection — four moments of a real Tuesday at Atlas Physio,
+ * DayInTheLifeSection: four moments of a real Tuesday at Atlas Physio,
  * stacked as a timeline. Each shows a product UI slice and the person in
  * the clinic at that moment. Plain document flow: no pinning or scroll-
  * driven animation.

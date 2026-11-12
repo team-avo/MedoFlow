@@ -210,14 +210,14 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
 
   const asideClass = cn(
     'flex flex-col text-white relative overflow-hidden',
-    // Layered gradient — deeper at the top, slightly warmer at the bottom.
+    // Layered gradient: deeper at the top, slightly warmer at the bottom.
     'bg-gradient-to-b from-[#16304F] via-[#1D3A5F] to-[#273F63]',
     variant === 'fixed'
       ? 'fixed left-0 top-0 z-40 h-screen w-[264px] border-r border-white/5'
       : 'h-full w-full'
   )
 
-  // Role-specific chip shown under the logo — gives the workspace an identity.
+  // Role-specific chip shown under the logo, gives the workspace an identity.
   const roleBadge =
     user?.role === 'PROVIDER'
       ? { label: 'Clinical Workspace', dot: '#14B8A6' }
@@ -227,7 +227,7 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
           ? { label: 'Admin Console', dot: '#6366F1' }
           : { label: 'Patient Portal', dot: '#EC4899' }
 
-  // Role-specific bottom card — gentle nudge rather than a pushy upsell.
+  // Role-specific bottom card: gentle nudge rather than a pushy upsell.
   const footerCard =
     user?.role === 'PROVIDER'
       ? {

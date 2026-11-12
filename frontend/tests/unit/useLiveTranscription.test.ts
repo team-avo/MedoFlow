@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS2 — live captions: the segment recorder rotates every
+ * Demo feedback WS2: live captions: the segment recorder rotates every
  * `segmentMs`, each segment is sent once with its sequence number, lines stay
  * in order whatever order the answers arrive in, and a backlog is dropped
  * (with `delayed`) instead of growing.

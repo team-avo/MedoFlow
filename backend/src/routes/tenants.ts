@@ -32,7 +32,7 @@ const signupSchema = z.object({
       ctx.addIssue({
         code: 'custom',
         message: PLANS.some((p) => p.key === v)
-          ? 'This plan is set up with our team — contact sales.'
+          ? 'This plan is set up with our team; contact sales.'
           : 'Unknown plan',
       })
     }),
@@ -42,7 +42,7 @@ const subdomainCheckSchema = z.object({
   subdomain: z.string().min(3).max(63),
 })
 
-// GET /api/v1/tenants/plans — the pricing page and the sign-up plan picker.
+// GET /api/v1/tenants/plans: the pricing page and the sign-up plan picker.
 router.get('/plans', (_req, res) => {
   successResponse(res, 200, 'Plans', planCatalog())
 })

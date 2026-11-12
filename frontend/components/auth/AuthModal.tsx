@@ -1,11 +1,11 @@
 'use client'
 
 /**
- * AuthModal — unified login / sign-up dialog used across the marketing shell.
+ * AuthModal: unified login / sign-up dialog used across the marketing shell.
  *
  * Shape:
- *   • Left panel  — navy "edge" with the brand story + proof chips.
- *   • Right panel — white "workspace" holding the actual form.
+ *   • Left panel: navy "edge" with the brand story + proof chips.
+ *   • Right panel: white "workspace" holding the actual form.
  *   • Tabs switch between "Sign in" and "Create account" without re-mounting
  *     the dialog (smoother UX than navigating to a separate page).
  *
@@ -180,7 +180,7 @@ function AuthModal() {
           {/* Desktop split panel */}
           <BrandPanel mode={mode} clinicCtx={clinicCtx} />
 
-          {/* Mobile-only brand strip — keeps the modal feeling branded at 375px */}
+          {/* Mobile-only brand strip: keeps the modal feeling branded at 375px */}
           <MobileBrandStrip mode={mode} clinicCtx={clinicCtx} />
 
           <div className="relative flex max-h-[92vh] flex-col overflow-y-auto bg-white p-6 sm:p-8 md:p-10">
@@ -290,7 +290,7 @@ function BrandPanel({ mode, clinicCtx }: { mode: AuthMode; clinicCtx: ClinicCtx 
           </h3>
           <p className="mt-4 max-w-xs text-[13.5px] leading-relaxed text-white/80">
             {mode === 'login'
-              ? 'Sign in to pick up where you left off — appointments, visit notes, and billing in one place.'
+              ? 'Sign in to pick up where you left off: appointments, visit notes, and billing in one place.'
               : 'Create your patient account to book visits, view records, and message the clinic team.'}
           </p>
         </div>
@@ -327,7 +327,7 @@ function BrandPanel({ mode, clinicCtx }: { mode: AuthMode; clinicCtx: ClinicCtx 
         </h3>
         <p className="mt-4 max-w-xs text-[13.5px] leading-relaxed text-white/65">
           {mode === 'login'
-            ? 'Pick up the day where you left off — schedule, charts, and billing are already waiting.'
+            ? 'Pick up the day where you left off. Schedule, charts, and billing are already waiting.'
             : 'Replace the 7+ tools stitched across your day with a single, calmer surface.'}
         </p>
       </div>
@@ -601,7 +601,7 @@ function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeCol
   })
 
   // Register and immediately log the patient in. Skips the old "Account
-  // created — sign in to continue" intermediate state, which was the
+  // created: sign in to continue" intermediate state, which was the
   // biggest friction point in the patient flow.
   const onSubmit = async (data: SignupData) => {
     setError(null)
@@ -618,7 +618,7 @@ function SignupForm({ onSuccess, themeColor }: { onSuccess: () => void; themeCol
         await login(data.email, data.password, pathClinic)
         onSuccess()
       } catch {
-        // Auto-login failed (rare) — fall back to the sign-in tab so the
+        // Auto-login failed (rare): fall back to the sign-in tab so the
         // user can complete it manually instead of getting stuck.
         onSuccess()
       }
