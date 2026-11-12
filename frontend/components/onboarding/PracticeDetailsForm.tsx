@@ -23,6 +23,8 @@ import {
   type PracticeFormValues,
 } from '@/lib/schemas/onboarding'
 import { FormSection, IdCheck, selectClass, TIMEZONES } from './ApplicationShell'
+import { useAuth } from '@/contexts/AuthContext'
+import { clearDraft, draftKey, loadDraft, PRACTICE_DRAFT_OMIT, saveDraft } from '@/lib/formDraft'
 
 /**
  * Practice details: the first step of the clinic application, and the
@@ -44,6 +46,10 @@ export function PracticeDetailsForm({
   onSaved: (app: Application) => void | Promise<void>
 }) {
   const [serverError, setServerError] = React.useState<string | null>(null)
+  const { user } = useAuth()
+  // CTO-13: an unsent draft survives a refresh (tax ID and DEA never stored).
+  const storageKey = draftKey('practice', user?.id)
+  const [restored] = React.useState(() => loadDraft<PracticeFormValues>(storageKey))
   const {
     register,
     handleSubmit,
@@ -52,8 +58,14 @@ export function PracticeDetailsForm({
     formState: { errors, isSubmitting },
   } = useForm<PracticeFormValues>({
     resolver: zodResolver(practiceFormSchema),
-    defaultValues: practiceFormDefaults(application, owner),
+    defaultValues: { ...practiceFormDefaults(application, owner), ...(restored ?? {}) },
   })
+  React.useEffect(() => {
+    const sub = watch((values) =>
+      saveDraft(storageKey, values as Record<string, unknown>, PRACTICE_DRAFT_OMIT)
+    )
+    return () => sub.unsubscribe()
+  }, [watch, storageKey])
 
   const v = watch()
   const err = (k: keyof PracticeFormValues) => errors[k]?.message as string | undefined
@@ -72,6 +84,7 @@ export function PracticeDetailsForm({
     setServerError(null)
     try {
       const app = await onboardingApi.savePractice(toPracticePayload(values))
+      clearDraft(storageKey)
       await onSaved(app)
     } catch (e) {
       setServerError(apiErrorOf(e).message)
@@ -83,6 +96,16 @@ export function PracticeDetailsForm({
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-8" aria-label="Practice details">
+      {restored && (
+        <p
+          role="status"
+          className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"
+          data-testid="draft-restored"
+        >
+          We restored what you had typed. Your tax ID and DEA number are never kept in this browser,
+          so re-enter them if needed.
+        </p>
+      )}
       <FormSection title="Medical office information">
         <AppFormField
           label="Legal name of practice"

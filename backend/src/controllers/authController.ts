@@ -550,19 +550,44 @@ export const logout = asyncHandler(
 )
 
 /** Session settings the client needs to mirror (F0.2.1 idle-logoff UX). */
-const sessionInfo = (): { idleTimeoutMinutes: number } => ({
-  idleTimeoutMinutes: Math.round(sessionService.getIdleTimeoutMs() / 60_000),
+const sessionInfo = (
+  session?: { idleTimeoutMinutes?: number | null } | null
+): { idleTimeoutMinutes: number } => ({
+  idleTimeoutMinutes: Math.round(sessionService.getIdleTimeoutMs(session ?? undefined) / 60_000),
 })
 
 /**
- * GET /auth/session — heartbeat. The client calls it while the user is
+ * GET /auth/session: heartbeat. The client calls it while the user is
  * actively working (typing a long note makes no API calls), which records
  * activity on the server session; an idle screen sends nothing, so the
  * server-side idle timeout still fires.
+ *
+ * `?context=onboarding` (CTO-13): while a clinic owner fills in the
+ * application (agreement not signed yet), the session gets the longer
+ * ONBOARDING_IDLE_TIMEOUT_MINUTES window. Anyone else, and the owner once
+ * they leave onboarding, gets the normal window back.
  */
-export const sessionHeartbeat = (_req: Request, res: Response): void => {
-  successResponse(res, 200, 'Session active', { session: sessionInfo() })
-}
+export const sessionHeartbeat = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const sessionId = req.user?.sessionId
+    let minutes: number | null = null
+    if (req.query['context'] === 'onboarding' && sessionId && req.user?.role === 'SUPER_ADMIN') {
+      const clinic = req.user.clinicId
+        ? await prisma.clinic.findUnique({
+            where: { id: req.user.clinicId },
+            select: { tenant: { select: { termsAcceptedAt: true } } },
+          })
+        : null
+      if (clinic && !clinic.tenant.termsAcceptedAt) {
+        minutes = sessionService.getOnboardingIdleMinutes()
+      }
+    }
+    if (sessionId) await sessionService.setSessionIdleOverride(sessionId, minutes)
+    successResponse(res, 200, 'Session active', {
+      session: sessionInfo({ idleTimeoutMinutes: minutes }),
+    })
+  }
+)
 
 export const me = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -613,9 +638,16 @@ export const me = asyncHandler(
         },
       },
     })
+    // The session's own idle window (CTO-13), so the client mirrors it.
+    const session = req.user.sessionId
+      ? await prisma.userSession.findUnique({
+          where: { id: req.user.sessionId },
+          select: { idleTimeoutMinutes: true },
+        })
+      : null
     successResponse(res, 200, 'User retrieved', {
       user: { ...user, breakGlass: req.breakGlass ?? null },
-      session: sessionInfo(),
+      session: sessionInfo(session),
     })
   }
 )

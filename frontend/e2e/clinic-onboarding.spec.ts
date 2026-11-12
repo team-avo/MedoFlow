@@ -574,3 +574,33 @@ for (const [name, width, height] of [
       .screenshot({ path: `test-results/cto-05-your-account-${name}.png` })
   })
 }
+
+// CTO-13: what was typed survives a refresh; the tax ID is never kept locally.
+test('an unsent practice form survives a refresh, without the tax ID', async ({ page }) => {
+  const live: MockOnboarding = {
+    tenant: {
+      onboardingCompletedAt: null,
+      termsAcceptedAt: null,
+      verificationStatus: 'PENDING_REVIEW',
+    },
+    clinicProfile: null,
+  }
+  await installMockApi(page, {
+    role: 'SUPER_ADMIN',
+    newClinic: true,
+    signedIn: true,
+    onboarding: live,
+  })
+  await mockOnboarding(page, live)
+  await page.goto('/practice')
+  await page.locator('#legalName').fill('Draft Wellness LLC')
+  await page.locator('#city').fill('Austin')
+  await page.locator('#federalTaxId').fill('12-3456789')
+  await page.reload()
+  await expect(page.getByTestId('draft-restored')).toBeVisible()
+  await expect(page.locator('#legalName')).toHaveValue('Draft Wellness LLC')
+  await expect(page.locator('#city')).toHaveValue('Austin')
+  await expect(page.locator('#federalTaxId')).toHaveValue('')
+  const stored = await page.evaluate(() => JSON.stringify(Object.entries(localStorage)))
+  expect(stored).not.toContain('3456789')
+})

@@ -1457,6 +1457,9 @@ model UserSession {
   mfaVerifiedAt  DateTime?
   ipAddress      String?
   userAgent      String?
+  /// Per-session idle window override (CTO-13: longer while an owner fills in
+  /// the clinic application). Null = SESSION_IDLE_TIMEOUT_MINUTES.
+  idleTimeoutMinutes Int?
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]

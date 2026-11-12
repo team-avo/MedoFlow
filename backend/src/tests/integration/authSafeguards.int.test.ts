@@ -156,6 +156,68 @@ describe('B0.2.3 idle session timeout', () => {
   })
 })
 
+describe('CTO-13 onboarding idle window', () => {
+  const sidOf = (token: string) => (jwt.decode(token) as { sid: string }).sid
+  const idleFor = (sid: string, minutes: number) =>
+    adminDb.userSession.update({
+      where: { id: sid },
+      data: { lastActivityAt: new Date(Date.now() - minutes * 60_000) },
+    })
+
+  it('an owner filling in the application gets the longer window; leaving onboarding restores 15 minutes', async () => {
+    // An owner whose agreement isn't signed yet.
+    await adminDb.tenant.update({ where: { id: C.tenantId }, data: { termsAcceptedAt: null } })
+    try {
+      const s = await login(server.url, C.users.admin.email)
+      const sid = sidOf(s.accessToken)
+      const hb = await api(server.url, '/auth/session?context=onboarding', { token: s.accessToken })
+      expect(hb.status).toBe(200)
+      expect(hb.body.data.session.idleTimeoutMinutes).toBe(60)
+      // /auth/me reports the session's own window, so the client mirrors it.
+      const me = await api(server.url, '/auth/me', { token: s.accessToken })
+      expect(me.body.data.session.idleTimeoutMinutes).toBe(60)
+
+      // 45 minutes without a request: still signed in (the 15-minute rule would end it).
+      await idleFor(sid, 45)
+      expect((await api(server.url, '/auth/me', { token: s.accessToken })).status).toBe(200)
+
+      // Bounded: no input at all for longer than the window ends the session.
+      await idleFor(sid, 61)
+      const gone = await api(server.url, '/auth/me', { token: s.accessToken })
+      expect(gone.status).toBe(401)
+      expect(gone.body.code).toBe('session_idle_timeout')
+
+      // Leaving onboarding (a heartbeat without the context) restores 15 minutes.
+      const s2 = await login(server.url, C.users.admin.email)
+      await api(server.url, '/auth/session?context=onboarding', { token: s2.accessToken })
+      const back = await api(server.url, '/auth/session', { token: s2.accessToken })
+      expect(back.body.data.session.idleTimeoutMinutes).toBe(15)
+      await idleFor(sidOf(s2.accessToken), 16)
+      expect((await api(server.url, '/auth/me', { token: s2.accessToken })).status).toBe(401)
+    } finally {
+      await adminDb.tenant.update({
+        where: { id: C.tenantId },
+        data: { termsAcceptedAt: new Date() },
+      })
+    }
+  })
+
+  it('nobody else can claim the longer window', async () => {
+    // A signed clinic's owner, and staff of any kind, stay on 15 minutes.
+    await adminDb.tenant.update({
+      where: { id: C.tenantId },
+      data: { termsAcceptedAt: new Date() },
+    })
+    for (const email of [C.users.admin.email, C.users.frontDesk.email, C.users.provider.email]) {
+      const s = await login(server.url, email)
+      const hb = await api(server.url, '/auth/session?context=onboarding', { token: s.accessToken })
+      expect(hb.body.data.session.idleTimeoutMinutes).toBe(15)
+      await idleFor(sidOf(s.accessToken), 16)
+      expect((await api(server.url, '/auth/me', { token: s.accessToken })).status).toBe(401)
+    }
+  })
+})
+
 describe('B0.2.2 MFA for staff', () => {
   let secret = ''
   let recoveryCodes: string[] = []

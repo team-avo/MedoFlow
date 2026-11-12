@@ -16,6 +16,8 @@ import {
   type PractitionerErrors,
 } from '@/lib/schemas/onboarding'
 import { IdCheck, selectClass } from './ApplicationShell'
+import { useAuth } from '@/contexts/AuthContext'
+import { clearDraft, draftKey, loadDraft, saveDraft } from '@/lib/formDraft'
 
 /**
  * Puts the signed-in owner first (CTO-14). Row 0 is always "you": an older
@@ -66,7 +68,12 @@ export function PractitionersForm({
   onSaved: (app: Application) => void | Promise<void>
 }) {
   const npiRequired = !application?.profile?.noNpi
+  const { user } = useAuth()
+  // CTO-13: unsent rows survive a refresh (business details only, no PHI).
+  const storageKey = draftKey('practitioners', user?.id)
   const [rows, setRows] = React.useState<PractitionerDraft[]>(() => {
+    const draft = loadDraft<{ rows: PractitionerDraft[] }>(storageKey)
+    if (Array.isArray(draft?.rows) && draft.rows.length) return withOwnerFirst(draft.rows, owner)
     const saved = application?.profile?.practitioners ?? []
     if (saved.length) return withOwnerFirst(saved.map(toPractitionerDraft), owner)
     return [
@@ -79,6 +86,7 @@ export function PractitionersForm({
       },
     ]
   })
+  React.useEffect(() => saveDraft(storageKey, { rows }), [rows, storageKey])
   const [touched, setTouched] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [serverError, setServerError] = React.useState<string | null>(null)
@@ -100,6 +108,7 @@ export function PractitionersForm({
     setSaving(true)
     try {
       const app = await onboardingApi.savePractitioners(rows.map(toPractitionerPayload))
+      clearDraft(storageKey)
       await onSaved(app)
     } catch (err) {
       setServerError(apiErrorOf(err).message)

@@ -11,7 +11,7 @@ import api, {
   setAuthFailureHandler,
 } from '@/lib/api'
 import { clientLog } from '@/lib/clientLog'
-import { loginRedirect, setSessionEndReason } from '@/lib/routeGuards'
+import { APPLICATION_PATHS, loginRedirect, setSessionEndReason } from '@/lib/routeGuards'
 import type { User } from '@/lib/types'
 import { IdleTimeoutManager } from '@/components/auth/IdleTimeoutManager'
 
@@ -284,6 +284,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         <IdleTimeoutManager
           timeoutMinutes={idleTimeoutMinutes}
           onTimeout={() => void logout('idle')}
+          context={
+            (APPLICATION_PATHS as readonly string[]).includes(pathname ?? '') ? 'onboarding' : null
+          }
         />
       )}
     </AuthContext.Provider>

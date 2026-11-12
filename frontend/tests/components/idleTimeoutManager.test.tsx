@@ -91,3 +91,56 @@ describe('IdleTimeoutManager', () => {
     expect(onTimeout).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('CTO-13: onboarding forms', () => {
+  const answer = (minutes: number) => ({
+    data: { data: { session: { idleTimeoutMinutes: minutes } } },
+  })
+
+  it('typing for 45 minutes keeps the owner signed in; the server window is mirrored', async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve(answer(url.includes('context=onboarding') ? 60 : 15))
+    )
+    const onTimeout = vi.fn()
+    render(<IdleTimeoutManager timeoutMinutes={15} onTimeout={onTimeout} context="onboarding" />)
+    // Entering onboarding tells the server at once.
+    expect(get).toHaveBeenCalledWith('/auth/session?context=onboarding')
+    // Type into a form field (an `input` event, as real typing / autofill fires).
+    const field = document.createElement('input')
+    document.body.appendChild(field)
+    for (let i = 0; i < 45; i++) {
+      fireEvent.input(field, { target: { value: `x${i}` } })
+      await advance(60_000)
+    }
+    expect(onTimeout).not.toHaveBeenCalled()
+    expect(get.mock.calls.every(([u]) => u === '/auth/session?context=onboarding')).toBe(true)
+    field.remove()
+  })
+
+  it('a truly idle onboarding screen still ends, after the longer window', async () => {
+    get.mockResolvedValue(answer(60))
+    const onTimeout = vi.fn()
+    render(<IdleTimeoutManager timeoutMinutes={15} onTimeout={onTimeout} context="onboarding" />)
+    await act(async () => Promise.resolve())
+    await advance(30 * 60_000)
+    expect(onTimeout).not.toHaveBeenCalled()
+    await advance(31 * 60_000)
+    expect(onTimeout).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaving onboarding restores the normal 15-minute rule', async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve(answer(url.includes('context=onboarding') ? 60 : 15))
+    )
+    const onTimeout = vi.fn()
+    const { rerender } = render(
+      <IdleTimeoutManager timeoutMinutes={15} onTimeout={onTimeout} context="onboarding" />
+    )
+    await act(async () => Promise.resolve())
+    rerender(<IdleTimeoutManager timeoutMinutes={15} onTimeout={onTimeout} context={null} />)
+    await act(async () => Promise.resolve())
+    expect(get).toHaveBeenLastCalledWith('/auth/session')
+    await advance(15 * 60_000 + 1_000)
+    expect(onTimeout).toHaveBeenCalledTimes(1)
+  })
+})

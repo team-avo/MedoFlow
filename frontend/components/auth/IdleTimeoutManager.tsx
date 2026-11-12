@@ -26,12 +26,22 @@ const ACTIVITY_EVENTS = [
   'wheel',
   'touchstart',
   'scroll',
+  // CTO-13: typing into a form (incl. autofill and paste) and moving between
+  // fields are real activity too.
+  'input',
+  'focusin',
 ] as const
 
 interface Props {
   timeoutMinutes: number
   onTimeout: () => void
   warningSeconds?: number
+  /**
+   * 'onboarding' while a clinic owner fills in the application (CTO-13): the
+   * heartbeat asks the server for its longer, bounded window and the client
+   * mirrors what the server answers. Leaving it restores the normal window.
+   */
+  context?: 'onboarding' | null
 }
 
 /**
@@ -39,9 +49,20 @@ interface Props {
  * Activity is shared across tabs through localStorage (a timestamp only, no
  * PHI), so working in one tab keeps the others signed in.
  */
-export function IdleTimeoutManager({ timeoutMinutes, onTimeout, warningSeconds = 60 }: Props) {
-  const windowRef = useRef(idleWindow(timeoutMinutes, warningSeconds))
-  windowRef.current = idleWindow(timeoutMinutes, warningSeconds)
+export function IdleTimeoutManager({
+  timeoutMinutes,
+  onTimeout,
+  warningSeconds = 60,
+  context = null,
+}: Props) {
+  // The window the server reported for this session (it may differ while
+  // onboarding); until it answers, the session default from /auth/me.
+  const [serverMinutes, setServerMinutes] = useState<number | null>(null)
+  const effectiveMinutes = serverMinutes ?? timeoutMinutes
+  const windowRef = useRef(idleWindow(effectiveMinutes, warningSeconds))
+  windowRef.current = idleWindow(effectiveMinutes, warningSeconds)
+  const contextRef = useRef(context)
+  contextRef.current = context
   const lastActivity = useRef(Date.now())
   const lastHeartbeat = useRef(Date.now())
   const lastEventAt = useRef(0)
@@ -66,8 +87,30 @@ export function IdleTimeoutManager({ timeoutMinutes, onTimeout, warningSeconds =
     lastHeartbeat.current = at
     // Records activity on the server session. A 401 here is handled by the
     // API client (refresh, or end the session everywhere).
-    api.get('/auth/session').catch(() => undefined)
+    const url =
+      contextRef.current === 'onboarding' ? '/auth/session?context=onboarding' : '/auth/session'
+    api
+      .get(url)
+      .then((res) => {
+        const minutes = (
+          res as { data?: { data?: { session?: { idleTimeoutMinutes?: unknown } } } }
+        )?.data?.data?.session?.idleTimeoutMinutes
+        if (typeof minutes === 'number' && minutes > 0) setServerMinutes(minutes)
+      })
+      .catch(() => undefined)
   }, [])
+
+  // Entering or leaving onboarding tells the server straight away, so the
+  // two windows never disagree for long.
+  const firstContext = useRef(true)
+  useEffect(() => {
+    if (firstContext.current && !context) {
+      firstContext.current = false
+      return
+    }
+    firstContext.current = false
+    sendHeartbeat(Date.now())
+  }, [context, sendHeartbeat])
 
   const tick = useCallback(() => {
     if (fired.current) return
