@@ -973,6 +973,48 @@ describe('the retype-the-clinic-name switch (CTO-10)', () => {
   })
 })
 
+describe('brand colours (CTO-27 / CTO-28)', () => {
+  it('saving the brand feeds the console (session) and the site draft only; unsafe SVGs are refused', async () => {
+    const c = await signUp()
+    const svg = (body: string) =>
+      `data:image/svg+xml;base64,${Buffer.from(body).toString('base64')}`
+    const bad = await api(server.url, '/onboarding/brand', {
+      method: 'PATCH',
+      token: c.token,
+      body: { logoUrl: svg('<svg onload="alert(1)"/>') },
+    })
+    expect(bad.status).toBe(400)
+    // A site with a published theme, to prove the live one is untouched.
+    await adminDb.site.upsert({
+      where: { clinicId: c.clinicId },
+      create: { clinicId: c.clinicId, settingsPublishedJson: { marker: 'published' } },
+      update: { settingsPublishedJson: { marker: 'published' } },
+    })
+    const ok = await api(server.url, '/onboarding/brand', {
+      method: 'PATCH',
+      token: c.token,
+      body: {
+        primaryColor: '#B91C1C',
+        secondaryColor: '#f97316',
+        logoUrl: svg('<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#b91c1c"/></svg>'),
+      },
+    })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    const me = await api(server.url, '/auth/me', { token: c.token })
+    expect(me.body.data.user.clinic.tenant.brand).toEqual({
+      primaryColor: '#b91c1c',
+      secondaryColor: '#f97316',
+    })
+    const clinic = await adminDb.clinic.findUniqueOrThrow({ where: { id: c.clinicId } })
+    expect(clinic.themeColor).toBe('#b91c1c')
+    const site = await adminDb.site.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(site.settingsDraftJson).toMatchObject({
+      theme: { colors: { primary: '#b91c1c', secondary: '#f97316' } },
+    })
+    expect(site.settingsPublishedJson).toEqual({ marker: 'published' })
+  })
+})
+
 describe('off-boarding', () => {
   it('destroys the practice profile but keeps the signed agreement (6-year retention)', async () => {
     const c = await signUp()

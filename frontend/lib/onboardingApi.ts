@@ -186,6 +186,13 @@ export interface OnboardingStatus {
     availability: boolean
     website: boolean
   }
+  /** The clinic's brand (logo and colours). */
+  brand?: {
+    logoUrl: string | null
+    primaryColor: string
+    secondaryColor: string | null
+    subdomain: string
+  } | null
 }
 
 const data = <T>(p: Promise<{ data: { data: T } }>) => p.then((r) => r.data.data)
@@ -205,6 +212,12 @@ export const onboardingApi = {
       api.post('/onboarding/application/resubmit', {})
     ),
   getStatus: () => data<OnboardingStatus>(api.get('/onboarding/status')),
+  /** CTO-27: save the logo and brand colours (site draft + console). */
+  saveBrand: (body: {
+    primaryColor?: string
+    secondaryColor?: string | null
+    logoUrl?: string | null
+  }) => data<unknown>(api.patch('/onboarding/brand', body)),
   /** CTO-29: look an NPI up in NPPES (type 2 for the group, 1 for a person). */
   lookupNpi: (npi: string, expect: 1 | 2) =>
     data<NpiLookupResult>(api.get(`/onboarding/npi/${encodeURIComponent(npi)}?expect=${expect}`)),

@@ -41,7 +41,7 @@ test('the old Video Room URL redirects to Appointments', async ({ page }) => {
   await installMockApi(page, { role: 'PROVIDER', signedIn: true })
   await page.goto('/dashboard/provider/meetings')
   await expect(page).toHaveURL(/\/dashboard\/appointments$/)
-  await expect(page.getByRole('heading', { name: 'Appointments' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Appointments', level: 1 })).toBeVisible()
 })
 
 test('owner: one Commerce group, no Catalog, Settings last', async ({ page }) => {

@@ -159,6 +159,6 @@ test('a phone booking for an existing patient; a taken time shows a clear messag
 test('providers do not get a New appointment button', async ({ page }) => {
   await installMockApi(page, { role: 'PROVIDER', signedIn: true })
   await page.goto('/dashboard/appointments')
-  await expect(page.getByRole('heading', { name: 'Appointments' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Appointments', level: 1 })).toBeVisible()
   await expect(page.getByRole('button', { name: 'New appointment' })).toHaveCount(0)
 })

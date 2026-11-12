@@ -50,6 +50,12 @@ const config: Config = {
           foreground: 'rgb(var(--brand-foreground-rgb) / <alpha-value>)',
           strong: 'rgb(var(--brand-strong-rgb) / <alpha-value>)',
           soft: 'rgb(var(--brand-soft-rgb) / <alpha-value>)',
+          'on-dark': 'rgb(var(--brand-on-dark-rgb) / <alpha-value>)',
+        },
+        // Primary buttons in the staff console (CTO-28).
+        console: {
+          DEFAULT: 'rgb(var(--console-primary-rgb) / <alpha-value>)',
+          foreground: 'rgb(var(--console-primary-foreground-rgb) / <alpha-value>)',
         },
         success: {
           DEFAULT: 'hsl(var(--success))',

@@ -14,6 +14,7 @@ import { clientLog } from '@/lib/clientLog'
 import { APPLICATION_PATHS, loginRedirect, setSessionEndReason } from '@/lib/routeGuards'
 import type { User } from '@/lib/types'
 import { IdleTimeoutManager } from '@/components/auth/IdleTimeoutManager'
+import { applyCachedConsoleTheme, applyConsoleTheme, consoleThemeFor } from '@/lib/consoleTheme'
 
 /** Server default (SESSION_IDLE_TIMEOUT_MINUTES); replaced by the value /auth/me reports. */
 const DEFAULT_IDLE_TIMEOUT_MINUTES = 15
@@ -257,6 +258,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Mount only: later navigations are guarded by the layouts.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // CTO-28: the clinic's brand colour as the console accent, from the session.
+  // A reload applies the last one before the first paint (no flash).
+  React.useLayoutEffect(() => {
+    applyCachedConsoleTheme()
+  }, [])
+  React.useLayoutEffect(() => {
+    if (isLoading) return
+    applyConsoleTheme(consoleThemeFor(user))
+  }, [user, isLoading])
 
   const patchUser = useCallback((partial: Partial<User>) => {
     setUser((current) => (current ? { ...current, ...partial } : current))

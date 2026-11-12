@@ -1,3 +1,5 @@
+import type { Prisma } from '@prisma/client'
+import { readSiteSettings } from '../site/content/settings'
 import prisma from '../config/prisma'
 import type { ApiError } from '../types/errors'
 import { applicationProgress } from './clinicApplicationService'
@@ -178,6 +180,13 @@ export async function updateBrand(
     updates.secondaryColor = data.secondaryColor?.toLowerCase() ?? null
   }
   if (data.logoUrl !== undefined) {
+    if (data.logoUrl && !isSafeLogoDataUrl(data.logoUrl)) {
+      const err = new Error(
+        'That logo file is not allowed. Use a PNG, JPEG, WebP or a plain SVG.'
+      ) as ApiError
+      err.statusCode = 400
+      throw err
+    }
     updates.logoUrl = data.logoUrl
   }
 
@@ -185,4 +194,56 @@ export async function updateBrand(
     where: { tenantId },
     data: updates,
   })
+
+  // CTO-27: the chosen colours feed the console (Clinic.themeColor, read with
+  // the session) and the website's draft theme. The live site only changes
+  // when the owner publishes.
+  if (updates.primaryColor || updates.logoUrl !== undefined) {
+    await prisma.clinic.updateMany({
+      where: { id: clinicId },
+      data: {
+        ...(updates.primaryColor ? { themeColor: updates.primaryColor } : {}),
+        ...(updates.logoUrl !== undefined ? { logoUrl: updates.logoUrl } : {}),
+      },
+    })
+  }
+  if (updates.primaryColor || updates.secondaryColor) {
+    const site = await prisma.site.findFirst({
+      where: { clinicId },
+      select: { settingsDraftJson: true },
+    })
+    if (site) {
+      const settings = readSiteSettings(site.settingsDraftJson, updates.primaryColor ?? null)
+      settings.theme.colors = {
+        ...settings.theme.colors,
+        ...(updates.primaryColor ? { primary: updates.primaryColor } : {}),
+        ...(updates.secondaryColor ? { secondary: updates.secondaryColor } : {}),
+      }
+      await prisma.site.update({
+        where: { clinicId },
+        data: { settingsDraftJson: settings as unknown as Prisma.InputJsonValue },
+      })
+    }
+  }
+}
+
+/**
+ * CTO-27: a logo stored as a data URL is a raster image, or an SVG with no
+ * script, event handlers, foreign objects or javascript: links (the browser
+ * sanitises it first; this is the server's own check).
+ */
+export function isSafeLogoDataUrl(url: string): boolean {
+  if (/^https?:\/\//i.test(url)) return true
+  const m = /^data:(image\/(?:png|jpeg|jpg|webp|gif|svg\+xml))(;base64)?,(.*)$/is.exec(url)
+  if (!m) return false
+  if (m[1]!.toLowerCase() !== 'image/svg+xml') return true
+  let svg: string
+  try {
+    svg = m[2] ? Buffer.from(m[3]!, 'base64').toString('utf8') : decodeURIComponent(m[3]!)
+  } catch {
+    return false
+  }
+  return !/<\s*script|<\s*foreignObject|\son[a-z]+\s*=|javascript:|<\s*iframe|<\s*embed|<\s*object/i.test(
+    svg
+  )
 }

@@ -43,6 +43,12 @@
     --brand-foreground-rgb: 255 255 255;
     --brand-strong-rgb: 15 118 110;
     --brand-soft-rgb: 240 253 250;
+    /* The sidebar's accent on its dark surface; MedoFlow teal by default. */
+    --brand-on-dark-rgb: 20 184 166;
+    /* Primary buttons in the console: MedoFlow navy unless the clinic has a
+       brand colour (staff only). */
+    --console-primary-rgb: 30 58 95;
+    --console-primary-foreground-rgb: 255 255 255;
   }
   .dark {
     --background: 222 84% 5%;

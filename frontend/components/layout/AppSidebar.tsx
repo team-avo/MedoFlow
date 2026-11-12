@@ -322,14 +322,14 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
                     {isActive && (
                       <span
                         aria-hidden
-                        className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-[3px] rounded-r-full bg-gradient-to-b from-[#14B8A6] via-[#0D9488] to-[#0F766E] shadow-[0_0_14px_rgba(20,184,166,0.55)]"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-7 w-[3px] rounded-r-full bg-brand-on-dark shadow-[0_0_14px_rgb(var(--brand-on-dark-rgb)/0.55)]"
                       />
                     )}
                     <span
                       className={cn(
                         'flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-200',
                         isActive
-                          ? 'bg-gradient-to-br from-[#14B8A6]/25 to-[#0D9488]/10 text-white ring-1 ring-[#14B8A6]/30 shadow-[0_0_16px_rgba(20,184,166,0.25)]'
+                          ? 'bg-brand-on-dark/20 text-white ring-1 ring-brand-on-dark/30 shadow-[0_0_16px_rgb(var(--brand-on-dark-rgb)/0.25)]'
                           : 'bg-white/[0.04] text-white/55 ring-1 ring-white/5 group-hover:bg-white/10 group-hover:text-white group-hover:ring-white/15'
                       )}
                     >
@@ -339,7 +339,7 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
                     {isActive && (
                       <span
                         aria-hidden
-                        className="h-1.5 w-1.5 rounded-full bg-[#14B8A6] shadow-[0_0_8px_rgba(20,184,166,0.8)]"
+                        className="h-1.5 w-1.5 rounded-full bg-brand-on-dark shadow-[0_0_8px_rgb(var(--brand-on-dark-rgb)/0.8)]"
                       />
                     )}
                   </Link>

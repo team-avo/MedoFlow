@@ -153,6 +153,8 @@ export async function installMockApi(
     onboarding?: MockOnboarding
     /** The user's own Provider record (a provider, or the owner-doctor, CTO-14). */
     provider?: { id: string; isActive: boolean } | null
+    /** The clinic's brand colours (CTO-28 console accent). */
+    brand?: { primaryColor: string | null; secondaryColor: string | null } | null
   } = {}
 ) {
   const state: MockState = {
@@ -193,6 +195,7 @@ export async function installMockApi(
         verificationStatus: opts.newClinic ? 'PENDING_REVIEW' : 'APPROVED',
         submittedForReviewAt: null,
         reviewNotes: null,
+        brand: opts.brand ?? null,
         ...(opts.onboarding?.tenant ?? {}),
       },
       clinicProfile: opts.onboarding

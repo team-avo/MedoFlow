@@ -1,14 +1,13 @@
-'use client';
+'use client'
 
-import * as React from 'react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import * as React from 'react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
-export interface AppButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'default' | 'destructive';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
-  asChild?: boolean;
+export interface AppButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'default' | 'destructive'
+  size?: 'default' | 'sm' | 'lg' | 'icon'
+  asChild?: boolean
 }
 
 const AppButton = React.forwardRef<HTMLButtonElement, AppButtonProps>(
@@ -21,10 +20,10 @@ const AppButton = React.forwardRef<HTMLButtonElement, AppButtonProps>(
       danger: 'destructive',
       destructive: 'destructive',
       ghost: 'ghost',
-    } as const;
+    } as const
 
-    const isPrimary = variant === 'primary' || variant === 'default';
-    const isDanger = variant === 'danger' || variant === 'destructive';
+    const isPrimary = variant === 'primary' || variant === 'default'
+    const isDanger = variant === 'danger' || variant === 'destructive'
 
     return (
       <Button
@@ -33,7 +32,9 @@ const AppButton = React.forwardRef<HTMLButtonElement, AppButtonProps>(
         size={size}
         className={cn(
           'rounded-full font-medium transition-colors',
-          isPrimary && 'bg-primary text-primary-foreground hover:bg-primary-900 shadow-lg shadow-primary/10',
+          // CTO-28: the console accent (MedoFlow navy unless the clinic has a brand colour).
+          isPrimary &&
+            'bg-console text-console-foreground hover:bg-console/90 shadow-lg shadow-console/10',
           variant === 'secondary' && 'bg-muted/20 text-foreground hover:bg-muted/30',
           variant === 'outline' && 'border-border text-foreground hover:bg-subtle',
           isDanger && 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
@@ -42,9 +43,9 @@ const AppButton = React.forwardRef<HTMLButtonElement, AppButtonProps>(
         )}
         {...props}
       />
-    );
+    )
   }
-);
-AppButton.displayName = 'AppButton';
+)
+AppButton.displayName = 'AppButton'
 
-export { AppButton };
+export { AppButton }
