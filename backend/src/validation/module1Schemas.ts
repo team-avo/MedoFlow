@@ -142,6 +142,8 @@ export const serviceCreateSchema = {
     duration: z.coerce.number().int().min(1, 'Duration must be at least 1 minute'),
     defaultPrice: z.coerce.number().min(0, 'Default price must be 0 or greater'),
     taxApplicable: z.boolean().optional(),
+    /** CTO-31: the visit type a new booking starts with. */
+    defaultMode: z.enum(['IN_PERSON', 'VIRTUAL']).optional(),
   }),
 }
 
@@ -156,6 +158,7 @@ export const serviceUpdateSchema = {
       duration: z.coerce.number().int().min(1, 'Duration must be at least 1 minute').optional(),
       defaultPrice: z.coerce.number().min(0, 'Default price must be 0 or greater').optional(),
       taxApplicable: z.boolean().optional(),
+      defaultMode: z.enum(['IN_PERSON', 'VIRTUAL']).optional(),
     })
     .refine((value) => Object.keys(value).length > 0, {
       message: 'At least one field must be provided',

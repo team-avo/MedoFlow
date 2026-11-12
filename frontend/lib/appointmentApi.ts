@@ -31,6 +31,8 @@ export interface CreateAppointmentPayload {
    * provider doesn't have to re-prompt for it at visit time.
    */
   aiScribeConsent?: boolean
+  /** CTO-31: in person or a video visit (defaults to the service's). */
+  mode?: 'IN_PERSON' | 'VIRTUAL'
 }
 
 export interface CreatedAppointment {

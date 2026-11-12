@@ -49,8 +49,14 @@ export async function sendAppointmentConfirmation(params: {
   serviceName: string
   providerName: string
   locationName: string
+  /** CTO-31: a video visit's join link. */
+  joinUrl?: string | null
 }): Promise<void> {
   const { to, patientName, appointmentDate, serviceName, providerName, locationName } = params
+  const joinHtml = params.joinUrl
+    ? `<p><strong>Join your video visit:</strong> <a href="${params.joinUrl}">${params.joinUrl}</a></p>`
+    : ''
+  const joinText = params.joinUrl ? `\nJoin your video visit: ${params.joinUrl}` : ''
   const subject = `Confirmed: Your appointment on ${appointmentDate}`
   const html = `
     <div style="font-family: sans-serif; line-height: 1.5; color: #333;">
@@ -62,6 +68,7 @@ export async function sendAppointmentConfirmation(params: {
         <p><strong>Provider:</strong> ${providerName}</p>
         <p><strong>Date & Time:</strong> ${appointmentDate}</p>
         <p><strong>Location:</strong> ${locationName}</p>
+        ${joinHtml}
       </div>
       <p>We look forward to seeing you!</p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
@@ -71,7 +78,7 @@ export async function sendAppointmentConfirmation(params: {
   const text = `
 Appointment Confirmed
 Hi ${patientName},
-Your appointment for ${serviceName} with ${providerName} on ${appointmentDate} at ${locationName} is confirmed.
+Your appointment for ${serviceName} with ${providerName} on ${appointmentDate} at ${locationName} is confirmed.${joinText}
   `.trim()
 
   await sendEmail({ to, subject, html, text })
@@ -457,4 +464,22 @@ Set your password here: ${params.setupLink}
 
 This link expires in 24 hours. If you weren't expecting it, you can ignore this email.`
   await sendEmail({ to: params.to, subject, html, text })
+}
+
+/**
+ * A provider's appointment starts in 10 minutes (CTO-30). Deliberately
+ * PHI-free: the time and a link, never the patient's name or the reason.
+ */
+export async function sendProviderStartingSoonEmail(params: {
+  to: string
+  title: string
+  link: string
+}): Promise<void> {
+  const title = escapeHtml(params.title)
+  await sendEmail({
+    to: params.to,
+    subject: params.title,
+    html: `<p>${title}.</p><p><a href="${params.link}">Open the appointment and start AI Scribe</a></p>`,
+    text: `${params.title}.\n\nOpen the appointment and start AI Scribe: ${params.link}`,
+  })
 }

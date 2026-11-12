@@ -5,10 +5,12 @@ import * as notificationService from '../services/notificationService'
 import * as breakGlassService from '../services/breakGlassService'
 import * as fileService from '../services/fileService'
 import { purgeExpiredAuditLogs } from '../services/auditService'
+import { sendStartingSoonReminders } from '../services/providerReminderService'
 import { logError } from '../utils/errorLogger'
 import { withTenantBypass } from '../config/tenantContext'
 
 const INTERVAL_MS = 5 * 60 * 1000
+const MINUTE_MS = 60 * 1000
 const DAILY_MS = 24 * 60 * 60 * 1000
 
 /**
@@ -48,6 +50,18 @@ export const startCronJobs = (): void => {
       }
     })
   }, INTERVAL_MS)
+
+  // CTO-30: "your appointment starts soon" for providers, checked every minute.
+  setInterval(() => {
+    void withTenantBypass('cron:starting-soon', async () => {
+      try {
+        const created = await sendStartingSoonReminders()
+        if (created > 0) process.stderr.write(`[Cron] Starting-soon reminders: ${created}.\n`)
+      } catch (err) {
+        logError(err, { job: 'starting-soon-reminders' })
+      }
+    })
+  }, MINUTE_MS)
 
   // Audit retention (B0.3.6): delete rows older than AUDIT_RETENTION_YEARS
   // (≥ 6). Runs over AUDIT_PURGE_DATABASE_URL; skipped when unset.

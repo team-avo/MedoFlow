@@ -128,6 +128,9 @@ function BookingModal({
   const [flow, setFlow] = React.useState<FlowState>(emptyFlow)
   const [confirmedId, setConfirmedId] = React.useState<string | null>(null)
   const [submitting, setSubmitting] = React.useState(false)
+  // CTO-31: in person or a video visit; starts from the service's default.
+  const [modeChoice, setModeChoice] = React.useState<'IN_PERSON' | 'VIRTUAL' | null>(null)
+  const mode = modeChoice ?? flow.service?.defaultMode ?? 'IN_PERSON'
   // F1.1: the chosen time was taken — back on the time picker with a notice
   // and freshly loaded availability, instead of an error.
   const [slotTaken, setSlotTaken] = React.useState(false)
@@ -145,6 +148,7 @@ function BookingModal({
     }
     setStep('service')
     setFlow(emptyFlow())
+    setModeChoice(null)
     setConfirmedId(null)
     setSlotTaken(false)
   }, [open, flow.hold, clinicId])
@@ -207,6 +211,7 @@ function BookingModal({
         startTime: flow.slot.start,
         endTime: flow.slot.end,
         slotHoldId: flow.hold?.id,
+        mode,
       })
       setFlow((f) => ({ ...f, hold: null })) // hold converts on success
       if (clientSecret) {
@@ -235,6 +240,7 @@ function BookingModal({
 
   const resetForAnother = () => {
     setFlow(emptyFlow())
+    setModeChoice(null)
     setConfirmedId(null)
     setStep('service')
   }
@@ -327,6 +333,8 @@ function BookingModal({
                 user={user}
                 submitting={submitting}
                 onConfirm={handleConfirm}
+                mode={mode}
+                onModeChange={setModeChoice}
               />
             ) : step === 'success' && confirmedId ? (
               <SuccessState
@@ -741,11 +749,15 @@ function ReviewStep({
   user,
   submitting,
   onConfirm,
+  mode,
+  onModeChange,
 }: {
   flow: FlowState
   user: User | null
   submitting: boolean
   onConfirm: () => void
+  mode: 'IN_PERSON' | 'VIRTUAL'
+  onModeChange: (m: 'IN_PERSON' | 'VIRTUAL') => void
 }) {
   // Self-booking only: the details come from the profile (WS1).
   const missingPhone = !!user && !user.phone
@@ -780,6 +792,33 @@ function ReviewStep({
           </ReviewRow>
         </dl>
       </div>
+
+      <fieldset
+        className="rounded-2xl border border-slate-100 bg-white p-4"
+        data-testid="visit-mode"
+      >
+        <legend className="px-1 text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+          Visit type
+        </legend>
+        <div className="mt-1 flex flex-wrap gap-4 text-sm text-slate-800">
+          {(
+            [
+              ['IN_PERSON', 'In person'],
+              ['VIRTUAL', 'Video visit (link sent with your confirmation)'],
+            ] as const
+          ).map(([value, label]) => (
+            <label key={value} className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="visit-mode"
+                checked={mode === value}
+                onChange={() => onModeChange(value)}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       {user && <YourDetailsCard user={user} />}
 

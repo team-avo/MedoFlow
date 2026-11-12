@@ -32,6 +32,7 @@ import { StatusBadge } from '@/components/common/StatusBadge'
 import { RecurringSeriesDialog } from '@/components/appointments/RecurringSeriesDialog'
 import { NewAppointmentDialog } from '@/components/appointments/NewAppointmentDialog'
 import { canBookAppointments } from '@/lib/staffBookingApi'
+import { canStartScribe, scribeHref } from '@/components/dashboard/TodayAppointmentsCard'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { CancelSeriesDialog } from '@/components/appointments/CancelSeriesDialog'
 import {
@@ -43,6 +44,7 @@ import {
   ArrowRight,
   Repeat,
   Plus,
+  Mic,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +59,8 @@ export default function AppointmentsPage() {
   const canManageSeries = user?.role === 'FRONT_DESK' || user?.role === 'SUPER_ADMIN'
   // CTO-24: the owner, front desk and permitted custom roles book directly.
   const canBook = canBookAppointments(user)
+  // The clinician's own provider (a provider, or the owner-doctor, CTO-14).
+  const myProviderId = user?.provider?.isActive ? user.provider.id : null
   const router = useRouter()
   const searchParams = useSearchParams()
   const [newDialogOpen, setNewDialogOpen] = useState(false)
@@ -249,6 +253,19 @@ export default function AppointmentsPage() {
                   className: 'text-right',
                   render: (apt) => (
                     <div className="flex justify-end gap-1 pr-4">
+                      {/* CTO-30: straight into the scribe for the clinician's own visits. */}
+                      {!isPatient && canStartScribe(apt as ProviderAppointment, myProviderId) && (
+                        <AppButton
+                          size="sm"
+                          className="rounded-full bg-brand font-bold text-brand-foreground hover:bg-brand-strong"
+                          asChild
+                        >
+                          <Link href={scribeHref(apt.id)}>
+                            <Mic className="mr-1 h-3.5 w-3.5" />
+                            Start scribe
+                          </Link>
+                        </AppButton>
+                      )}
                       {canManageSeries &&
                         apt.recurringSeriesId &&
                         apt.status !== 'CANCELLED' &&

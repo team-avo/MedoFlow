@@ -20,6 +20,7 @@ import analyticsRoutes from './analytics'
 import aiScribeRoutes from './aiScribe'
 import googleCalendarRoutes from './googleCalendar'
 import staffRoutes from './staff'
+import notificationRoutes from './notifications'
 import consultationRoutes, { appointmentConsultationRouter } from './consultations'
 
 import productRoutes from './products'
@@ -70,6 +71,7 @@ router.use('/ai-scribe', aiScribeRoutes)
 router.use('/integrations/google', googleCalendarRoutes)
 router.use('/staff', staffRoutes)
 router.use('/consultations', consultationRoutes)
+router.use('/notifications', notificationRoutes)
 router.use('/products', productRoutes)
 router.use('/rx-cart', rxCartRoutes)
 router.use('/inventory', inventoryRoutes)

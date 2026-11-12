@@ -150,6 +150,19 @@ export const grantConsent = asyncHandler(
   }
 )
 
+/** POST /consultations/:id/consent/attest: the provider records verbal consent (in person). */
+export const attestConsent = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const { providerId } = await providerScope(req)
+    const session = await consultationService.attestVerbalConsent(
+      req.params.id as string,
+      providerId,
+      req.user!.id
+    )
+    successResponse(res, 200, 'Consent recorded', { session })
+  }
+)
+
 /** POST /consultations/:id/consent/decline */
 export const declineConsent = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {

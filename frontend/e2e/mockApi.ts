@@ -151,6 +151,8 @@ export async function installMockApi(
      * from its own /onboarding/** routes (tenant fields and clinicProfile).
      */
     onboarding?: MockOnboarding
+    /** The user's own Provider record (a provider, or the owner-doctor, CTO-14). */
+    provider?: { id: string; isActive: boolean } | null
   } = {}
 ) {
   const state: MockState = {
@@ -177,6 +179,7 @@ export async function installMockApi(
     hasSeenPatientTour: true,
     tourCompletedAt: '2026-01-01T00:00:00.000Z',
     mfaEnabled: state.mfaEnabled,
+    provider: opts.provider ?? null,
     clinic: {
       id: 'clinic-e2e',
       name: opts.identity?.clinicName ?? 'Synthetic Clinic',

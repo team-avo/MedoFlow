@@ -78,6 +78,13 @@ enum BookingSource {
   PHONE
 }
 
+/// CTO-31: in person (the consult room records audio only) or a video visit
+/// (a room and patient join link are created when the booking is confirmed).
+enum AppointmentMode {
+  IN_PERSON
+  VIRTUAL
+}
+
 enum SlotHoldStatus {
   ACTIVE
   EXPIRED
@@ -437,6 +444,7 @@ model Clinic {
   rxOrderLines              RxOrderLine[]
   patientCommerceProfiles   PatientCommerceProfile[]
   clinicProfile             ClinicProfile?
+  notifications             Notification[]
   clinicAgreements          ClinicAgreement[]
 
   @@index([tenantId])
@@ -687,6 +695,7 @@ model User {
   clinic                        Clinic?                    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   customRole                    CustomRole?                @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   provider                      Provider?
+  notifications                 Notification[]
   passwordSetupTokens           PasswordSetupToken[]
   authHandoffCodes              AuthHandoffCode[]
   refreshTokens                 RefreshToken[]
@@ -968,6 +977,8 @@ model Service {
   prepaymentType          String   @default("NONE") // NONE, DEPOSIT, FULL
   depositAmount           Decimal? @db.Decimal(10, 2)
   requirePrepayment       Boolean  @default(false)
+  /// CTO-31: the visit type a new booking of this service starts with.
+  defaultMode             AppointmentMode @default(IN_PERSON)
   requireProviderApproval Boolean  @default(false)
   isActive                Boolean  @default(true)
   isArchived              Boolean  @default(false)
@@ -1086,6 +1097,8 @@ model Appointment {
   startTime                DateTime
   endTime                  DateTime
   status                   AppointmentStatus      @default(CONFIRMED)
+  /// CTO-31: in person or a video visit; set from the service default, changeable at booking.
+  mode                     AppointmentMode        @default(IN_PERSON)
   priceAtBooking           Decimal                @db.Decimal(10, 2)
   paymentStatus            PaymentStatus          @default(NONE)
   paymentRequirementType   PaymentRequirementType @default(NONE)
@@ -2097,4 +2110,30 @@ model PatientCommerceProfile {
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
+}
+
+/// In-app notifications for staff (CTO-30): the red dot on the bell and the
+/// Command Center "starting soon" card. Payload is ids and a time only, never
+/// patient details. One per (user, kind, appointment).
+model Notification {
+  id            String    @id @default(cuid())
+  clinicId      String
+  userId        String
+  /// e.g. APPOINTMENT_STARTING
+  kind          String
+  /// Short, PHI-free text: "Your 10:30 appointment starts in 10 minutes".
+  title         String
+  /// In-app path to open.
+  link          String?
+  appointmentId String?
+  startsAt      DateTime?
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, appointmentId])
+  @@index([clinicId])
+  @@index([userId, readAt])
 }

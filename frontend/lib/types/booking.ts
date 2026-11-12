@@ -19,7 +19,11 @@ export interface Service {
   cancellationFeeType?: string | null
   cancellationFeeValue?: string | null
   recommendedProducts?: { id: string; name: string; price: string; description: string | null }[]
+  /** CTO-31: the visit type a booking starts with. */
+  defaultMode?: AppointmentMode
 }
+
+export type AppointmentMode = 'IN_PERSON' | 'VIRTUAL'
 
 export interface Provider {
   id: string

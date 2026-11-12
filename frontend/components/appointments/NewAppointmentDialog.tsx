@@ -72,6 +72,8 @@ export function NewAppointmentDialog({
   const [slot, setSlot] = useState<Pick<TimeSlot, 'start' | 'end' | 'locationId'> | null>(null)
   const [source, setSource] = useState<StaffBookingSource>('WALK_IN')
   const [collectAtDesk, setCollectAtDesk] = useState(true)
+  // CTO-31: in person or a video visit; starts from the service's default.
+  const [modeChoice, setModeChoice] = useState<'IN_PERSON' | 'VIRTUAL' | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [inviteLink, setInviteLink] = useState<string | null>(null)
@@ -99,6 +101,7 @@ export function NewAppointmentDialog({
     enabled: open,
   })
   const service = services.find((s) => s.id === serviceId)
+  const mode = modeChoice ?? service?.defaultMode ?? 'IN_PERSON'
   const eligibleProviders = useMemo(
     () => providers.filter((p) => p.providerServices.some((ps) => ps.serviceId === serviceId)),
     [providers, serviceId]
@@ -144,6 +147,7 @@ export function NewAppointmentDialog({
     setSlot(null)
     setSource('WALK_IN')
     setCollectAtDesk(true)
+    setModeChoice(null)
     setError(null)
     setInviteLink(null)
     setPendingInvite(null)
@@ -203,6 +207,7 @@ export function NewAppointmentDialog({
         startTime: slot.start,
         endTime: slot.end,
         bookingSource: source,
+        mode,
         ...(service?.requirePrepayment ? { collectAtDesk } : {}),
       })
       onBooked()
@@ -471,6 +476,26 @@ export function NewAppointmentDialog({
                     onChange={() => setSource(s)}
                   />
                   {s === 'WALK_IN' ? 'Walk-in' : 'Phone'}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <span className="font-medium">Visit type</span>
+              {(
+                [
+                  ['IN_PERSON', 'In person'],
+                  ['VIRTUAL', 'Video visit'],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-1.5">
+                  <input
+                    type="radio"
+                    name="visit-mode"
+                    checked={mode === value}
+                    onChange={() => setModeChoice(value)}
+                  />
+                  {label}
                 </label>
               ))}
             </div>

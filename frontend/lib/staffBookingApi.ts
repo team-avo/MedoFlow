@@ -38,6 +38,8 @@ export interface StaffService {
   duration: number
   defaultPrice: string
   requirePrepayment?: boolean
+  /** CTO-31: the visit type a booking starts with. */
+  defaultMode?: 'IN_PERSON' | 'VIRTUAL'
 }
 
 export interface StaffProvider {
@@ -115,6 +117,7 @@ export async function createStaffAppointment(payload: {
   endTime: string
   bookingSource: StaffBookingSource
   collectAtDesk?: boolean
+  mode?: 'IN_PERSON' | 'VIRTUAL'
 }) {
   const { data } = await api.post<{
     data: { appointment: { id: string; status: string } }

@@ -51,6 +51,8 @@ export const appointmentCreateSchema = {
      * prompted to re-confirm mid-visit.
      */
     aiScribeConsent: z.boolean().optional(),
+    /** CTO-31: in person or a video visit; defaults to the service's. */
+    mode: z.enum(['IN_PERSON', 'VIRTUAL']).optional(),
     /** Staff bookings (CTO-24): how the patient reached the clinic. */
     bookingSource: z.enum(['WALK_IN', 'PHONE']).optional(),
     /** Staff bookings: a prepay service is paid at the desk instead of online. */

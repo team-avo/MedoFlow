@@ -17,6 +17,8 @@ import {
 } from '@/components/ui-system'
 import { formatDayHeading, formatTime } from '@/lib/timezone'
 import { PageContainer } from '@/components/layout'
+import { StartingSoonCard } from '@/components/dashboard/StartingSoonCard'
+import { scribeHref } from '@/components/dashboard/TodayAppointmentsCard'
 import {
   Calendar,
   CalendarDays,
@@ -162,6 +164,8 @@ function ProviderDashboardContent() {
 
   return (
     <PageContainer className="space-y-8">
+      {/* CTO-30: an appointment within 10 minutes, with Start scribe. */}
+      <StartingSoonCard />
       {/* Hero — gradient welcome card with live "next up" chip */}
       <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#1C8B81] text-white">
         <div className="relative flex flex-col gap-8 p-8 lg:flex-row lg:items-center lg:justify-between lg:p-10">
@@ -206,7 +210,7 @@ function ProviderDashboardContent() {
                   className="flex-1 rounded-lg bg-white font-semibold text-[#1E3A5F] hover:bg-white/90"
                 >
                   <Link
-                    href={`/dashboard/provider/appointments/${currentAppointment.id}/consultation`}
+                    href={scribeHref(currentAppointment.id)}
                     className="inline-flex items-center justify-center gap-1.5"
                   >
                     <Mic className="h-3.5 w-3.5" />
@@ -396,7 +400,7 @@ function ProviderDashboardContent() {
                                 )}
                               >
                                 <Link
-                                  href={`/dashboard/provider/appointments/${apt.id}/consultation`}
+                                  href={scribeHref(apt.id)}
                                   className="inline-flex items-center gap-1.5"
                                 >
                                   <Mic className="h-3.5 w-3.5" />

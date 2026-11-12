@@ -52,6 +52,8 @@ export interface ConsultationSession {
     endTime: string
     status?: string
     meetLink?: string | null
+    /** CTO-31: in person (audio only) or a video visit. */
+    mode?: 'IN_PERSON' | 'VIRTUAL'
   }
   provider?: {
     id: string
@@ -142,6 +144,14 @@ export const getByAppointment = async (
 export const grantConsent = async (sessionId: string): Promise<ConsultationSession> => {
   const { data } = await api.post<ApiRes<{ session: ConsultationSession }>>(
     `/consultations/${sessionId}/consent`
+  )
+  return data.data.session
+}
+
+/** POST /consultations/:id/consent/attest: the provider records the patient's spoken consent (in person). */
+export const attestConsent = async (sessionId: string): Promise<ConsultationSession> => {
+  const { data } = await api.post<ApiRes<{ session: ConsultationSession }>>(
+    `/consultations/${sessionId}/consent/attest`
   )
   return data.data.session
 }

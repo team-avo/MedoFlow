@@ -124,6 +124,9 @@ export default function ConsultationRoomPage() {
   const [videoRoom, setVideoRoom] = useState<consultationApi.VideoRoomResult | null>(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const [videoActive, setVideoActive] = useState(false)
+  // Handlers are defined further down; the autostart effect calls the latest.
+  const handleStartRecordingRef = useRef<() => Promise<void>>(async () => undefined)
+  const handleStartVideoCallRef = useRef<() => Promise<void>>(async () => undefined)
 
   const recorder = useAudioRecorder()
   const toast = useAppToast()
@@ -225,6 +228,21 @@ export default function ConsultationRoomPage() {
     [session, scribe, showError, refreshSession]
   )
 
+  // ----- "Start scribe" from a list (CTO-30): ?autostart=1 -----
+  // Straight into recording once consent is in: audio only in person, the
+  // video call (which records once joined) for a video visit.
+  const autoStarted = useRef(false)
+  const wantsAutostart =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('autostart') === '1'
+  useEffect(() => {
+    if (!wantsAutostart || autoStarted.current || !session) return
+    if (session.consentStatus !== 'GRANTED' || session.recordingStatus !== 'NOT_STARTED') return
+    autoStarted.current = true
+    if (session.appointment?.mode === 'IN_PERSON') void handleStartRecordingRef.current()
+    else void handleStartVideoCallRef.current()
+  }, [wantsAutostart, session])
+
   // ----- Auto-upload the captured blob when the call ends -----
   // `autoUploadPending` is flipped on by `handleCallEnded`; we wait here
   // for MediaRecorder's async onstop to populate `recorder.audioBlob` and
@@ -242,6 +260,17 @@ export default function ConsultationRoomPage() {
       await uploadAndTranscribe(blob)
     })()
   }, [autoUploadPending, recorder.audioBlob, session, toast, uploadAndTranscribe])
+
+  // ----- In-person consent (CTO-30/31) -----
+  const handleAttestConsent = async () => {
+    if (!session) return
+    try {
+      setError(null)
+      setSession(await consultationApi.attestConsent(session.id))
+    } catch (err: unknown) {
+      showError(err)
+    }
+  }
 
   // ----- Video Call Controls -----
   const handleStartVideoCall = async () => {
@@ -334,6 +363,9 @@ export default function ConsultationRoomPage() {
     }
   }
 
+  handleStartRecordingRef.current = handleStartRecording
+  handleStartVideoCallRef.current = handleStartVideoCall
+
   const handleStopRecording = async () => {
     if (!session) return
     try {
@@ -406,6 +438,8 @@ export default function ConsultationRoomPage() {
   if (!session) return null
 
   const hasVideoRoom = videoActive && videoRoom
+  // CTO-31: an in-person visit records audio only; no video controls.
+  const inPerson = session.appointment?.mode === 'IN_PERSON'
 
   // One state for the recording control, so it is never just hidden.
   const recordingState: RecordingControlState = recorder.isRecording
@@ -423,7 +457,9 @@ export default function ConsultationRoomPage() {
     session.consentStatus === 'DECLINED'
       ? 'The patient declined AI recording. Document this visit manually.'
       : session.consentStatus !== 'GRANTED'
-        ? 'Waiting for the patient’s consent. Share the join link; recording unlocks once they accept.'
+        ? inPerson
+          ? 'Ask the patient for consent, then record it below.'
+          : 'Waiting for the patient’s consent. Share the join link; recording unlocks once they accept.'
         : caps && !caps.available
           ? 'The AI scribe is not set up on this server.'
           : session.recordingStatus !== 'NOT_STARTED' && session.recordingStatus !== 'FAILED'
@@ -506,12 +542,16 @@ export default function ConsultationRoomPage() {
 
       {/* Video + recording: both always visible, side by side (WS2) */}
       <ConsultControls
-        video={{
-          active: videoActive,
-          loading: videoLoading,
-          onStart: () => void handleStartVideoCall(),
-          onEnd: handleEndVideoCall,
-        }}
+        video={
+          inPerson
+            ? undefined
+            : {
+                active: videoActive,
+                loading: videoLoading,
+                onStart: () => void handleStartVideoCall(),
+                onEnd: handleEndVideoCall,
+              }
+        }
         recording={{
           state: recordingState,
           duration: recorder.duration,
@@ -602,8 +642,35 @@ export default function ConsultationRoomPage() {
             </AppCard>
           )}
 
-          {/* Consent Notice — only shown when patient hasn't opted in at booking */}
-          {session.consentStatus === 'PENDING' && (
+          {/* In person (CTO-30/31): the patient is in the room; record their spoken consent. */}
+          {session.consentStatus === 'PENDING' && inPerson && (
+            <AppCard
+              className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none"
+              data-testid="in-person-consent"
+            >
+              <AppCardContent className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:p-8">
+                <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                  <Lock className="h-5 w-5" />
+                </span>
+                <div className="flex-1 space-y-1">
+                  <h3 className="text-base font-bold text-amber-900">Ask for consent to record</h3>
+                  <p className="text-sm leading-relaxed text-amber-800/80">
+                    &quot;I use an AI scribe to take notes. Is it OK if I record our
+                    conversation?&quot; Record their answer; recording then starts.
+                  </p>
+                </div>
+                <AppButton
+                  onClick={() => void handleAttestConsent()}
+                  className="shrink-0 rounded-full"
+                >
+                  The patient agreed
+                </AppButton>
+              </AppCardContent>
+            </AppCard>
+          )}
+
+          {/* Consent Notice: only shown when patient hasn't opted in at booking */}
+          {session.consentStatus === 'PENDING' && !inPerson && (
             <AppCard className="overflow-hidden border border-amber-200 bg-gradient-to-br from-amber-50 to-white shadow-none">
               <AppCardContent className="p-6 sm:p-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start">

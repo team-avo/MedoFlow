@@ -49,6 +49,7 @@ import { siteApi } from '@/lib/site/siteApi'
 import { getClinic } from '@/lib/clinicApi'
 import { SetupChecklist } from '@/components/onboarding/SetupChecklist'
 import { TodayAppointmentsCard } from '@/components/dashboard/TodayAppointmentsCard'
+import { StartingSoonCard } from '@/components/dashboard/StartingSoonCard'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -123,6 +124,9 @@ function AdminDashboardContent() {
           </div>
         }
       />
+
+      {/* CTO-30: the owner-doctor's next appointment, with Start scribe. */}
+      <StartingSoonCard />
 
       {/* CTO-19: a compact, collapsible Quick setup panel; the tool comes first. */}
       <SetupChecklist />

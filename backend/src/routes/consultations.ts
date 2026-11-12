@@ -33,6 +33,14 @@ router.post('/:id/consent', authorize(Role.PATIENT), consultationController.gran
 
 router.post('/:id/consent/decline', authorize(Role.PATIENT), consultationController.declineConsent)
 
+// In person (CTO-30/31): the provider records the patient's spoken consent.
+router.post(
+  '/:id/consent/attest',
+  authorize(Role.PROVIDER),
+  requireClinic,
+  consultationController.attestConsent
+)
+
 // --- Provider recording controls ---
 router.post(
   '/:id/recording/start',

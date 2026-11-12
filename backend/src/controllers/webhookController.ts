@@ -1,3 +1,4 @@
+import { prepareVirtualVisit } from '../services/virtualVisitService'
 import type { Request, Response } from 'express'
 import type Stripe from 'stripe'
 import stripe from '../config/stripe'
@@ -152,6 +153,12 @@ export const handleAppointmentPaymentIntentSucceeded = async (
     })
   }
 
+  // CTO-31: a paid video visit gets its room and join link now.
+  const virtual =
+    appt.mode === 'VIRTUAL'
+      ? await prepareVirtualVisit(appt.id, appt.clinicId).catch(() => null)
+      : null
+
   if (shouldSendConfirmation) {
     await emailService.sendAppointmentConfirmation({
       to: appt.patient.email,
@@ -159,7 +166,8 @@ export const handleAppointmentPaymentIntentSucceeded = async (
       appointmentDate: appt.startTime.toLocaleString(),
       serviceName: appt.service.name,
       providerName: `${appt.provider.firstName} ${appt.provider.lastName}`,
-      locationName: appt.location?.name || 'Clinic',
+      locationName: virtual ? 'Video visit' : appt.location?.name || 'Clinic',
+      joinUrl: virtual?.joinUrl ?? null,
     })
   }
 

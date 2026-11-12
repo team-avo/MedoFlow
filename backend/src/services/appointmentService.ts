@@ -1,3 +1,4 @@
+import { confirmVirtualVisit } from './virtualVisitService'
 import prisma from '../config/prisma'
 import type { Request } from 'express'
 import type { ApiError } from '../types/errors'
@@ -41,6 +42,8 @@ export interface CreateAppointmentData {
    * consultation session will start with consent already granted.
    */
   aiScribeConsent?: boolean
+  /** CTO-31: in person or video; defaults to the service's defaultMode. */
+  mode?: 'IN_PERSON' | 'VIRTUAL'
 }
 
 export interface CreateAppointmentContext {
@@ -556,6 +559,7 @@ export const createAppointment = async (
         updatedById: performedById ?? null,
         recurringSeriesId: context?.recurringSeriesId ?? null,
         aiScribeConsentGrantedAt: data.aiScribeConsent ? new Date() : null,
+        mode: data.mode ?? service.defaultMode,
       }
 
       const rescheduleFromId = context?.rescheduleFromAppointmentId
@@ -719,6 +723,13 @@ export const createAppointment = async (
                 amount: amountToCharge,
               })
             )
+      // CTO-31: a confirmed video visit gets its room and join link now, sent
+      // with the confirmation (a prepaid one gets them when payment lands).
+      if (appointment.mode === 'VIRTUAL' && appointment.status === 'CONFIRMED') {
+        await withPatientSelfEnrollScope(clinicId, patientId, () =>
+          confirmVirtualVisit(appointment.id, clinicId)
+        )
+      }
       return { appointment, clientSecret }
     })
 }

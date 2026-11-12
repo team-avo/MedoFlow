@@ -77,7 +77,9 @@ const rotateJoinToken = async (sessionId: string, clinicId: string) => {
       joinTokenExpiresAt: getJoinTokenExpiry(),
     },
     include: {
-      appointment: { select: { id: true, startTime: true, endTime: true, meetLink: true } },
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
       patient: { select: { id: true, name: true, email: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
     },
@@ -134,7 +136,9 @@ export const createOrGetSession = async (
       status: { not: ConsultationStatus.FAILED },
     },
     include: {
-      appointment: { select: { id: true, startTime: true, endTime: true, meetLink: true } },
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
       patient: { select: { id: true, name: true, email: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
     },
@@ -162,7 +166,9 @@ export const createOrGetSession = async (
       consentGrantedAt: preGrantedAt,
     },
     include: {
-      appointment: { select: { id: true, startTime: true, endTime: true, meetLink: true } },
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
       patient: { select: { id: true, name: true, email: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
     },
@@ -194,6 +200,7 @@ export const getSessionById = async (sessionId: string, userId: string, role: Ro
           endTime: true,
           status: true,
           meetLink: true,
+          mode: true,
         },
       },
       provider: { select: { id: true, firstName: true, lastName: true } },
@@ -331,6 +338,42 @@ export const grantConsent = async (sessionId: string, userId: string, performedB
     performedById,
   })
 
+  return updated
+}
+
+/**
+ * In person (CTO-30/31): the patient is in the room, not on a join link, so
+ * the provider records that they agreed out loud. Only the visit's own
+ * provider, never over a decline, audited as CONSENT_ATTESTED_VERBAL. Same
+ * rule as the AI scribe's PROVIDER_ATTESTED_VERBAL.
+ */
+export const attestVerbalConsent = async (
+  sessionId: string,
+  providerId: string,
+  performedById: string
+) => {
+  const session = await prisma.consultationSession.findUnique({
+    where: { id: sessionId, ...clinicScope() },
+  })
+  if (!session || session.providerId !== providerId) throwApi('Session not found', 404)
+  if (session.consentStatus === ConsentStatus.GRANTED) return session
+  if (session.consentStatus === ConsentStatus.DECLINED) {
+    throwApi('The patient declined recording for this visit', 409, 'consent_declined')
+  }
+  if (session.status === ConsultationStatus.ENDED || session.status === ConsultationStatus.FAILED) {
+    throwApi('Session has ended', 400, 'invalid_state')
+  }
+  const updated = await prisma.consultationSession.update({
+    where: { id: sessionId, clinicId: session.clinicId },
+    data: { consentStatus: ConsentStatus.GRANTED, consentGrantedAt: new Date() },
+  })
+  await auditService.logAudit({
+    clinicId: session.clinicId,
+    entityType: 'ConsultationSession',
+    entityId: sessionId,
+    action: 'CONSENT_ATTESTED_VERBAL',
+    performedById,
+  })
   return updated
 }
 

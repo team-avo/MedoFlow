@@ -11,6 +11,7 @@ export interface CreateServiceData {
   duration: number
   defaultPrice: number | string
   taxApplicable?: boolean
+  defaultMode?: 'IN_PERSON' | 'VIRTUAL'
   recommendedProductIds?: string[]
 }
 
@@ -53,6 +54,7 @@ export const createService = async (
       duration: data.duration,
       defaultPrice: data.defaultPrice,
       taxApplicable: data.taxApplicable ?? false,
+      defaultMode: data.defaultMode ?? 'IN_PERSON',
       recommendedProducts: {
         connect: data.recommendedProductIds?.map((id) => ({ id })) ?? [],
       },
@@ -145,6 +147,7 @@ export const updateService = async (
       ...(data.duration !== undefined && { duration: data.duration }),
       ...(data.defaultPrice !== undefined && { defaultPrice: data.defaultPrice }),
       ...(data.taxApplicable !== undefined && { taxApplicable: data.taxApplicable }),
+      ...(data.defaultMode !== undefined && { defaultMode: data.defaultMode }),
       ...(data.disciplineId && { disciplineId: data.disciplineId }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
       ...(data.recommendedProductIds && {

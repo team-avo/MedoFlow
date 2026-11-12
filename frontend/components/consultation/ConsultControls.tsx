@@ -25,7 +25,8 @@ export type RecordingControlState =
   | 'done'
 
 export interface ConsultControlsProps {
-  video: {
+  /** Omitted for an in-person visit (CTO-31): audio recording only. */
+  video?: {
     active: boolean
     loading: boolean
     onStart: () => void
@@ -58,7 +59,7 @@ export function ConsultControls({ video, recording }: ConsultControlsProps) {
       className="sticky top-14 z-20 -mx-1 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm"
     >
       <div className="flex flex-col gap-3 sm:flex-row">
-        {video.active ? (
+        {!video ? null : video.active ? (
           <button
             type="button"
             onClick={video.onEnd}
