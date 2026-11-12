@@ -124,11 +124,11 @@ function FrontDeskDashboardContent() {
       </div>
 
       <div className="grid gap-8 lg:grid-cols-3">
-        {/* Main Queue */}
+        {/* Today's appointments */}
         <div className="lg:col-span-2 space-y-6">
           <AppCard className="border-none shadow-sm overflow-hidden">
             <AppCardHeader className="flex flex-row items-center justify-between bg-slate-50/50 border-b-0 py-6">
-              <AppCardTitle className="text-lg font-bold">Today's Appointment Queue</AppCardTitle>
+              <AppCardTitle className="text-lg font-bold">Today's appointments</AppCardTitle>
               <AppButton variant="ghost" size="sm" className="text-primary-600" asChild>
                 <Link href="/dashboard/appointments">
                   Full View <ArrowRight className="ml-1 h-4 w-4" />

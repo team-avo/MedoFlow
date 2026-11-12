@@ -44,10 +44,8 @@ const ROLES: RolePlan[] = [
     role: 'SUPER_ADMIN',
     start: '/dashboard/admin',
     navSelector: 'aside nav a[href^="/dashboard"]',
+    // Disciplines, Locations & hours and Security are Settings items now (CTO-20).
     extra: [
-      '/dashboard/disciplines',
-      '/dashboard/locations',
-      '/dashboard/settings',
       '/dashboard/staff/roles',
       '/dashboard/site/domains',
       '/dashboard/site/redirects',

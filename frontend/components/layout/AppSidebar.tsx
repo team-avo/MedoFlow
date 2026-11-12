@@ -11,8 +11,11 @@ import {
   BarChart3,
   ClipboardList,
   Receipt,
-  Video,
   FileText,
+  Layers,
+  MapPin,
+  Settings,
+  Stethoscope,
   Package,
   ShoppingCart,
   Tags,
@@ -55,42 +58,35 @@ const patientSections: SidebarSection[] = [
   },
 ]
 
+// PROVIDER: the clinical day only (CTO-01/02/03). "Appointments" is the list
+// formerly labelled "Queue". The old Google Meet "Video Room" is gone: video
+// and AI Scribe start from the appointment itself. Doctors don't build carts
+// by hand, so there's no Store tab; Rx to cart comes from the scribe.
+// The calendar view (/dashboard/provider/calendar) is reachable from the
+// dashboard's "Full Calendar" link.
 const providerSections: SidebarSection[] = [
   {
     title: 'Clinical',
-    // "Queue" (the appointments list) is now the primary clinical surface.
-    // Calendar view still exists at /dashboard/provider/calendar — reachable
-    // from the dashboard's "Full Calendar" CTA — but not in the sidebar,
-    // to avoid duplicating the same-data views.
     items: [
       { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-      { href: '/dashboard/appointments', label: 'Queue', icon: ClipboardList },
+      { href: '/dashboard/appointments', label: 'Appointments', icon: ClipboardList },
     ],
-  },
-  {
-    title: 'Telehealth',
-    items: [{ href: '/dashboard/provider/meetings', label: 'Video Room', icon: Video }],
   },
   {
     title: 'Insights',
     items: [{ href: '/dashboard/analytics', label: 'Performance', icon: BarChart3 }],
   },
-  {
-    title: 'Commerce',
-    items: [{ href: '/store', label: 'Store', icon: ShoppingCart }],
-  },
 ]
 
-// SUPER_ADMIN sidebar is intentionally trim. Less-used routes still work by
-// direct URL (e.g. /dashboard/disciplines, /dashboard/locations) — they just
-// aren't promoted in the nav to keep the console focused on day-to-day work.
+// SUPER_ADMIN (CTO-20): appointments (services) and products are both things
+// a clinic sells, so they share one Commerce group; there's no separate
+// Catalog. Settings comes last: clinic profile, locations and hours, forms.
 const superAdminSections: SidebarSection[] = [
   {
     title: 'Main',
     items: [
       { href: '/dashboard/admin', label: 'Command Center', icon: LayoutDashboard },
       { href: '/dashboard/staff', label: 'Team', icon: Users },
-      { href: '/dashboard/clinic', label: 'Clinic profile', icon: Building2 },
     ],
   },
   {
@@ -101,15 +97,9 @@ const superAdminSections: SidebarSection[] = [
     ],
   },
   {
-    title: 'Catalog',
-    items: [
-      { href: '/dashboard/services', label: 'Services', icon: ClipboardList },
-      { href: '/dashboard/forms', label: 'Forms', icon: FileText },
-    ],
-  },
-  {
     title: 'Commerce',
     items: [
+      { href: '/dashboard/services', label: 'Services', icon: Stethoscope },
       { href: '/dashboard/products', label: 'Storefront', icon: ShoppingCart },
       { href: '/dashboard/packages', label: 'Packages', icon: Package },
       { href: '/dashboard/memberships', label: 'Memberships', icon: Tags },
@@ -133,11 +123,20 @@ const superAdminSections: SidebarSection[] = [
       { href: '/dashboard/audit', label: 'Compliance', icon: ShieldCheck },
     ],
   },
+  {
+    title: 'Settings',
+    items: [
+      { href: '/dashboard/clinic', label: 'Clinic profile', icon: Building2 },
+      { href: '/dashboard/locations', label: 'Locations & hours', icon: MapPin },
+      { href: '/dashboard/disciplines', label: 'Disciplines', icon: Layers },
+      { href: '/dashboard/forms', label: 'Forms', icon: FileText },
+      { href: '/dashboard/settings', label: 'Security', icon: Settings },
+    ],
+  },
 ]
 
-// FRONT_DESK: operations-focused. Store (patient-facing shop) lives elsewhere —
-// front-desk transacts via Checkout/POS, so a separate "Store" link here is
-// duplicative and was removed.
+// FRONT_DESK: operations-focused, same names as the admin console where they
+// overlap. Front desk transacts via Checkout (POS), not the patient Store.
 const frontDeskSections: SidebarSection[] = [
   {
     title: 'Today',
@@ -147,20 +146,23 @@ const frontDeskSections: SidebarSection[] = [
     ],
   },
   {
-    title: 'Clinical Ops',
+    title: 'Clinical',
     items: [
       { href: '/dashboard/appointments', label: 'Appointments', icon: ClipboardList },
       { href: '/dashboard/patients', label: 'Patients', icon: Users },
-      { href: '/dashboard/forms', label: 'Intake Forms', icon: FileText },
     ],
   },
   {
-    title: 'Finance',
+    title: 'Commerce',
     items: [{ href: '/dashboard/front-desk/invoices', label: 'Billing', icon: Receipt }],
   },
   {
     title: 'Website',
     items: [{ href: '/dashboard/site/leads', label: 'Enquiries', icon: Inbox }],
+  },
+  {
+    title: 'Settings',
+    items: [{ href: '/dashboard/forms', label: 'Forms', icon: FileText }],
   },
 ]
 
@@ -279,10 +281,18 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
       {/* Navigation */}
       <nav className="custom-scrollbar relative flex-1 space-y-6 overflow-y-auto px-3 py-5">
         {sections.map((section, sIdx) => (
-          <div key={section.title} className="space-y-1">
+          <div
+            key={section.title}
+            className="space-y-1"
+            data-testid="sidebar-section"
+            data-section={section.title}
+          >
             <div className="flex items-center gap-2 px-3 pb-1">
               <span className="h-px flex-1 bg-white/5" aria-hidden />
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45">
+              <p
+                className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/45"
+                data-testid="sidebar-section-title"
+              >
                 {section.title}
               </p>
               <span className="h-px flex-1 bg-white/5" aria-hidden />
