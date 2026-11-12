@@ -248,7 +248,14 @@ export const getSessionByToken = async (joinToken: string) => {
       where: { joinToken },
       include: {
         appointment: {
-          select: { id: true, startTime: true, endTime: true, status: true, meetLink: true },
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            status: true,
+            meetLink: true,
+            mode: true,
+          },
         },
         provider: { select: { firstName: true, lastName: true } },
         patient: { select: { id: true, name: true } },
@@ -276,7 +283,14 @@ export const getSessionForAppointment = async (
     orderBy: { createdAt: 'desc' },
     include: {
       appointment: {
-        select: { id: true, startTime: true, endTime: true, status: true, meetLink: true },
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          meetLink: true,
+          mode: true,
+        },
       },
       provider: { select: { id: true, firstName: true, lastName: true } },
       patient: { select: { id: true, name: true } },
@@ -366,6 +380,15 @@ export const attestVerbalConsent = async (
   const updated = await prisma.consultationSession.update({
     where: { id: sessionId, clinicId: session.clinicId },
     data: { consentStatus: ConsentStatus.GRANTED, consentGrantedAt: new Date() },
+    // The same shape the consult room loads: it needs appointment.mode to
+    // know an in-person visit records audio, not a video call.
+    include: {
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
+      patient: { select: { id: true, name: true, email: true } },
+      provider: { select: { id: true, firstName: true, lastName: true } },
+    },
   })
   await auditService.logAudit({
     clinicId: session.clinicId,

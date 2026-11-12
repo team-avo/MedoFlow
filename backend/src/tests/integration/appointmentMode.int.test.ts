@@ -82,6 +82,19 @@ describe('appointment mode', () => {
     })
     expect(start.status, JSON.stringify(start.body)).toBe(201)
     expect(start.body.data.session.appointment.mode).toBe('IN_PERSON')
+    // ...and so does reopening the room, which is how the page loads it
+    // (found by the live fresh-clinic run: without it the page offered video).
+    const reopened = await api(server.url, `/consultations/appointment/${appt.id}`, {
+      token: provider,
+    })
+    expect(reopened.status, JSON.stringify(reopened.body)).toBe(200)
+    expect(reopened.body.data.session.appointment.mode).toBe('IN_PERSON')
+    const joined = await api(
+      server.url,
+      `/consultations/join/${start.body.data.session.joinToken as string}`
+    )
+    expect(joined.status, JSON.stringify(joined.body)).toBe(200)
+    expect(joined.body.data.session.appointment.mode).toBe('IN_PERSON')
   })
 
   it('a service can default to VIRTUAL; a booking can override it', async () => {
@@ -175,6 +188,8 @@ describe('in-person consent (CTO-30/31)', () => {
     })
     expect(ok.status, JSON.stringify(ok.body)).toBe(200)
     expect(ok.body.data.session.consentStatus).toBe('GRANTED')
+    // The room keeps knowing this visit is in person (audio, not video).
+    expect(ok.body.data.session.appointment.mode).toBe('IN_PERSON')
     expect(
       await adminDb.auditLog.count({
         where: { entityId: sessionId, action: 'CONSENT_ATTESTED_VERBAL' },

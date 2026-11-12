@@ -133,6 +133,16 @@ describe('a fresh clinic with no website', () => {
       body: { quantityInStock: 10 },
     })
     expect(stock.status, JSON.stringify(stock.body)).toBe(200)
+    // A bad count is refused before it reaches the database.
+    for (const quantityInStock of [-1, 2.5, 'ten'])
+      expect(
+        (
+          await call(`/inventory/${productId}/adjust`, {
+            method: 'PUT',
+            body: { quantityInStock },
+          })
+        ).status
+      ).toBe(400)
 
     // A service to book (a solo practice's one provider offers it at once).
     const discipline = await call('/disciplines', { body: { name: 'Longevity' } })

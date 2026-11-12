@@ -118,3 +118,15 @@ export const updateProductSchema = createProductSchema
   .partial()
   .extend({ isActive: z.boolean().optional() })
   .strict()
+
+/** PUT /inventory/:productId/adjust: the stock count and its details (CTO-23). */
+export const adjustInventorySchema = z
+  .object({
+    quantityInStock: z.number().int().min(0).max(1_000_000).optional(),
+    reorderThreshold: z.number().int().min(0).max(1_000_000).optional(),
+    supplier: z.string().trim().max(200).optional(),
+    batchNumber: z.string().trim().max(100).optional(),
+    expiryDate: z.coerce.date().optional(),
+    storageLocation: z.string().trim().max(200).optional(),
+  })
+  .strict()

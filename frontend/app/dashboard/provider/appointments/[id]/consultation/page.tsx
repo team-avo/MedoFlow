@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import * as consultationApi from '@/lib/consultationApi'
 import * as aiScribeApi from '@/lib/aiScribeApi'
@@ -103,7 +103,15 @@ export default function ConsultationRoomPage() {
   const router = useRouter()
   const appointmentId = params.id as string
 
-  const [session, setSession] = useState<consultationApi.ConsultationSession | null>(null)
+  const [session, setSessionState] = useState<consultationApi.ConsultationSession | null>(null)
+  // Responses that omit the appointment keep the one already loaded (mode!).
+  const setSession = useCallback(
+    (next: React.SetStateAction<consultationApi.ConsultationSession | null>) =>
+      setSessionState((prev) =>
+        consultationApi.withSessionContext(prev, typeof next === 'function' ? next(prev) : next)
+      ),
+    []
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -164,7 +172,7 @@ export default function ConsultationRoomPage() {
     } finally {
       setLoading(false)
     }
-  }, [appointmentId, showError])
+  }, [appointmentId, showError, setSession])
 
   useEffect(() => {
     initSession()
@@ -181,7 +189,7 @@ export default function ConsultationRoomPage() {
     } catch {
       // ignore
     }
-  }, [sessionId])
+  }, [sessionId, setSession])
 
   // ----- Poll for the patient's consent decision -----
   useEffect(() => {
@@ -225,7 +233,7 @@ export default function ConsultationRoomPage() {
         setUploading(false)
       }
     },
-    [session, scribe, showError, refreshSession]
+    [session, scribe, showError, refreshSession, setSession]
   )
 
   // ----- "Start scribe" from a list (CTO-30): ?autostart=1 -----

@@ -92,22 +92,30 @@ export function AddProductModal({ open, onOpenChange }: AddProductModalProps) {
       }}
       content={
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
-          <AppFormField label="Product Name" error={errors.name?.message}>
-            <AppInput {...register('name')} placeholder="e.g. Daily Wellness Pack" />
+          <AppFormField label="Product Name" htmlFor="product-name" error={errors.name?.message}>
+            <AppInput
+              id="product-name"
+              {...register('name')}
+              placeholder="e.g. Daily Wellness Pack"
+            />
           </AppFormField>
 
-          <AppFormField label="SKU (Optional)" error={errors.sku?.message}>
-            <AppInput {...register('sku')} placeholder="e.g. WELL-001" />
+          <AppFormField label="SKU (Optional)" htmlFor="product-sku" error={errors.sku?.message}>
+            <AppInput id="product-sku" {...register('sku')} placeholder="e.g. WELL-001" />
           </AppFormField>
 
-          <AppFormField label="Price ($)" error={errors.price?.message}>
-            <AppInput {...register('price')} type="text" placeholder="0.00" />
+          <AppFormField label="Price ($)" htmlFor="product-price" error={errors.price?.message}>
+            <AppInput id="product-price" {...register('price')} type="text" placeholder="0.00" />
           </AppFormField>
 
-          <AppFormField label="Classification" error={errors.fulfillmentClass?.message}>
+          <AppFormField
+            label="Classification"
+            htmlFor="product-class"
+            error={errors.fulfillmentClass?.message}
+          >
             <select
+              id="product-class"
               {...register('fulfillmentClass')}
-              aria-label="Classification"
               className="flex h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900"
             >
               {(Object.keys(FULFILLMENT_CLASS_LABELS) as FulfillmentClass[]).map((c) => (
@@ -124,16 +132,23 @@ export function AddProductModal({ open, onOpenChange }: AddProductModalProps) {
 
           <AppFormField
             label="Also known as (comma separated, optional)"
+            htmlFor="product-aliases"
             error={errors.aliases?.message}
           >
             <AppInput
+              id="product-aliases"
               {...register('aliases')}
               placeholder="e.g. mag glycinate, magnesium bisglycinate"
             />
           </AppFormField>
 
-          <AppFormField label="Description" error={errors.description?.message}>
+          <AppFormField
+            label="Description"
+            htmlFor="product-description"
+            error={errors.description?.message}
+          >
             <textarea
+              id="product-description"
               {...register('description')}
               className="flex min-h-[80px] w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Describe the product benefits..."

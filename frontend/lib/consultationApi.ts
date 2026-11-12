@@ -301,3 +301,22 @@ export const convertToTemplate = async (
   )
   return data.data
 }
+
+/**
+ * The next session state, keeping the related records the room already has
+ * when a response leaves them out (e.g. consent or recording calls return
+ * the bare row). Without this, a visit loses `appointment.mode` and an
+ * in-person room would switch to video.
+ */
+export function withSessionContext(
+  prev: ConsultationSession | null,
+  next: ConsultationSession | null
+): ConsultationSession | null {
+  if (!next || !prev || prev.id !== next.id) return next
+  return {
+    ...next,
+    appointment: next.appointment ? { ...prev.appointment, ...next.appointment } : prev.appointment,
+    provider: next.provider ?? prev.provider,
+    patient: next.patient ?? prev.patient,
+  }
+}

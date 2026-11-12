@@ -15,11 +15,15 @@ import { PageContainer } from '@/components/layout'
 import { getProducts, type Product } from '@/lib/productApi'
 import { Plus, Package, ShoppingCart } from 'lucide-react'
 import { AddProductModal } from '@/components/products/AddProductModal'
+import { StockControl } from '@/components/products/StockControl'
+import { useAuth } from '@/contexts/AuthContext'
 import { FULFILLMENT_CLASS_LABELS } from '@/lib/rxCartApi'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const { user } = useAuth()
+  const canAdjust = user?.role === 'SUPER_ADMIN'
 
   const {
     data: products = [],
@@ -110,16 +114,12 @@ export default function ProductsPage() {
                     <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">
                       Availability
                     </p>
-                    <span
-                      className={cn(
-                        'text-xs font-bold px-2.5 py-1 rounded-lg',
-                        (product.inventoryItem?.quantityInStock ?? 0) > 0
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-rose-50 text-rose-700'
-                      )}
-                    >
-                      {product.inventoryItem?.quantityInStock ?? 0} in stock
-                    </span>
+                    <StockControl
+                      productId={product.id}
+                      productName={product.name}
+                      quantity={product.inventoryItem?.quantityInStock ?? 0}
+                      canAdjust={canAdjust}
+                    />
                   </div>
                 </div>
               </AppCardContent>
