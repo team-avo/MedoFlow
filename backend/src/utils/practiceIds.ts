@@ -167,3 +167,18 @@ export const PRACTICE_TYPES = [
 ] as const
 
 export const PRACTICE_TYPE_KEYS: readonly string[] = PRACTICE_TYPES.map(([key]) => key)
+
+/**
+ * Title options for practitioners and the agreement signer (CTO-16). US
+ * practices use these, not "Owner". "Other" takes free text. Mirrored on both
+ * sides and checked against shared/validation-cases/practice-lists.json.
+ */
+export const PRACTITIONER_TITLES = [
+  'Founder',
+  'CEO',
+  'Medical Director',
+  'Physician',
+  'Nurse Practitioner',
+  'Practice Manager',
+  'Other',
+] as const

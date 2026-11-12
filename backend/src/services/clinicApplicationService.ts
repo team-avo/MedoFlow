@@ -13,9 +13,14 @@
  * Tax ID and DEA are field-encrypted at rest and only ever returned masked to
  * the clinic; platform admins see them in full, and every such read is audited.
  */
+import { syncOwnerProvider } from './ownerProviderService'
 import type { ClinicVerificationStatus, Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
-import { isAutoClinicReview, platformReviewRecipients } from '../config/clinicReview'
+import {
+  isAutoClinicReview,
+  platformReviewRecipients,
+  confirmClinicNameRequired,
+} from '../config/clinicReview'
 import type { ApiError } from '../types/errors'
 import { maskIdentifier } from '../utils/practiceIds'
 import type {
@@ -148,6 +153,8 @@ export async function getApplication(clinicId: string) {
 
   return {
     clinicName: clinic.name,
+    // Deployment switches the application form follows (CTO-10).
+    config: { confirmClinicName: confirmClinicNameRequired() },
     verification: {
       status: clinic.tenant.verificationStatus,
       submittedAt: clinic.tenant.submittedForReviewAt,
@@ -334,7 +341,10 @@ export async function savePractitioners(
   // A practice with a group NPI is a covered provider practice: every
   // practitioner on it needs their own NPI too.
   if (!profile.noNpi) {
-    const missing = practitioners.findIndex((p) => !p.npi)
+    // A non-clinical owner (CTO-14: "I see patients" unticked) has no NPI.
+    const missing = practitioners.findIndex(
+      (p) => !p.npi && !(p.isSelf && p.seesPatients === false)
+    )
     if (missing >= 0) {
       throw Object.assign(
         httpError(400, `Enter an NPI for ${practitioners[missing]!.name}`, 'validation_error'),
@@ -351,12 +361,24 @@ export async function savePractitioners(
     },
   })
 
+  // CTO-14: the account creator is a provider automatically when they see
+  // patients; no separate "Add me" step.
+  const self = practitioners.find((p) => p.isSelf)
+  if (self) {
+    await syncOwnerProvider({
+      clinicId,
+      ownerUserId: actor.userId,
+      seesPatients: self.seesPatients !== false,
+      performedById: actor.userId,
+    })
+  }
+
   await logAudit({
     clinicId,
     entityType: 'ClinicProfile',
     entityId: profile.id,
     action: 'CLINIC_PRACTITIONERS_UPDATED',
-    newValue: { count: practitioners.length },
+    newValue: { count: practitioners.length, ownerSeesPatients: self?.seesPatients !== false },
     performedById: actor.userId,
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
@@ -413,7 +435,7 @@ export async function signAgreement(clinicId: string, input: AgreementInput, act
   const clinic = await clinicContext(clinicId)
   const tenant = clinic.tenant
 
-  if (!sameName(input.confirmClinicName, tenant.name)) {
+  if (confirmClinicNameRequired() && !sameName(input.confirmClinicName ?? '', tenant.name)) {
     throw httpError(400, 'Confirmation name does not match clinic on file', 'validation_error')
   }
   for (const key of ACKNOWLEDGEMENT_KEYS) {

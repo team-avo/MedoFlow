@@ -5,7 +5,7 @@ import { Loader2, Plus, Stethoscope, Trash2 } from 'lucide-react'
 import { AppFormField, AppInput } from '@/components/ui-system'
 import { apiErrorOf } from '@/lib/apiError'
 import { onboardingApi, type Application } from '@/lib/onboardingApi'
-import { isValidNpi, US_STATES } from '@/lib/practiceIds'
+import { isValidNpi, PRACTITIONER_TITLES, US_STATES } from '@/lib/practiceIds'
 import {
   emptyPractitioner,
   practitionersValid,
@@ -18,10 +18,41 @@ import {
 import { IdCheck, selectClass } from './ApplicationShell'
 
 /**
- * The practice's licensed practitioners — step 2 of the clinic application and
- * the "Practitioners" tab of /dashboard/clinic. One is the owner on record;
- * "This is me" links a row to the signed-in owner (their NPI and license are
- * copied to their provider profile when they add themselves as a provider).
+ * Puts the signed-in owner first (CTO-14). Row 0 is always "you": an older
+ * saved list without a self row gets one, pre-filled from the account.
+ */
+export function withOwnerFirst(
+  rows: PractitionerDraft[],
+  owner?: { name?: string; email?: string }
+): PractitionerDraft[] {
+  const selfIndex = rows.findIndex((r) => r.isSelf)
+  if (selfIndex === 0) return rows
+  if (selfIndex > 0) {
+    const copy = [...rows]
+    const [self] = copy.splice(selfIndex, 1)
+    return [self!, ...copy]
+  }
+  const hasOwner = rows.some((r) => r.isOwner)
+  return [
+    {
+      ...emptyPractitioner(),
+      name: owner?.name ?? '',
+      email: owner?.email ?? '',
+      isOwner: !hasOwner,
+      isSelf: true,
+    },
+    ...rows,
+  ]
+}
+
+/**
+ * The practice's practitioners: step 2 of the clinic application and the
+ * "Practitioners" tab of /dashboard/clinic.
+ *
+ * The owner is usually the clinic's doctor and its admin (CTO-15), so the
+ * first row is always them, pre-filled (CTO-14). If they see patients they get
+ * a provider profile automatically on save; a non-clinical owner unticks
+ * "I see patients". One row is the primary account holder.
  */
 export function PractitionersForm({
   application,
@@ -37,7 +68,7 @@ export function PractitionersForm({
   const npiRequired = !application?.profile?.noNpi
   const [rows, setRows] = React.useState<PractitionerDraft[]>(() => {
     const saved = application?.profile?.practitioners ?? []
-    if (saved.length) return saved.map(toPractitionerDraft)
+    if (saved.length) return withOwnerFirst(saved.map(toPractitionerDraft), owner)
     return [
       {
         ...emptyPractitioner(),
@@ -61,20 +92,6 @@ export function PractitionersForm({
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const setOwner = (i: number) =>
     setRows((prev) => prev.map((r, j) => ({ ...r, isOwner: j === i })))
-  const setSelf = (i: number, on: boolean) =>
-    setRows((prev) =>
-      prev.map((r, j) => {
-        if (j !== i) return on ? { ...r, isSelf: false } : r
-        if (!on) return { ...r, isSelf: false }
-        return {
-          ...r,
-          isSelf: true,
-          name: r.name || owner?.name || '',
-          email: r.email || owner?.email || '',
-        }
-      })
-    )
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
@@ -101,33 +118,44 @@ export function PractitionersForm({
             className="rounded-2xl border border-slate-100 bg-slate-50/40 p-5"
             data-testid={`practitioner-${i}`}
           >
-            <legend className="sr-only">Practitioner {i + 1}</legend>
+            <legend className="sr-only">
+              {r.isSelf ? 'Your practitioner details' : `Practitioner ${i + 1}`}
+            </legend>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
                   <Stethoscope className="h-4 w-4" />
                 </div>
-                <p className="text-sm font-semibold text-slate-900">Practitioner {i + 1}</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  {r.isSelf ? 'Your practitioner details' : `Practitioner ${i + 1}`}
+                </p>
+                {r.isSelf && (
+                  <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
+                    You
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-slate-700">
+                {r.isSelf && (
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={r.seesPatients}
+                      onChange={(ev) => update(i, { seesPatients: ev.target.checked })}
+                    />
+                    I see patients
+                  </label>
+                )}
                 <label className="flex items-center gap-2">
                   <input
                     type="radio"
-                    name="ownerOnRecord"
+                    name="primaryAccountHolder"
                     checked={r.isOwner}
                     onChange={() => setOwner(i)}
                   />
-                  Owner on record
+                  Primary account holder
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={r.isSelf}
-                    onChange={(ev) => setSelf(i, ev.target.checked)}
-                  />
-                  This is me
-                </label>
-                {rows.length > 1 && (
+                {!r.isSelf && (
                   <button
                     type="button"
                     onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
@@ -138,6 +166,13 @@ export function PractitionersForm({
                 )}
               </div>
             </div>
+            {r.isSelf && (
+              <p className="-mt-2 mb-4 text-xs text-slate-500">
+                {r.seesPatients
+                  ? 'You get a provider profile automatically, so you can take appointments and use AI Scribe.'
+                  : 'No provider profile is created for you. Tick "I see patients" if you treat patients here.'}
+              </p>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <AppFormField label="Full name" required error={e.name} htmlFor={`p${i}-name`}>
                 <AppInput
@@ -155,6 +190,39 @@ export function PractitionersForm({
                   placeholder="MD, ND, DC, NP…"
                 />
               </AppFormField>
+              <AppFormField label="Title" error={e.title} htmlFor={`p${i}-title`}>
+                <select
+                  id={`p${i}-title`}
+                  className={selectClass}
+                  value={r.title}
+                  onChange={(ev) => update(i, { title: ev.target.value })}
+                >
+                  <option value="">Choose a title</option>
+                  {PRACTITIONER_TITLES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </AppFormField>
+              {r.title === 'Other' ? (
+                <AppFormField
+                  label="Your title"
+                  required
+                  error={e.titleOther}
+                  htmlFor={`p${i}-title-other`}
+                >
+                  <AppInput
+                    id={`p${i}-title-other`}
+                    value={r.titleOther}
+                    onChange={(ev) => update(i, { titleOther: ev.target.value })}
+                    placeholder="e.g. Clinical Director"
+                    maxLength={80}
+                  />
+                </AppFormField>
+              ) : (
+                <div className="hidden md:block" />
+              )}
               <AppFormField label="Email" required error={e.email} htmlFor={`p${i}-email`}>
                 <AppInput
                   id={`p${i}-email`}
@@ -173,7 +241,7 @@ export function PractitionersForm({
               </AppFormField>
               <AppFormField
                 label="Individual NPI #"
-                required={npiRequired}
+                required={npiRequired && (!r.isSelf || r.seesPatients)}
                 error={e.npi}
                 htmlFor={`p${i}-npi`}
               >
@@ -201,7 +269,7 @@ export function PractitionersForm({
                     value={r.licenseState}
                     onChange={(ev) => update(i, { licenseState: ev.target.value })}
                   >
-                    <option value="">—</option>
+                    <option value="">State</option>
                     {US_STATES.map(([code]) => (
                       <option key={code} value={code}>
                         {code}

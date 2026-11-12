@@ -15,8 +15,12 @@ export interface Practitioner {
   licenseNumber?: string | null
   licenseState?: string | null
   npi?: string | null
+  /** Founder, CEO, Medical Director… or free text (CTO-16). */
+  title?: string | null
   isOwner: boolean
   isSelf: boolean
+  /** The owner's own row only: false for a non-clinical owner (CTO-14). */
+  seesPatients?: boolean
 }
 
 export interface ClinicProfile {
@@ -78,6 +82,8 @@ export interface Verification {
 
 export interface Application {
   clinicName: string
+  /** Deployment switches (CTO-10): the retype-the-clinic-name step. */
+  config?: { confirmClinicName: boolean }
   verification: Verification
   progress: { practice: boolean; practitioners: boolean; agreement: boolean }
   profile: ClinicProfile | null
@@ -152,7 +158,8 @@ export interface AgreementPayload {
   signerName: string
   signerTitle: string
   signature: string
-  confirmClinicName: string
+  /** Only when the retype step is on (CTO-10). */
+  confirmClinicName?: string
 }
 
 export interface OnboardingStatus {

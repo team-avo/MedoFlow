@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, CheckCircle2, Loader2, PenLine } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { AppErrorState, AppFormField, AppInput, LoadingSkeleton } from '@/components/ui-system'
-import { ApplicationShell } from '@/components/onboarding/ApplicationShell'
+import { ApplicationShell, selectClass } from '@/components/onboarding/ApplicationShell'
+import { SelectAllCheckbox } from '@/components/onboarding/SelectAllCheckbox'
 import { useApplication } from '@/components/onboarding/useApplication'
 import { apiErrorOf } from '@/lib/apiError'
 import {
@@ -17,12 +18,12 @@ import {
   type AcknowledgementKey,
   type Application,
 } from '@/lib/onboardingApi'
-import { PRACTICE_TYPES } from '@/lib/practiceIds'
-import { signatureMatches } from '@/lib/schemas/onboarding'
+import { PRACTICE_TYPES, PRACTITIONER_TITLES } from '@/lib/practiceIds'
+import { joinTitle, signatureMatches, splitTitle } from '@/lib/schemas/onboarding'
 
 const practiceTypeLabel = (key: string) => PRACTICE_TYPES.find(([k]) => k === key)?.[1] ?? key
 
-/** Clinic application, step 3 — review, acknowledge, sign and submit. */
+/** Clinic application, step 3: review, acknowledge, sign and submit. */
 export default function AgreementPage() {
   const router = useRouter()
   const { user, refetchUser } = useAuth()
@@ -38,7 +39,22 @@ export default function AgreementPage() {
   })
   const [communications, setCommunications] = React.useState(false)
   const [signerName, setSignerName] = React.useState(user?.name ?? '')
-  const [signerTitle, setSignerTitle] = React.useState('')
+  // CTO-16: a Title select, pre-filled from the owner's practitioner row.
+  const [signerTitleChoice, setSignerTitleChoice] = React.useState('')
+  const [signerTitleOther, setSignerTitleOther] = React.useState('')
+  const prefilled = React.useRef(false)
+  React.useEffect(() => {
+    if (prefilled.current || !data?.profile) return
+    prefilled.current = true
+    const self =
+      data.profile.practitioners.find((p) => p.isSelf) ??
+      data.profile.practitioners.find((p) => p.isOwner)
+    const t = splitTitle(self?.title)
+    setSignerTitleChoice(t.title)
+    setSignerTitleOther(t.titleOther)
+  }, [data])
+  const signerTitle = joinTitle(signerTitleChoice, signerTitleOther) ?? ''
+  const confirmRequired = data?.config?.confirmClinicName !== false
   const [signature, setSignature] = React.useState('')
   const [showConfirm, setShowConfirm] = React.useState(false)
   const [confirmText, setConfirmText] = React.useState('')
@@ -46,6 +62,14 @@ export default function AgreementPage() {
   const [error, setError] = React.useState<string | null>(null)
 
   const allAcked = ACKNOWLEDGEMENT_KEYS.every((k) => acks[k])
+  const someAcked = ACKNOWLEDGEMENT_KEYS.some((k) => acks[k])
+  const setAllAcks = (on: boolean) =>
+    setAcks(
+      Object.fromEntries(ACKNOWLEDGEMENT_KEYS.map((k) => [k, on])) as Record<
+        AcknowledgementKey,
+        boolean
+      >
+    )
   const signed = signatureMatches(signature, signerName)
   const formValid =
     allAcked &&
@@ -61,7 +85,7 @@ export default function AgreementPage() {
   })
 
   const onConfirm = async () => {
-    if (!confirmMatches || submitting) return
+    if ((confirmRequired && !confirmMatches) || submitting) return
     setSubmitting(true)
     setError(null)
     try {
@@ -71,7 +95,7 @@ export default function AgreementPage() {
         signerName: signerName.trim(),
         signerTitle: signerTitle.trim(),
         signature: signature.trim(),
-        confirmClinicName: confirmText.trim(),
+        ...(confirmRequired ? { confirmClinicName: confirmText.trim() } : {}),
       })
       await refetchUser()
       router.replace('/dashboard')
@@ -105,7 +129,9 @@ export default function AgreementPage() {
             if (!formValid) return
             setConfirmText('')
             setError(null)
-            setShowConfirm(true)
+            // CTO-10: the retype step is a demo-only switch.
+            if (confirmRequired) setShowConfirm(true)
+            else void onConfirm()
           }}
           className="space-y-8"
           aria-label="Service agreement"
@@ -115,8 +141,7 @@ export default function AgreementPage() {
           <section className="rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
             <h2 className="text-sm font-semibold text-slate-900">Acknowledgements</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Each item is checked on its own — they are material terms, not a single &quot;I
-              agree&quot;.
+              Read each item. Tick them one by one, or all at once below.
             </p>
             <ul className="mt-4 space-y-3">
               {ACKNOWLEDGEMENT_KEYS.map((key) => (
@@ -133,6 +158,13 @@ export default function AgreementPage() {
                 </li>
               ))}
             </ul>
+            <div className="mt-4">
+              <SelectAllCheckbox
+                checked={allAcked}
+                indeterminate={someAcked && !allAcked}
+                onChange={setAllAcks}
+              />
+            </div>
           </section>
 
           <section className="space-y-4 rounded-2xl border border-slate-100 p-5">
@@ -159,13 +191,30 @@ export default function AgreementPage() {
                 />
               </AppFormField>
               <AppFormField label="Title" required htmlFor="signerTitle">
-                <AppInput
+                <select
                   id="signerTitle"
-                  value={signerTitle}
-                  onChange={(e) => setSignerTitle(e.target.value)}
-                  placeholder="Owner, Medical Director…"
-                />
+                  value={signerTitleChoice}
+                  onChange={(e) => setSignerTitleChoice(e.target.value)}
+                  className={selectClass}
+                >
+                  <option value="">Choose a title</option>
+                  {PRACTITIONER_TITLES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
               </AppFormField>
+              {signerTitleChoice === 'Other' && (
+                <AppFormField label="Your title" required htmlFor="signerTitleOther">
+                  <AppInput
+                    id="signerTitleOther"
+                    value={signerTitleOther}
+                    onChange={(e) => setSignerTitleOther(e.target.value)}
+                    maxLength={80}
+                  />
+                </AppFormField>
+              )}
               <AppFormField
                 label="Signature (type your name)"
                 required
@@ -188,7 +237,9 @@ export default function AgreementPage() {
 
           <div className="flex flex-col-reverse items-stretch gap-3 border-t border-slate-100 pt-6 md:flex-row md:items-center md:justify-between">
             <p className="text-xs text-slate-500">
-              You&apos;ll retype the clinic name to confirm. A copy is emailed to you.
+              {confirmRequired
+                ? "You'll retype the clinic name to confirm. A copy is emailed to you."
+                : 'A copy is emailed to you.'}
             </p>
             <button
               type="submit"
@@ -276,15 +327,20 @@ function ApplicationSummary({ app }: { app: Application }) {
       'Primary location',
       l
         ? [l.addressLine1, l.addressLine2, l.city, l.state, l.postalCode].filter(Boolean).join(', ')
-        : '—',
+        : 'Not set',
     ],
-    ['Group NPI', p.noNpi ? 'No NPI' : (p.groupNpi ?? '—')],
-    ['Federal Tax ID', p.federalTaxIdMasked ?? '—'],
-    ['State license', p.licenseNumber ? `${p.licenseNumber} (${p.licenseState ?? '—'})` : '—'],
+    ['Group NPI', p.noNpi ? 'No NPI' : (p.groupNpi ?? 'Not set')],
+    ['Federal Tax ID', p.federalTaxIdMasked ?? 'Not set'],
+    [
+      'State license',
+      p.licenseNumber
+        ? `${p.licenseNumber}${p.licenseState ? ` (${p.licenseState})` : ''}`
+        : 'Not set',
+    ],
     ['DEA', p.deaNumberMasked ?? 'None'],
     [
       'Practitioners',
-      `${p.practitioners.length}${owner ? ` · owner on record: ${owner.name}` : ''}`,
+      `${p.practitioners.length}${owner ? ` · primary account holder: ${owner.name}` : ''}`,
     ],
   ]
   return (

@@ -33,3 +33,22 @@ export function platformReviewRecipients(env: NodeJS.ProcessEnv = process.env): 
     .filter(Boolean)
   return list.length ? list : null
 }
+
+/**
+ * The "retype your clinic name" step before the agreement is submitted
+ * (CTO-10). It's an anti-spam speed bump for the hosted demo, not part of the
+ * agreement: decided demo-only with the CTO on 2026-11-12.
+ *
+ *   ONBOARDING_CONFIRM_NAME=on   the step is shown and the name is required
+ *   ONBOARDING_CONFIRM_NAME=off  no step, nothing to send
+ *
+ * Unset: off in production, on everywhere else. render.yaml sets `on` for the
+ * hosted demo. The frontend reads it from GET /onboarding/application
+ * (`config.confirmClinicName`), so both sides use this one value.
+ */
+export function confirmClinicNameRequired(env: NodeJS.ProcessEnv = process.env): boolean {
+  const v = env.ONBOARDING_CONFIRM_NAME?.trim().toLowerCase()
+  if (v === 'on') return true
+  if (v === 'off') return false
+  return env.NODE_ENV !== 'production'
+}

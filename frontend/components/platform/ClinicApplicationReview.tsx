@@ -275,7 +275,12 @@ export function ClinicApplicationReview({
                     {x.licenseNumber ? `${x.licenseNumber} (${x.licenseState ?? '—'})` : '—'}
                   </td>
                   <td className="py-1.5 text-xs text-slate-600">
-                    {[x.isOwner && 'Owner on record', x.isSelf && 'Account owner']
+                    {[
+                      x.isOwner && 'Primary account holder',
+                      x.isSelf && 'Account creator',
+                      x.isSelf && x.seesPatients === false && 'Not clinical',
+                      x.title,
+                    ]
                       .filter(Boolean)
                       .join(' · ') || '—'}
                   </td>

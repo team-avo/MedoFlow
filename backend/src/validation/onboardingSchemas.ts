@@ -182,8 +182,12 @@ export const practitionerBody = z.object({
   licenseNumber: optionalText(50),
   licenseState: optionalState,
   npi: optionalNpi,
+  /** Founder, CEO, Medical Director… (PRACTITIONER_TITLES) or free text (CTO-16). */
+  title: optionalText(80),
   isOwner: z.boolean(),
   isSelf: z.boolean(),
+  /** Only meaningful on the owner's own row (CTO-14): false for a non-clinical owner. */
+  seesPatients: z.boolean().optional().default(true),
 })
 
 export type PractitionerInput = z.infer<typeof practitionerBody>
@@ -201,7 +205,7 @@ export const practitionersBody = z
       ctx.addIssue({
         code: 'custom',
         path: ['practitioners'],
-        message: 'Mark exactly one practitioner as the owner on record',
+        message: 'Mark exactly one practitioner as the primary account holder',
       })
     }
     if (v.practitioners.filter((p) => p.isSelf).length > 1) {
@@ -250,7 +254,8 @@ export const agreementBody = z.object({
   signerTitle: requiredText('Your title', 100),
   /** Typed signature — must match signerName. */
   signature: requiredText('Signature'),
-  confirmClinicName: z.string().trim().min(1).max(200),
+  /** Required only when ONBOARDING_CONFIRM_NAME is on (CTO-10); checked in the service. */
+  confirmClinicName: z.string().trim().max(200).optional(),
 })
 
 export type AgreementInput = z.infer<typeof agreementBody>

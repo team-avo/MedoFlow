@@ -645,6 +645,152 @@ describe('owner-only onboarding and the Locations step', () => {
   })
 })
 
+describe('the account creator is a provider (CTO-14)', () => {
+  const savePractice = (c: SignedUp, body = practiceBody()) =>
+    api(server.url, '/onboarding/application/practice', { method: 'PUT', token: c.token, body })
+  const savePractitioners = (c: SignedUp, rows: Record<string, unknown>[]) =>
+    api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: rows },
+    })
+
+  it('a clinical owner gets exactly one provider, with locations and default hours, idempotently', async () => {
+    const c = await signUp()
+    expect((await savePractice(c)).status).toBe(200)
+    const first = await savePractitioners(c, [practitioner({ title: 'Medical Director' })])
+    expect(first.status, JSON.stringify(first.body)).toBe(200)
+    // The title is stored with the row (CTO-16).
+    expect(first.body.data.profile.practitioners[0].title).toBe('Medical Director')
+
+    const providers = await adminDb.provider.findMany({ where: { userId: c.ownerId } })
+    expect(providers).toHaveLength(1)
+    const provider = providers[0]!
+    expect(provider).toMatchObject({ clinicId: c.clinicId, isActive: true, npi: VALID_NPI })
+    expect(
+      await adminDb.providerLocationAssignment.count({ where: { providerId: provider.id } })
+    ).toBeGreaterThan(0)
+    const hours = await adminDb.providerAvailability.findMany({
+      where: { providerId: provider.id },
+    })
+    expect(hours.map((h) => h.weekday).sort()).toEqual([1, 2, 3, 4, 5])
+
+    // Revisiting the step creates nothing new and keeps the owner's hours.
+    expect((await savePractitioners(c, [practitioner()])).status).toBe(200)
+    expect(await adminDb.provider.count({ where: { userId: c.ownerId } })).toBe(1)
+    expect(await adminDb.providerAvailability.count({ where: { providerId: provider.id } })).toBe(5)
+
+    // "Add me" (the old step) is now a no-op that returns the same provider.
+    const linked = await api(server.url, `/staff/${c.ownerId}/link-provider`, {
+      token: c.token,
+      body: {},
+    })
+    expect(linked.body.data.provider.id).toBe(provider.id)
+
+    // A solo practice: a new service is the owner's to offer at once.
+    const discipline = await api(server.url, '/disciplines', {
+      token: c.token,
+      body: { name: 'Longevity' },
+    })
+    expect(discipline.status, JSON.stringify(discipline.body)).toBe(201)
+    const service = await api(server.url, '/services', {
+      token: c.token,
+      body: {
+        disciplineId: discipline.body.data.discipline.id,
+        name: 'Longevity consult',
+        duration: 30,
+        defaultPrice: 0,
+      },
+    })
+    expect(service.status, JSON.stringify(service.body)).toBe(201)
+    expect(
+      await adminDb.providerService.count({
+        where: { providerId: provider.id, serviceId: service.body.data.service.id },
+      })
+    ).toBe(1)
+
+    // Unticking "I see patients" later deactivates (never deletes) the provider.
+    expect((await savePractitioners(c, [practitioner({ seesPatients: false })])).status).toBe(200)
+    expect(await adminDb.provider.findUniqueOrThrow({ where: { id: provider.id } })).toMatchObject({
+      isActive: false,
+    })
+  })
+
+  it('a non-clinical owner gets no provider and needs no NPI', async () => {
+    const c = await signUp()
+    expect((await savePractice(c)).status).toBe(200)
+    const res = await savePractitioners(c, [
+      practitioner({ npi: null, seesPatients: false, title: 'Practice Manager' }),
+    ])
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    expect(await adminDb.provider.count({ where: { userId: c.ownerId } })).toBe(0)
+    // Any other practitioner still needs an NPI on a group-NPI practice.
+    const bad = await savePractitioners(c, [
+      practitioner({ npi: null, seesPatients: false }),
+      practitioner({
+        name: 'Dr Nate',
+        email: 'nate@example.test',
+        isOwner: false,
+        isSelf: false,
+        npi: null,
+      }),
+    ])
+    expect(bad.status).toBe(400)
+  })
+})
+
+describe('the retype-the-clinic-name switch (CTO-10)', () => {
+  const saved = process.env.ONBOARDING_CONFIRM_NAME
+  afterEach(() => {
+    if (saved === undefined) delete process.env.ONBOARDING_CONFIRM_NAME
+    else process.env.ONBOARDING_CONFIRM_NAME = saved
+  })
+
+  async function readyToSign() {
+    const c = await signUp()
+    await api(server.url, '/onboarding/application/practice', {
+      method: 'PUT',
+      token: c.token,
+      body: practiceBody(),
+    })
+    await api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: [practitioner()] },
+    })
+    return c
+  }
+
+  it('off: the form skips the step and the agreement needs no clinic name', async () => {
+    process.env.ONBOARDING_CONFIRM_NAME = 'off'
+    const c = await readyToSign()
+    const app = await api(server.url, '/onboarding/application', { token: c.token })
+    expect(app.body.data.config).toEqual({ confirmClinicName: false })
+    const { confirmClinicName: _omit, ...body } = agreementBody(c.clinicName)
+    const res = await api(server.url, '/onboarding/agreement', { token: c.token, body })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+  })
+
+  it('on: the clinic name is required and must match', async () => {
+    process.env.ONBOARDING_CONFIRM_NAME = 'on'
+    const c = await readyToSign()
+    const app = await api(server.url, '/onboarding/application', { token: c.token })
+    expect(app.body.data.config).toEqual({ confirmClinicName: true })
+    const { confirmClinicName: _omit, ...body } = agreementBody(c.clinicName)
+    expect((await api(server.url, '/onboarding/agreement', { token: c.token, body })).status).toBe(
+      400
+    )
+    expect(
+      (
+        await api(server.url, '/onboarding/agreement', {
+          token: c.token,
+          body: agreementBody(c.clinicName),
+        })
+      ).status
+    ).toBe(200)
+  })
+})
+
 describe('off-boarding', () => {
   it('destroys the practice profile but keeps the signed agreement (6-year retention)', async () => {
     const c = await signUp()

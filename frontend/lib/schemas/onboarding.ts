@@ -5,7 +5,13 @@
  * shared/validation-cases/practice-ids.json); the API re-validates everything.
  */
 import { z } from 'zod'
-import { isValidDea, isValidEin, isValidNpi, US_STATE_CODES } from '@/lib/practiceIds'
+import {
+  isValidDea,
+  isValidEin,
+  isValidNpi,
+  PRACTITIONER_TITLES,
+  US_STATE_CODES,
+} from '@/lib/practiceIds'
 import type { Application, PracticeDetailsPayload, Practitioner } from '@/lib/onboardingApi'
 
 const PHONE = /^[+()\d\s.-]{7,25}$/
@@ -221,8 +227,14 @@ export interface PractitionerDraft {
   licenseNumber: string
   licenseState: string
   npi: string
+  /** A PRACTITIONER_TITLES value; '' = not given. */
+  title: string
+  /** Free text when title is 'Other'. */
+  titleOther: string
   isOwner: boolean
   isSelf: boolean
+  /** The owner's own row: they see patients (gets a provider profile). */
+  seesPatients: boolean
 }
 
 export const emptyPractitioner = (): PractitionerDraft => ({
@@ -233,9 +245,31 @@ export const emptyPractitioner = (): PractitionerDraft => ({
   licenseNumber: '',
   licenseState: '',
   npi: '',
+  title: '',
+  titleOther: '',
   isOwner: false,
   isSelf: false,
+  seesPatients: true,
 })
+
+/** Splits a stored title into the select value and the "Other" text. */
+export function splitTitle(title: string | null | undefined): {
+  title: string
+  titleOther: string
+} {
+  const t = (title ?? '').trim()
+  if (!t) return { title: '', titleOther: '' }
+  if ((PRACTITIONER_TITLES as readonly string[]).includes(t) && t !== 'Other')
+    return { title: t, titleOther: '' }
+  return { title: 'Other', titleOther: t === 'Other' ? '' : t }
+}
+
+/** The title to store: the select value, or the typed text for "Other". */
+export function joinTitle(title: string, titleOther: string): string | null {
+  if (!title) return null
+  if (title === 'Other') return titleOther.trim() || null
+  return title
+}
 
 export type PractitionerErrors = Partial<Record<keyof PractitionerDraft, string>>
 
@@ -260,13 +294,15 @@ export function validatePractitioners(
     if (p.licenseState && !US_STATE_CODES.includes(p.licenseState.toUpperCase()))
       e.licenseState = 'Choose a state'
     if (p.npi.trim() && !isValidNpi(p.npi)) e.npi = 'Enter a valid 10-digit NPI'
-    else if (npiRequired && !p.npi.trim()) e.npi = 'NPI is required'
+    else if (npiRequired && !p.npi.trim() && (!p.isSelf || p.seesPatients))
+      e.npi = 'NPI is required'
+    if (p.title === 'Other' && !p.titleOther.trim()) e.titleOther = 'Type your title'
     return e
   })
   let listError: string | null = null
   if (list.length === 0) listError = 'Add at least one practitioner'
   else if (list.filter((p) => p.isOwner).length !== 1)
-    listError = 'Mark exactly one practitioner as the owner on record'
+    listError = 'Mark exactly one practitioner as the primary account holder'
   else if (list.filter((p) => p.isSelf).length > 1) listError = 'Only one practitioner can be you'
   return { rows, list: listError }
 }
@@ -282,8 +318,10 @@ export const toPractitionerDraft = (p: Practitioner): PractitionerDraft => ({
   licenseNumber: p.licenseNumber ?? '',
   licenseState: p.licenseState ?? '',
   npi: p.npi ?? '',
+  ...splitTitle(p.title),
   isOwner: p.isOwner,
   isSelf: p.isSelf,
+  seesPatients: p.seesPatients !== false,
 })
 
 export const toPractitionerPayload = (p: PractitionerDraft): Practitioner => ({
@@ -294,8 +332,10 @@ export const toPractitionerPayload = (p: PractitionerDraft): Practitioner => ({
   licenseNumber: orNull(p.licenseNumber),
   licenseState: orNull(p.licenseState)?.toUpperCase() ?? null,
   npi: orNull(p.npi)?.replace(/[\s-]/g, '') ?? null,
+  title: joinTitle(p.title, p.titleOther),
   isOwner: p.isOwner,
   isSelf: p.isSelf,
+  ...(p.isSelf ? { seesPatients: p.seesPatients } : {}),
 })
 
 // ─── Agreement ──────────────────────────────────────────────────────────────

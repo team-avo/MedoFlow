@@ -1,3 +1,4 @@
+import { assignNewServiceToSoloProvider } from './ownerProviderService'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
@@ -61,6 +62,9 @@ export const createService = async (
       recommendedProducts: true,
     },
   })
+
+  // A solo practice (CTO-14): the one provider offers a new service at once.
+  await assignNewServiceToSoloProvider(service.id, clinicId)
 
   await auditService.logAudit({
     clinicId,

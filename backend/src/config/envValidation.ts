@@ -124,6 +124,12 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
         'Any party can send spoofed webhook events. Set this before accepting live payments.'
     )
   }
+  // CTO-10: the retype-the-clinic-name step is demo-only. Off in production
+  // unless ONBOARDING_CONFIRM_NAME=on; any other value is a typo.
+  const confirmName = env.ONBOARDING_CONFIRM_NAME?.trim().toLowerCase()
+  if (confirmName && confirmName !== 'on' && confirmName !== 'off') {
+    warn('ONBOARDING_CONFIRM_NAME must be "on" or "off"; using the default for this environment')
+  }
   if (!env.ALERT_WEBHOOK_URL) {
     warn('ALERT_WEBHOOK_URL is not set — security alerts go to the log stream only')
   }

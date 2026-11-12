@@ -52,6 +52,11 @@ services:
       # for a real deployment so a platform admin verifies every clinic.
       - key: CLINIC_REVIEW_MODE
         value: auto
+      # CTO-10: the "retype your clinic name" step before submitting the
+      # agreement is an anti-spam check for the demo only. Unset (or off) in
+      # production (config/clinicReview.ts).
+      - key: ONBOARDING_CONFIRM_NAME
+        value: 'on'
       # Frontend origin(s) allowed by CORS (comma-separated).
       # Component 8 cut-over (arh-agent-docs/cloudflare-custom-domains-setup-guide.md):
       # once app.<root> / api.<root> / *.<root> are live, set
