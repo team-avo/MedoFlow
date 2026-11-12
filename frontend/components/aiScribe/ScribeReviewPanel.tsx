@@ -12,6 +12,7 @@
  *  - it stays disabled until the note and summary have content and any
  *    detected products are confirmed.
  */
+import { lastSendKey } from '@/lib/rxCartApi'
 import React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -147,6 +148,8 @@ export function ScribeReviewPanel({
     },
     onSuccess: (approved) => {
       onSessionChange({ ...session, ...approved })
+      // CTO-32/33: what was not stocked, and the patient's checkout link.
+      if (approved.rxCart) queryClient.setQueryData(lastSendKey(session.id), approved.rxCart)
       queryClient.invalidateQueries({ queryKey: ['rx-cart', 'proposal'] })
       queryClient.invalidateQueries({ queryKey: ['visit-history', session.visitRecordId] })
       const sent = approved.rxCart?.cartItemIds.length ?? 0

@@ -1,3 +1,4 @@
+import * as keyChangesService from '../services/keyChangesService'
 import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
 import * as rxCartService from '../services/rxCartService'
@@ -72,5 +73,18 @@ export const confirm = asyncHandler(
       requestMeta(req)
     )
     successResponse(res, 200, 'Products sent to the patient', { rxCart: result })
+  }
+)
+
+/** GET /rx-cart/sessions/:sessionId/key-changes (CTO-33): starts, stops, dose changes, new products. */
+export const getKeyChanges = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const { providerId, clinicId } = await providerScope(req)
+    const result = await keyChangesService.keyChangesForSession(
+      req.params.sessionId as string,
+      providerId,
+      clinicId
+    )
+    successResponse(res, 200, 'Key changes', result)
   }
 )

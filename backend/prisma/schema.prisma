@@ -445,6 +445,7 @@ model Clinic {
   patientCommerceProfiles   PatientCommerceProfile[]
   clinicProfile             ClinicProfile?
   notifications             Notification[]
+  checkoutLinkTokens        CheckoutLinkToken[]
   clinicAgreements          ClinicAgreement[]
 
   @@index([tenantId])
@@ -2136,4 +2137,24 @@ model Notification {
   @@unique([userId, kind, appointmentId])
   @@index([clinicId])
   @@index([userId, readAt])
+}
+
+/// A patient's checkout link for a cart built from the AI scribe (CTO-32).
+/// Only a hash of the token is stored. The link needs the patient to sign in
+/// as the cart's own patient; it expires after 72 hours.
+model CheckoutLinkToken {
+  id        String    @id @default(cuid())
+  clinicId  String
+  cartId    String
+  patientId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// First time the patient opened it.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+  @@index([cartId])
 }

@@ -221,9 +221,40 @@ export async function installRxCartMock(
                 cartId: 'cart-e2e-1',
                 cartItemIds: cartLines.map((l) => `ci-${l.id}`),
                 prescriptionIds: [],
+                // CTO-32/33
+                notStocked: [{ lineId: 'l-arnica', label: 'Arnica Gel', reason: 'NOT_STOCKED' }],
+                checkoutLink: {
+                  url: 'http://127.0.0.1:4310/c/synthetic-clinic/cart?t=' + 'a'.repeat(64),
+                  kind: 'medoflow',
+                  emailed: false,
+                },
               }
             : null,
         },
+      })
+    }
+    if (key === `GET /rx-cart/sessions/${SESSION_ID}/key-changes`) {
+      // CTO-33: a dose change on magnesium, a new medication.
+      return ok(route, {
+        proposalId: state.proposal.id,
+        changes: [
+          {
+            lineId: 'l-mag',
+            kind: 'DOSE_CHANGE',
+            label: 'Magnesium Glycinate',
+            from: '400 mg',
+            to: '600 mg',
+            stock: 'IN_STOCK',
+          },
+          {
+            lineId: 'l-tram',
+            kind: 'START',
+            label: 'Tramadol',
+            from: null,
+            to: '50 mg',
+            stock: 'EPRESCRIBE',
+          },
+        ],
       })
     }
     if (key === `GET /rx-cart/sessions/${SESSION_ID}/proposal`) {

@@ -8,6 +8,7 @@
  * AI call: it records exactly what the provider reviewed.
  */
 
+import * as checkoutLinkService from './checkoutLinkService'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
@@ -559,7 +560,24 @@ export const approveDraft = async (
     )
   }
 
-  return updated && { ...updated, rxCart: rxResult?.built ?? null }
+  // CTO-32/33: the patient gets the checkout link for what went into the cart.
+  const cartLink = rxResult
+    ? await checkoutLinkService
+        .sendCartLink({
+          clinicId,
+          cartId: rxResult.built.cartId,
+          cartItemCount: rxResult.built.cartItemIds.length,
+          patientId: session.visitRecord.patientId,
+        })
+        .catch(() => null)
+    : null
+
+  return (
+    updated && {
+      ...updated,
+      rxCart: rxResult?.built ? { ...rxResult.built, checkoutLink: cartLink } : null,
+    }
+  )
 }
 
 // ---------------------------------------------------------------------------

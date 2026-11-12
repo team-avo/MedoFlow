@@ -483,3 +483,23 @@ export async function sendProviderStartingSoonEmail(params: {
     text: `${params.title}.\n\nOpen the appointment and start AI Scribe: ${params.link}`,
   })
 }
+
+/**
+ * The patient's order is ready to check out (CTO-32). No product names or
+ * clinical detail: those are behind the sign-in on the checkout page.
+ */
+export async function sendCartReadyEmail(params: {
+  to: string
+  name: string
+  clinicName: string
+  link: string
+}): Promise<void> {
+  const name = escapeHtml(params.name)
+  const clinic = escapeHtml(params.clinicName)
+  await sendEmail({
+    to: params.to,
+    subject: `Your order from ${params.clinicName} is ready`,
+    html: `<p>Hi ${name},</p><p>${clinic} has prepared your order. Review it and check out here:</p><p><a href="${params.link}">${params.link}</a></p><p>The link works for 72 hours. You'll sign in to see the details.</p>`,
+    text: `Hi ${params.name},\n\n${params.clinicName} has prepared your order. Review it and check out here: ${params.link}\n\nThe link works for 72 hours. You'll sign in to see the details.`,
+  })
+}

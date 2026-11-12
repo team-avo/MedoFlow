@@ -21,6 +21,11 @@ router.get(
   validateRequest({ params: sessionIdParamSchema }),
   rxCartController.getProposal
 )
+router.get(
+  '/sessions/:sessionId/key-changes',
+  validateRequest({ params: sessionIdParamSchema }),
+  rxCartController.getKeyChanges
+)
 router.put(
   '/proposals/:id/lines',
   validateRequest({ params: idParamSchema, body: updateProposalLinesSchema }),

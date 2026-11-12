@@ -59,6 +59,7 @@ export const CLINIC_SCOPED_MODELS = new Set([
   'AuditLog',
   'BreakGlassGrant',
   'Cart',
+  'CheckoutLinkToken',
   'ClinicAgreement',
   'ClinicProfile',
   'CommissionRecord',

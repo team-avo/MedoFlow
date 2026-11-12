@@ -69,7 +69,29 @@ export interface RxCartResult {
   cartId: string | null
   cartItemIds: string[]
   prescriptionIds: string[]
+  /** CTO-33: confirmed but not stocked, or never matched (alternative / external). */
+  notStocked?: Array<{ lineId: string; label: string; reason: 'NOT_STOCKED' | 'UNMAPPED' }>
+  /** CTO-32: the patient's checkout link. */
+  checkoutLink?: { url: string; kind: 'site' | 'medoflow'; emailed: boolean } | null
 }
+
+/** CTO-33: a key change on the scribe draft, linked to its order line. */
+export interface KeyChange {
+  lineId: string
+  kind: 'START' | 'STOP' | 'DOSE_CHANGE' | 'NEW_PRODUCT'
+  label: string
+  from: string | null
+  to: string | null
+  stock: 'IN_STOCK' | 'NOT_STOCKED' | 'UNMAPPED' | 'EPRESCRIBE'
+}
+
+export const getKeyChanges = async (sessionId: string): Promise<KeyChange[]> => {
+  const { data } = await api.get(`/rx-cart/sessions/${sessionId}/key-changes`)
+  return (data.data.changes ?? []) as KeyChange[]
+}
+
+/** Where the last "Approve & send" result is kept for the panel to show. */
+export const lastSendKey = (sessionId: string) => ['rx-cart', 'last-send', sessionId] as const
 
 export const getProposal = async (sessionId: string): Promise<RxProposal | null> => {
   const { data } = await api.get(`/rx-cart/sessions/${sessionId}/proposal`)
