@@ -60,6 +60,17 @@ export interface CreateAppointmentContext {
    * overlap constraint, and a failure leaves the old appointment untouched.
    */
   rescheduleFromAppointmentId?: string
+  /**
+   * Booked by clinic staff (owner, front desk, custom role), CTO-24. Staff
+   * book walk-ins "now", so the service's online minimum-notice rule doesn't
+   * apply; the overlap checks and the clinic's own limits still do.
+   */
+  staffBooking?: boolean
+  /**
+   * Staff only: a prepay service is paid at the front desk instead of online.
+   * The appointment is confirmed straight away with nothing charged now.
+   */
+  collectAtDesk?: boolean
 }
 
 const ACTIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
@@ -360,7 +371,9 @@ export const createAppointment = async (
       const maxFuture = service.maxFutureBookingDays ?? 365
 
       try {
-        checkMinimumNotice(startDate, minNotice, clinicId, serviceId, performedById)
+        if (!context?.staffBooking) {
+          checkMinimumNotice(startDate, minNotice, clinicId, serviceId, performedById)
+        }
       } catch (err) {
         if (performedById) {
           await tx.auditLog.create({
@@ -487,13 +500,15 @@ export const createAppointment = async (
         : standardPriceAtBooking
       const priceAtBooking = usingPackage ? ZERO : discountedPriceAtBooking
 
-      const paymentRequirementType = usingPackage
-        ? PaymentRequirementType.NONE
-        : service.requirePrepayment && service.prepaymentType === 'DEPOSIT'
-          ? PaymentRequirementType.DEPOSIT
-          : service.requirePrepayment
-            ? PaymentRequirementType.FULL
-            : PaymentRequirementType.NONE
+      const collectAtDesk = Boolean(context?.staffBooking && context.collectAtDesk)
+      const paymentRequirementType =
+        usingPackage || collectAtDesk
+          ? PaymentRequirementType.NONE
+          : service.requirePrepayment && service.prepaymentType === 'DEPOSIT'
+            ? PaymentRequirementType.DEPOSIT
+            : service.requirePrepayment
+              ? PaymentRequirementType.FULL
+              : PaymentRequirementType.NONE
 
       const requirePrepayment = paymentRequirementType !== PaymentRequirementType.NONE
       const now = new Date()
@@ -665,6 +680,7 @@ export const createAppointment = async (
             priceAtBooking: Number(priceAtBooking),
             packageApplied: usingPackage,
             membershipDiscountPercent: Number(membershipDiscountPercent),
+            ...(collectAtDesk ? { collectAtDesk: true } : {}),
           } as Prisma.InputJsonValue,
           oldValue: Prisma.JsonNull,
           performedById: performedById ?? patientId,

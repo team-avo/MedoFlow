@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from 'express'
 import { Router } from 'express'
 import * as appointmentController from '../controllers/appointmentController'
-import { protect, authorize } from '../middleware/auth'
+import * as publicController from '../controllers/publicController'
+import { protect, authorize, authorizeRolesOrPermission } from '../middleware/auth'
 import { requireClinic } from '../middleware/requireClinic'
 import { validateRequest } from '../middleware/validateRequest'
 import { Role } from '@prisma/client'
@@ -21,12 +22,23 @@ const setClinicFromUser = (req: Request, _res: Response, next: NextFunction): vo
   next()
 }
 
+// CTO-24: anyone with admin access books: the owner (often the doctor), the
+// front desk, and custom roles holding `appointments.create`.
 router.post(
   '/',
-  authorize(Role.PATIENT, Role.SUPER_ADMIN, Role.FRONT_DESK),
+  authorizeRolesOrPermission([Role.PATIENT, Role.FRONT_DESK], 'appointments.create'),
   setClinicFromUser,
   validateRequest(appointmentCreateSchema),
   appointmentController.create
+)
+
+// CTO-24: open slots for staff booking from the dashboard (not behind the
+// go-live gate, unlike /public/availability).
+router.get(
+  '/availability',
+  authorizeRolesOrPermission([Role.FRONT_DESK], 'appointments.create'),
+  setClinicFromUser,
+  publicController.getStaffAvailability
 )
 
 router.post(

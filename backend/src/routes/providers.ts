@@ -3,7 +3,7 @@ import { z } from 'zod'
 import * as providerController from '../controllers/providerController'
 import * as availabilityController from '../controllers/availabilityController'
 import * as providerProfileService from '../services/providerProfileService'
-import { protect, authorize } from '../middleware/auth'
+import { protect, authorize, authorizeRolesOrPermission } from '../middleware/auth'
 import { requireClinic } from '../middleware/requireClinic'
 import { validateRequest } from '../middleware/validateRequest'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -77,7 +77,8 @@ router.post(
 )
 router.get(
   '/',
-  authorize(Role.SUPER_ADMIN, Role.FRONT_DESK, Role.PROVIDER),
+  // CTO-24: custom roles that book appointments need the provider list.
+  authorizeRolesOrPermission([Role.FRONT_DESK, Role.PROVIDER], 'appointments.create'),
   providerController.list
 )
 router.get(

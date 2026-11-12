@@ -30,8 +30,20 @@ import type { DateRangeOption, DateRange } from '@/components/ui-system/DateRang
 import { PageContainer } from '@/components/layout'
 import { StatusBadge } from '@/components/common/StatusBadge'
 import { RecurringSeriesDialog } from '@/components/appointments/RecurringSeriesDialog'
+import { NewAppointmentDialog } from '@/components/appointments/NewAppointmentDialog'
+import { canBookAppointments } from '@/lib/staffBookingApi'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { CancelSeriesDialog } from '@/components/appointments/CancelSeriesDialog'
-import { Calendar, User, Clock, CheckCircle2, AlertCircle, ArrowRight, Repeat } from 'lucide-react'
+import {
+  Calendar,
+  User,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  ArrowRight,
+  Repeat,
+  Plus,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function AppointmentsPage() {
@@ -43,6 +55,18 @@ export default function AppointmentsPage() {
 
   // F1.2: front desk / admin book and cancel weekly recurring series.
   const canManageSeries = user?.role === 'FRONT_DESK' || user?.role === 'SUPER_ADMIN'
+  // CTO-24: the owner, front desk and permitted custom roles book directly.
+  const canBook = canBookAppointments(user)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [newDialogOpen, setNewDialogOpen] = useState(false)
+  React.useEffect(() => {
+    // /dashboard/appointments?new=1 (from the Command Center) opens the dialog.
+    if (canBook && searchParams?.get('new') === '1') {
+      setNewDialogOpen(true)
+      router.replace('/dashboard/appointments')
+    }
+  }, [canBook, searchParams, router])
   const queryClient = useQueryClient()
   const [seriesDialogOpen, setSeriesDialogOpen] = useState(false)
   const [cancelSeriesId, setCancelSeriesId] = useState<string | null>(null)
@@ -84,14 +108,22 @@ export default function AppointmentsPage() {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
               <span className="h-1.5 w-1.5 rounded-full bg-[#14B8A6]" />
-              Clinical Queue
+              Schedule
             </div>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Clinical Schedule</h1>
+            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Appointments</h1>
             <p className="max-w-xl text-sm leading-relaxed text-white/70 sm:text-base">
               {subtitle}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {canBook && user?.clinicId && (
+              <AppButton
+                onClick={() => setNewDialogOpen(true)}
+                className="rounded-full bg-white font-semibold text-[#1E3A5F] hover:bg-white/90"
+              >
+                <Plus className="mr-2 h-4 w-4" /> New appointment
+              </AppButton>
+            )}
             {canManageSeries && user?.clinicId && (
               <AppButton
                 onClick={() => setSeriesDialogOpen(true)}
@@ -259,6 +291,14 @@ export default function AppointmentsPage() {
         </AppCardContent>
       </AppCard>
 
+      {canBook && user?.clinicId && (
+        <NewAppointmentDialog
+          open={newDialogOpen}
+          onOpenChange={setNewDialogOpen}
+          onBooked={refreshAppointments}
+          defaultProviderId={user.provider?.isActive ? user.provider.id : null}
+        />
+      )}
       {canManageSeries && user?.clinicId && (
         <RecurringSeriesDialog
           clinicId={user.clinicId}

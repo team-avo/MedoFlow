@@ -427,3 +427,34 @@ Open your dashboard: ${params.dashboardUrl}`
 
   await sendEmail({ to: params.to, subject: copy.subject, html, text })
 }
+
+/**
+ * A clinic added this patient at the desk (CTO-24: walk-in / phone booking).
+ * Optional: the booking never depends on it, and staff can copy the link
+ * instead when SMTP isn't set up. Carries no clinical detail.
+ */
+export async function sendPatientInviteEmail(params: {
+  to: string
+  name: string
+  clinicName: string
+  setupLink: string
+}): Promise<void> {
+  const name = escapeHtml(params.name)
+  const clinic = escapeHtml(params.clinicName)
+  const subject = `Set up your ${params.clinicName} patient account`
+  const html = `
+    <p>Hi ${name},</p>
+    <p>${clinic} has created a patient account for you on MedoFlow.</p>
+    <p>Set your password to see your appointments, forms and orders:</p>
+    <p><a href="${params.setupLink}">${params.setupLink}</a></p>
+    <p>This link expires in 24 hours. If you weren't expecting it, you can ignore this email.</p>
+  `
+  const text = `Hi ${params.name},
+
+${params.clinicName} has created a patient account for you on MedoFlow.
+
+Set your password here: ${params.setupLink}
+
+This link expires in 24 hours. If you weren't expecting it, you can ignore this email.`
+  await sendEmail({ to: params.to, subject, html, text })
+}

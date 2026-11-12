@@ -72,6 +72,10 @@ enum BookingSource {
   FRONT_DESK
   PROVIDER
   WAITLIST
+  /// Staff booked a patient who walked in (CTO-24).
+  WALK_IN
+  /// Staff booked a patient over the phone (CTO-24).
+  PHONE
 }
 
 enum SlotHoldStatus {

@@ -263,13 +263,37 @@ export const checkPatientExists = asyncHandler(
 
 export const getAvailability = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
-    const { clinicId, serviceId, providerId, locationId, date } = req.query as {
-      clinicId?: string
-      serviceId?: string
-      providerId?: string
-      locationId?: string
-      date?: string
-    }
+    const slots = await availableSlotsFor(req.query as AvailabilityQuery, { requireLive: true })
+    successResponse(res, 200, 'Availability retrieved', { slots })
+  }
+)
+
+/**
+ * The same open slots for signed-in staff of the clinic (CTO-24: the owner or
+ * front desk booking a walk-in or a phone call). Staff paths aren't behind the
+ * go-live gate, so a clinic still in review can book from the dashboard.
+ */
+export const getStaffAvailability = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const slots = await availableSlotsFor(
+      { ...(req.query as AvailabilityQuery), clinicId: req.clinicId ?? undefined },
+      { requireLive: false }
+    )
+    successResponse(res, 200, 'Availability retrieved', { slots })
+  }
+)
+
+interface AvailabilityQuery {
+  clinicId?: string
+  serviceId?: string
+  providerId?: string
+  locationId?: string
+  date?: string
+}
+
+async function availableSlotsFor(query: AvailabilityQuery, opts: { requireLive: boolean }) {
+  {
+    const { clinicId, serviceId, providerId, locationId, date } = query
 
     if (!clinicId || !serviceId || !date) {
       const err = new Error('clinicId, serviceId, and date are required') as ApiError
@@ -277,7 +301,7 @@ export const getAvailability = asyncHandler(
       err.code = 'validation_error'
       throw err
     }
-    await assertClinicLive(clinicId)
+    if (opts.requireLive) await assertClinicLive(clinicId)
 
     const service = await prisma.service.findFirst({
       where: {
@@ -369,10 +393,9 @@ export const getAvailability = asyncHandler(
     }
 
     slots.sort((left, right) => left.start.localeCompare(right.start))
-
-    successResponse(res, 200, 'Availability retrieved', { slots })
+    return slots
   }
-)
+}
 
 export const createSlotHold = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {

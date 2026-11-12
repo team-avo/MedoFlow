@@ -51,6 +51,10 @@ export const appointmentCreateSchema = {
      * prompted to re-confirm mid-visit.
      */
     aiScribeConsent: z.boolean().optional(),
+    /** Staff bookings (CTO-24): how the patient reached the clinic. */
+    bookingSource: z.enum(['WALK_IN', 'PHONE']).optional(),
+    /** Staff bookings: a prepay service is paid at the desk instead of online. */
+    collectAtDesk: z.boolean().optional(),
   }),
 }
 
@@ -106,4 +110,31 @@ export const waitlistCreateSchema = {
     preferredEndTime: z.string().min(1, 'Preferred end time is required'),
     patientId: cuidSchema.optional(),
   }),
+}
+
+/** CTO-24: a patient added at the desk: a name plus an email or a phone number. */
+export const clinicPatientCreateSchema = {
+  body: z
+    .object({
+      name: z.string().trim().min(2, 'Enter the patient name').max(100),
+      email: z
+        .string()
+        .trim()
+        .toLowerCase()
+        .email('Enter a valid email')
+        .max(254)
+        .optional()
+        .or(z.literal('').transform(() => undefined)),
+      phone: z
+        .string()
+        .trim()
+        .regex(/^[+\d][\d\s().-]{6,24}$/, 'Enter a valid phone number')
+        .optional()
+        .or(z.literal('').transform(() => undefined)),
+      sendInvite: z.boolean().optional(),
+    })
+    .refine((v) => !!v.email || !!v.phone, {
+      message: 'Enter an email or a phone number',
+      path: ['email'],
+    }),
 }
