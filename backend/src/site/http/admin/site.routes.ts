@@ -7,6 +7,7 @@ import { validateRequest } from '../../../middleware/validateRequest'
 import { actorFrom } from '../../actor'
 import { entityId } from '../../content/primitives'
 import * as siteService from '../../services/siteService'
+import { launchStatus, requestLaunch } from '../../services/siteLaunchService'
 import { personaliseHomeCopy } from '../../services/aiCopyService'
 import { setEntitySlug } from '../../services/slugService'
 import { editorData } from '../../services/renderService'
@@ -47,6 +48,27 @@ router.post(
   asyncHandler(async (req, res) => {
     const body = req.body as { pageIds?: string[] | 'all' }
     successResponse(res, 200, 'Site published', await siteService.publishSite(actorFrom(req), body))
+  })
+)
+
+// CTO-26: the clinic address on Cloudflare Pages (status + retry).
+router.get(
+  '/launch',
+  asyncHandler(async (req, res) => {
+    successResponse(res, 200, 'Launch', await launchStatus(actorFrom(req).clinicId))
+  })
+)
+
+router.post(
+  '/launch/retry',
+  asyncHandler(async (req, res) => {
+    const actor = actorFrom(req)
+    successResponse(
+      res,
+      200,
+      'Launch requested',
+      await requestLaunch(actor.clinicId, { force: true, performedById: actor.userId })
+    )
   })
 )
 

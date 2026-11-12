@@ -4,6 +4,7 @@
  * publish. Like pages, settings have a draft the builder edits and a
  * published copy the public site renders.
  */
+import { requestLaunch } from './siteLaunchService'
 import type { Prisma, SitePageKind } from '@prisma/client'
 import type { TemplatePageKind } from '../templates/types'
 import prisma from '../../config/prisma'
@@ -141,6 +142,10 @@ export async function publishSite(actor: SiteActor, opts: { pageIds?: string[] |
     action: 'SITE_PUBLISHED',
     newValue: { version: updated.version, pages: targets.length },
   })
+  // CTO-26: the clinic's address goes live with no manual step.
+  await requestLaunch(clinicId, { performedById: actor.userId }).catch((err: unknown) =>
+    console.warn('[site] launch not requested:', (err as Error).message)
+  )
   return getSiteForAdmin(clinicId)
 }
 

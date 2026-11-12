@@ -503,3 +503,18 @@ export async function sendCartReadyEmail(params: {
     text: `Hi ${params.name},\n\n${params.clinicName} has prepared your order. Review it and check out here: ${params.link}\n\nThe link works for 72 hours. You'll sign in to see the details.`,
   })
 }
+
+/** CTO-26: a clinic address failed to go live after its retries (platform team). */
+export async function sendSiteLaunchFailedEmail(params: {
+  to: string
+  clinicName: string
+  label: string
+  reason: string
+}): Promise<void> {
+  await sendEmail({
+    to: params.to,
+    subject: `Clinic address did not go live: ${params.label}`,
+    html: `<p><strong>${escapeHtml(params.clinicName)}</strong> published its website, but <code>${escapeHtml(params.label)}</code> could not be deployed to Cloudflare Pages.</p><p>Reason: ${escapeHtml(params.reason)}</p><p>The owner can press Retry on the Website page, or run the front-door workflow by hand.</p>`,
+    text: `${params.clinicName} published its website, but ${params.label} could not be deployed to Cloudflare Pages.\nReason: ${params.reason}\nThe owner can press Retry on the Website page, or run the front-door workflow by hand.`,
+  })
+}

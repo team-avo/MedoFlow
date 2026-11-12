@@ -20,6 +20,7 @@
  * The model list and deletion order are derived from the Prisma schema, so a
  * new clinic-scoped model is covered automatically (a test asserts it).
  */
+import { removeLaunch } from '../site/services/siteLaunchService'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
@@ -254,6 +255,9 @@ export const offboardTenant = (
       err.statusCode = 400
       throw err
     }
+
+    // CTO-26: take each clinic's address off Cloudflare Pages (best effort).
+    for (const id of clinicIds) await removeLaunch(id)
 
     // Object storage first (references are lost once the rows go).
     const [files, scribe, consults, voice] = await Promise.all([

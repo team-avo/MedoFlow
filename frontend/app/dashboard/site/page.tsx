@@ -2,6 +2,7 @@
 
 /** Website overview (F8.1): live URL, publish state, setup checklist and every page. */
 import React from 'react'
+import { LaunchStatus } from '@/components/site/LaunchStatus'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -186,6 +187,10 @@ export default function SiteOverviewPage() {
             {site.templateKey ?? 'none'}
             {site.publishedAt && ` · published ${new Date(site.publishedAt).toLocaleString()}`}
           </p>
+          {/* CTO-26: the address goes live on Cloudflare from Publish. */}
+          <div className="mt-3">
+            <LaunchStatus />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <AppButton

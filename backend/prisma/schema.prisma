@@ -449,6 +449,7 @@ model Clinic {
   clinicProfile             ClinicProfile?
   notifications             Notification[]
   checkoutLinkTokens        CheckoutLinkToken[]
+  siteLaunch                SiteLaunch?
   clinicAgreements          ClinicAgreement[]
 
   @@index([tenantId])
@@ -2160,4 +2161,25 @@ model CheckoutLinkToken {
 
   @@index([clinicId])
   @@index([cartId])
+}
+
+/// CTO-26: putting a clinic's free address live on Cloudflare Pages
+/// (<label>.medoflow.pages.dev) when it publishes its website. One row per
+/// clinic; the job retries, and the owner sees PENDING / LIVE / FAILED.
+model SiteLaunch {
+  id           String    @id @default(cuid())
+  clinicId     String    @unique
+  label        String
+  /// PENDING | LIVE | FAILED | REMOVED
+  status       String    @default("PENDING")
+  attempts     Int       @default(0)
+  /// A short, safe reason (no tokens, no response bodies).
+  lastError    String?
+  deploymentId String?
+  url          String?
+  liveAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }

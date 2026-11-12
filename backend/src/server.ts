@@ -5,6 +5,7 @@ import app from './app'
 import prisma, { getDatabaseRoleInfo } from './config/prisma'
 import { startCronJobs } from './scheduler/cronJobs'
 import { createAiScribeWorker } from './queues/aiScribeQueue'
+import { createSiteLaunchWorker } from './site/services/siteLaunchService'
 import { initFieldEncryption } from './config/fieldKeys'
 import type { Server } from 'http'
 
@@ -108,6 +109,12 @@ const bootstrap = async (): Promise<void> => {
       'AI Scribe worker not started — transcription will stay "Processing" until Redis is running and the server is restarted:',
       err instanceof Error ? err.message : err
     )
+  }
+  // CTO-26: clinic addresses go live from a queue when Redis is there.
+  try {
+    if (createSiteLaunchWorker()) console.warn('Site launch worker started')
+  } catch (err) {
+    console.warn('Site launch worker not started:', err instanceof Error ? err.message : err)
   }
   startServer()
 }

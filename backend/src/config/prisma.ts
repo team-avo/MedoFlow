@@ -75,6 +75,7 @@ export const CLINIC_SCOPED_MODELS = new Set([
   'Invoice',
   'Location',
   'Notification',
+  'SiteLaunch',
   'Membership',
   'Package',
   'PatientClinicMembership',
