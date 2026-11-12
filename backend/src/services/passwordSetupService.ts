@@ -6,12 +6,22 @@ import type { ApiError } from '../types/errors'
 const TOKEN_BYTES = 32
 const EXPIRY_HOURS = 24
 
-export async function createPasswordSetupToken(userId: string): Promise<string> {
+/** The slice of a Prisma client token creation needs (the app client or a script's own). */
+export interface PasswordSetupTokenWriter {
+  passwordSetupToken: {
+    create(args: { data: { userId: string; token: string; expiresAt: Date } }): Promise<unknown>
+  }
+}
+
+export async function createPasswordSetupToken(
+  userId: string,
+  db: PasswordSetupTokenWriter = prisma
+): Promise<string> {
   const token = crypto.randomBytes(TOKEN_BYTES).toString('hex')
   const expiresAt = new Date()
   expiresAt.setHours(expiresAt.getHours() + EXPIRY_HOURS)
 
-  await prisma.passwordSetupToken.create({
+  await db.passwordSetupToken.create({
     data: { userId, token, expiresAt },
   })
 
