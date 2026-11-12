@@ -422,11 +422,28 @@ export const createAvailability = async (
     err.statusCode = 404
     throw err
   }
-  const onlineLocationId = await ensureOnlineLocation(data.providerId, clinicId)
+  // CTO-34: hours for a specific location the provider works at use that
+  // location (and its timezone); otherwise the online location, as before.
+  const assigned = data.locationId
+    ? await prisma.providerLocationAssignment.findFirst({
+        where: {
+          providerId: data.providerId,
+          locationId: data.locationId,
+          location: { clinicId, isActive: true },
+        },
+        select: { locationId: true },
+      })
+    : null
+  if (data.locationId && !assigned) {
+    const err = new Error('The provider does not work at that location') as ApiError
+    err.statusCode = 400
+    throw err
+  }
+  const locationId = assigned?.locationId ?? (await ensureOnlineLocation(data.providerId, clinicId))
   const created = await prisma.providerAvailability.create({
     data: {
       providerId: data.providerId,
-      locationId: onlineLocationId,
+      locationId,
       weekday: data.weekday,
       startTime: data.startTime,
       endTime: data.endTime,

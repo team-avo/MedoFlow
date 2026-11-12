@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { isValidNpi, normalizeNpi, US_STATE_CODES } from '../utils/practiceIds'
+import { IANAZone } from 'luxon'
+import { isValidNpi, normalizeNpi, US_STATE_CODES, US_ZIP } from '../utils/practiceIds'
 
 const cuidSchema = z.string().min(1, 'ID is required')
 
@@ -97,11 +98,26 @@ export const locationUpsertSchema = {
     addressLine1: z.string().trim().optional(),
     addressLine2: z.string().trim().optional(),
     city: z.string().trim().optional(),
-    state: z.string().trim().optional(),
-    postalCode: z.string().trim().optional(),
+    // CTO-22: US addresses. Blank is fine; a value must be a US state or
+    // territory, and a ZIP or ZIP+4 (same rules as the clinic application).
+    state: z
+      .string()
+      .trim()
+      .optional()
+      .refine((v) => !v || US_STATE_CODES.includes(v.toUpperCase()), 'Choose a US state')
+      .transform((v) => (v ? v.toUpperCase() : v)),
+    postalCode: z
+      .string()
+      .trim()
+      .optional()
+      .refine((v) => !v || US_ZIP.test(v), 'Enter a 5-digit ZIP or ZIP+4'),
     country: z.string().trim().optional(),
     phone: z.string().trim().optional(),
-    timezone: z.string().trim().min(1, 'Timezone is required'),
+    timezone: z
+      .string()
+      .trim()
+      .min(1, 'Timezone is required')
+      .refine((tz) => IANAZone.isValidZone(tz), 'Choose a timezone'),
   }),
 }
 
@@ -110,7 +126,12 @@ export const locationPatchSchema = {
   params: z.object({ id: cuidSchema }),
   body: locationUpsertSchema.body.omit({ id: true }).extend({
     name: z.string().trim().min(1, 'Location name is required').optional(),
-    timezone: z.string().trim().min(1, 'Timezone is required').optional(),
+    timezone: z
+      .string()
+      .trim()
+      .min(1, 'Timezone is required')
+      .refine((tz) => IANAZone.isValidZone(tz), 'Choose a timezone')
+      .optional(),
   }),
 }
 

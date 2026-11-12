@@ -30,4 +30,11 @@ router.patch(
   locationController.update
 )
 
+router.delete(
+  '/:id',
+  authorize(Role.SUPER_ADMIN),
+  validateRequest({ params: locationPatchSchema.params }),
+  locationController.remove
+)
+
 export default router
