@@ -112,6 +112,13 @@ router.get(
 )
 
 // --- Get session by ID (provider or patient) ---
+// CTO-35: an idle call ended itself (audited, ids only).
+router.post(
+  '/:id/video/auto-ended',
+  authorize(Role.PROVIDER, Role.PATIENT),
+  consultationController.videoAutoEnded
+)
+
 router.get('/:id', authorize(Role.PROVIDER, Role.PATIENT), consultationController.getSession)
 
 export default router

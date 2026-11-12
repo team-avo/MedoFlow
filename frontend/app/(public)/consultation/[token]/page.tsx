@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import axios from 'axios'
 import api from '@/lib/api'
 import { JitsiVideoCall } from '@/components/consultation/JitsiVideoCall'
+import { videoAutoEnded } from '@/lib/consultationApi'
 
 // ---------------------------------------------------------------------------
 // Types (minimal — patient only sees sanitized data)
@@ -284,6 +285,10 @@ export default function PatientJoinPage() {
             jwt={videoRoom.jwt}
             userName={session.patient?.name?.split(' ')[0] || 'Patient'}
             onCallEnded={() => setVideoActive(false)}
+            // CTO-35: left alone and silent, the call ends for the patient too.
+            onAutoEnd={() => {
+              if (session.id) void videoAutoEnded(session.id).catch(() => undefined)
+            }}
             onRetry={() => void retryVideo()}
             height="calc(100dvh - 6rem)"
             className="w-full"

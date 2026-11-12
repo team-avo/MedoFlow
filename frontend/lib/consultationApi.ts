@@ -156,6 +156,11 @@ export const attestConsent = async (sessionId: string): Promise<ConsultationSess
   return data.data.session
 }
 
+/** POST /consultations/:id/video/auto-ended (CTO-35): audited, ids only. */
+export const videoAutoEnded = async (sessionId: string): Promise<void> => {
+  await api.post(`/consultations/${sessionId}/video/auto-ended`)
+}
+
 /** POST /consultations/:id/recording/start */
 export const startRecording = async (
   sessionId: string,

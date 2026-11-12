@@ -439,3 +439,31 @@ export const getVideoToken = asyncHandler(
     successResponse(res, 200, 'Video room info', videoRoomPayload(room))
   }
 )
+
+/**
+ * POST /consultations/:id/video/auto-ended (CTO-35): the call ended itself
+ * after everyone else left and nobody answered "Are you still there?".
+ * Audited with ids only. The session's own provider or patient only.
+ */
+export const videoAutoEnded = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const sessionId = req.params.id as string
+    const session = await prisma.consultationSession.findUnique({
+      where: { id: sessionId, ...clinicScope() },
+      select: { id: true, clinicId: true, patientId: true, provider: { select: { userId: true } } },
+    })
+    const user = req.user!
+    const mine = !!session && (session.patientId === user.id || session.provider.userId === user.id)
+    if (!session || !mine) throw apiError('Consultation session not found', 404)
+    await auditService.logAudit({
+      clinicId: session.clinicId,
+      entityType: 'ConsultationSession',
+      entityId: session.id,
+      action: 'VIDEO_CALL_AUTO_ENDED',
+      newValue: { by: user.role === 'PATIENT' ? 'patient' : 'provider' },
+      performedById: user.id,
+      ...auditService.requestMeta(req),
+    })
+    successResponse(res, 200, 'Recorded', { sessionId: session.id })
+  }
+)

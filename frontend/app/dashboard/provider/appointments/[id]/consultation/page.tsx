@@ -601,6 +601,11 @@ export default function ConsultationRoomPage() {
               onRetry={() => void handleStartVideoCall()}
               onMeetingStarted={handleMeetingStarted}
               onCallEnded={handleCallEnded}
+              // CTO-35: alone and silent, the call ends itself (audited).
+              onAutoEnd={() => {
+                toast.info('Everyone left, so the call ended')
+                void consultationApi.videoAutoEnded(session.id).catch(() => undefined)
+              }}
               height="clamp(320px, 60vh, 640px)"
               className="w-full"
             />

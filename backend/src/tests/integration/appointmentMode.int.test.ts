@@ -211,3 +211,39 @@ describe('in-person consent (CTO-30/31)', () => {
     ).toBe(409)
   })
 })
+
+describe('auto-ended idle call (CTO-35)', () => {
+  it('is audited with ids only, by the session provider or patient; nobody else', async () => {
+    const res = await book(patient, { ...slot(13, 9), mode: 'VIRTUAL' })
+    const session = await adminDb.consultationSession.findFirstOrThrow({
+      where: { appointmentId: res.body.data.appointment.id },
+    })
+    const ok = await api(server.url, `/consultations/${session.id}/video/auto-ended`, {
+      token: provider,
+      body: {},
+    })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    const row = await adminDb.auditLog.findFirstOrThrow({
+      where: { entityId: session.id, action: 'VIDEO_CALL_AUTO_ENDED' },
+    })
+    expect(row.newValue).toEqual({ by: 'provider' })
+    expect(
+      (
+        await api(server.url, `/consultations/${session.id}/video/auto-ended`, {
+          token: patient,
+          body: {},
+        })
+      ).status
+    ).toBe(200)
+    const other = await createClinicFixture('mode-other')
+    const stranger = (await login(server.url, other.users.provider.email)).accessToken
+    expect(
+      (
+        await api(server.url, `/consultations/${session.id}/video/auto-ended`, {
+          token: stranger,
+          body: {},
+        })
+      ).status
+    ).toBe(404)
+  })
+})
