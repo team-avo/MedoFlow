@@ -41,7 +41,7 @@ export const DEMO_SERVICES = [
   { name: 'Telehealth Check-in', duration: 20, price: 85, notice: 30 },
 ] as const
 
-/** Same rules as site/services/slugService.slugify (and migration 20261020000000). */
+/** Same rules as site/services/slugService.slugify (and the 2026-10-20 slug backfill migration). */
 export function slugify(text: string): string {
   const s = text
     .toLowerCase()
