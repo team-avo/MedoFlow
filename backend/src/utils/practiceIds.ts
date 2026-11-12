@@ -347,7 +347,8 @@ export function zipStateMismatch(
 ): boolean {
   const z = (zip ?? '').trim()
   const s = (state ?? '').trim().toUpperCase()
-  if (!US_ZIP.test(z) || !ZIP3_RANGES[s]) return false
+  const ranges = ZIP3_RANGES[s]
+  if (!US_ZIP.test(z) || !ranges) return false
   const prefix = Number(z.slice(0, 3))
-  return !ZIP3_RANGES[s]!.some(([lo, hi]) => prefix >= lo && prefix <= hi)
+  return !ranges.some(([lo, hi]) => prefix >= lo && prefix <= hi)
 }

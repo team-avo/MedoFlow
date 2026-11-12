@@ -695,7 +695,8 @@ describe('CTO-33 key changes and CTO-32 the patient checkout link', () => {
     // CTO-32: no published site, so a MedoFlow-hosted, clinic-branded link.
     const clinic = await adminDb.clinic.findUniqueOrThrow({ where: { id: A.clinicId } })
     expect(rx1.checkoutLink.kind).toBe('medoflow')
-    expect(rx1.checkoutLink.url).toMatch(new RegExp(`/c/${clinic.slug}/cart\\?t=[0-9a-f]{64}$`))
+    expect(rx1.checkoutLink.url).toContain(`/c/${clinic.slug}/cart?t=`)
+    expect(rx1.checkoutLink.url).toMatch(/\?t=[0-9a-f]{64}$/)
     const stored = await adminDb.checkoutLinkToken.findFirstOrThrow({ where: { patientId } })
     const token = new URL(rx1.checkoutLink.url).searchParams.get('t')!
     expect(stored.tokenHash).not.toBe(token) // only the hash is stored

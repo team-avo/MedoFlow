@@ -19,7 +19,8 @@ router.post(
   authorize(Role.PATIENT),
   validateRequest({ body: z.object({ token: z.string().trim().min(1).max(128) }) }),
   asyncHandler(async (req, res) => {
-    const result = await openCheckoutLink(String(req.body.token), req.user!.id)
+    const { token } = req.body as { token: string }
+    const result = await openCheckoutLink(token, req.user!.id)
     successResponse(res, 200, 'Checkout link', result)
   })
 )

@@ -5,12 +5,15 @@ import { BASE_FEATURES, PLAN_FEATURES, PLANS, planIncludes } from '../config/pla
 const ALL_PLANS = ['FREE', 'STARTER', 'GROWTH', 'ENTERPRISE'] as const
 
 describe('plan features', () => {
-  it.each(ALL_PLANS.flatMap((plan) => (['trial', 'demo'] as const).map((mode) => [plan, mode])))(
-    '%s in BILLING_MODE=%s includes AI Scribe',
-    (plan, mode) => {
-      expect(planIncludes(plan, 'aiScribe', { BILLING_MODE: mode })).toBe(true)
-    }
-  )
+  it.each(
+    ALL_PLANS.flatMap((plan) =>
+      (['trial', 'demo'] as const).map(
+        (mode) => [plan, mode] as [(typeof ALL_PLANS)[number], string]
+      )
+    )
+  )('%s in BILLING_MODE=%s includes AI Scribe', (plan, mode) => {
+    expect(planIncludes(plan, 'aiScribe', { BILLING_MODE: mode })).toBe(true)
+  })
 
   it('every plan has every base feature (configuration, not code)', () => {
     for (const plan of ALL_PLANS) {

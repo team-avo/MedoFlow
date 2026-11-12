@@ -329,7 +329,8 @@ export async function buildCartFromProposal(
   const stocked = (l: (typeof proposal.lines)[number]) =>
     !!l.matchedProduct &&
     l.matchedProduct.isActive &&
-    (l.matchedProduct.inventoryItem === null || l.matchedProduct.inventoryItem.quantityInStock > 0)
+    // No inventory record = not tracked, so available.
+    (!l.matchedProduct.inventoryItem || l.matchedProduct.inventoryItem.quantityInStock > 0)
   const cartLines = proposal.lines.filter(
     (l) => l.route === 'CART' && l.matchedProduct && (stocked(l) || !!l.cartItem)
   )

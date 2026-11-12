@@ -286,7 +286,7 @@ function followUpProblems(f: FormFieldDefinition, answers: FormAnswers): string[
   const fu = f.followUp!
   const raw = answers[`${f.id}${FOLLOW_UP_SUFFIX}`]
   const given = raw !== undefined && raw !== null
-  if (given && (typeof raw !== 'object' || !Array.isArray((raw as FollowUpAnswer).selected))) {
+  if (given && (typeof raw !== 'object' || !Array.isArray(raw.selected))) {
     return [`${fu.label} must be a list`]
   }
   const value = raw as FollowUpAnswer | null | undefined

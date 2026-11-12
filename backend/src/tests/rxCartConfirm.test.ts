@@ -33,6 +33,8 @@ function fakeTx(proposal: Record<string, unknown> | null) {
         writes.push(`line.${data.decision}`)
         return {}
       },
+      // CTO-33: unmatched lines are listed as "not stocked: external".
+      findMany: async () => [],
     },
     cart: {
       findFirst: async () => null,
@@ -122,6 +124,43 @@ describe('buildCartFromProposal (B5.2 / B5.3)', () => {
     const built = await rxCartService.buildCartFromProposal(tx, 'prop_1', 'clinic_1')
     assert.deepEqual(built.cartItemIds, ['item_existing'])
     assert.ok(!writes.includes('cartItem.create'))
+  })
+})
+
+describe('CTO-33: only stocked items go into the cart', () => {
+  it('an out-of-stock or inactive product is listed, not added', async () => {
+    const { tx, writes } = fakeTx({
+      ...base,
+      status: 'CONFIRMED',
+      confirmedById: 'user_provider',
+      confirmedAt: new Date(),
+      lines: [
+        line({
+          id: 'line_out',
+          matchedProduct: {
+            id: 'p1',
+            price: 5,
+            isActive: true,
+            name: 'Out',
+            inventoryItem: { quantityInStock: 0 },
+          },
+        }),
+        line({
+          id: 'line_off',
+          matchedProduct: { id: 'p2', price: 5, isActive: false, name: 'Off', inventoryItem: null },
+        }),
+      ],
+    })
+    const built = await rxCartService.buildCartFromProposal(tx, 'prop_1', 'clinic_1')
+    assert.deepEqual(built.cartItemIds, [])
+    assert.ok(!writes.includes('cartItem.create'))
+    assert.deepEqual(
+      built.notStocked?.map((n) => [n.lineId, n.reason]),
+      [
+        ['line_out', 'NOT_STOCKED'],
+        ['line_off', 'NOT_STOCKED'],
+      ]
+    )
   })
 })
 
