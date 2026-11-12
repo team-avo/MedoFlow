@@ -10,6 +10,7 @@
  *     onboarding wizard (app/(onboarding)) → the dashboard.
  */
 import React, { useEffect, useState } from 'react'
+import { PasswordInput } from '@/components/ui-system/PasswordInput'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -284,9 +285,8 @@ function GetStartedInner() {
               error={errors.password?.message}
               hint="At least 8 characters"
             >
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 className={inputCls}
                 {...register('password')}

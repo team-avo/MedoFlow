@@ -19,6 +19,7 @@
  */
 
 import React from 'react'
+import { PasswordInput } from '@/components/ui-system/PasswordInput'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
@@ -729,6 +730,8 @@ const Field = React.forwardRef<HTMLInputElement, FieldProps>(function Field(
         '--auth-field-focus-border': themeColor,
       } as React.CSSProperties)
     : undefined
+  // CTO-07: password fields get the shared "Show password" toggle.
+  const InputTag = input.type === 'password' ? PasswordInput : 'input'
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -742,7 +745,7 @@ const Field = React.forwardRef<HTMLInputElement, FieldProps>(function Field(
           className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint"
           strokeWidth={1.75}
         />
-        <input
+        <InputTag
           id={id}
           ref={ref}
           {...input}
