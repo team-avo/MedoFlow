@@ -48,6 +48,7 @@ import { LaunchWebsiteModal } from '@/components/site/builder/LaunchWebsiteModal
 import { siteApi } from '@/lib/site/siteApi'
 import { getClinic } from '@/lib/clinicApi'
 import { SetupChecklist } from '@/components/onboarding/SetupChecklist'
+import { TodayAppointmentsCard } from '@/components/dashboard/TodayAppointmentsCard'
 
 export default function AdminDashboardPage() {
   const { user } = useAuth()
@@ -112,16 +113,6 @@ function AdminDashboardContent() {
         description="High-level clinic health and financial overview"
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            {!websiteLive && (
-              <button
-                type="button"
-                onClick={() => setGeneratorOpen(true)}
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-4 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
-              >
-                <Sparkles className="h-4 w-4" />
-                Generate Website
-              </button>
-            )}
             <DateRangeFilter
               value={dateRangeOption}
               onChange={(opt, range) => {
@@ -133,20 +124,13 @@ function AdminDashboardContent() {
         }
       />
 
+      {/* CTO-19: a compact, collapsible Quick setup panel; the tool comes first. */}
       <SetupChecklist />
 
       <LaunchWebsiteModal
         open={generatorOpen}
         onOpenChange={setGeneratorOpen}
         defaultName={currentClinic?.name ?? user?.clinic?.name ?? ''}
-      />
-
-      <WebsiteStatusBanner
-        clinicName={currentClinic?.name ?? user?.clinic?.name ?? 'your clinic'}
-        websiteUrl={websiteUrl}
-        themeColor={currentClinic?.themeColor ?? null}
-        logoUrl={currentClinic?.logoUrl ?? null}
-        onGenerate={() => setGeneratorOpen(true)}
       />
 
       {/* ── Row 1: Primary KPIs ───────────────────────────────────────── */}
@@ -194,6 +178,18 @@ function AdminDashboardContent() {
           />
         </div>
       )}
+
+      {/* Today's appointments (with Start scribe) and the optional website. */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <TodayAppointmentsCard className="lg:col-span-2" />
+        <WebsiteStatusBanner
+          clinicName={currentClinic?.name ?? user?.clinic?.name ?? 'your clinic'}
+          websiteUrl={websiteUrl}
+          themeColor={currentClinic?.themeColor ?? null}
+          logoUrl={currentClinic?.logoUrl ?? null}
+          onGenerate={() => setGeneratorOpen(true)}
+        />
+      </div>
 
       {/* ── Row 2: Clinical · Finance · Commerce ─────────────────────── */}
       {isLoading ? (
@@ -488,6 +484,11 @@ function MetricRow({
  * WebsiteStatusBanner — sits above the Command Center KPIs so the patient
  * site is the first thing the admin sees on every visit.
  */
+/**
+ * The clinic website, as a small side card (CTO-19 / CTO-23). The website is
+ * optional: patients already book through the MedoFlow-hosted clinic page,
+ * and AI Scribe, appointments and the Storefront never depend on it.
+ */
 function WebsiteStatusBanner({
   clinicName,
   websiteUrl,
@@ -503,89 +504,69 @@ function WebsiteStatusBanner({
 }) {
   if (!websiteUrl) {
     return (
-      <div className="relative overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-fuchsia-50 p-6 sm:p-8">
-        <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-md">
-              <Wand2 className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-violet-600">
-                One-tap setup · 30 seconds
-              </p>
-              <h2 className="mt-1 text-2xl font-black text-slate-900">
-                Your patient website isn't live yet.
-              </h2>
-              <p className="mt-1 max-w-xl text-sm text-slate-600">
-                Generate a branded booking site for {clinicName}. Patients can sign up and book the
-                moment it's live.
-              </p>
-            </div>
-          </div>
+      <AppCard data-testid="website-card">
+        <AppCardHeader className="pb-2">
+          <AppCardTitle className="flex items-center gap-2 text-sm">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-violet-50">
+              <Wand2 className="h-3.5 w-3.5 text-violet-600" />
+            </span>
+            Clinic website
+            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Optional
+            </span>
+          </AppCardTitle>
+        </AppCardHeader>
+        <AppCardContent className="space-y-3">
+          <p className="text-sm text-slate-600">
+            {clinicName} works without a website: appointments, AI Scribe and your Storefront are
+            ready now. Add a branded site whenever you like.
+          </p>
           <button
             type="button"
             onClick={onGenerate}
-            className="inline-flex h-12 shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 text-sm font-bold text-white shadow-md transition-opacity hover:opacity-90"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
-            <Sparkles className="h-4 w-4" />
-            Generate Website
+            <Sparkles className="h-4 w-4 text-violet-600" />
+            Create website
           </button>
-        </div>
-      </div>
+        </AppCardContent>
+      </AppCard>
     )
   }
 
   const accent = themeColor || '#0D9488'
   return (
-    <div
-      className="relative overflow-hidden rounded-2xl border bg-white p-6 sm:p-8"
-      style={{ borderColor: `${accent}30` }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-50"
-        style={{
-          background: `radial-gradient(circle at 0% 0%, ${accent}25 0%, transparent 55%), radial-gradient(circle at 100% 100%, ${accent}10 0%, transparent 50%)`,
-        }}
-      />
-      <div className="relative flex flex-col items-start gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
+    <AppCard data-testid="website-card">
+      <AppCardHeader className="pb-2">
+        <AppCardTitle className="flex items-center gap-2 text-sm">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={logoUrl}
               alt={`${clinicName} logo`}
-              className="h-12 w-12 shrink-0 rounded-2xl border border-white object-cover shadow-sm"
+              className="h-6 w-6 shrink-0 rounded-lg border border-white object-cover"
             />
           ) : (
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
+            <span
+              className="flex h-6 w-6 items-center justify-center rounded-lg text-white"
               style={{ backgroundColor: accent }}
             >
-              <Globe2 className="h-6 w-6" />
-            </div>
+              <Globe2 className="h-3.5 w-3.5" />
+            </span>
           )}
-          <div className="min-w-0">
-            <p
-              className="text-[10px] font-black uppercase tracking-widest"
-              style={{ color: accent }}
-            >
-              Patient website · Live
-            </p>
-            <h2 className="mt-1 truncate text-xl font-black text-slate-900 sm:text-2xl">
-              {clinicName}
-            </h2>
-            <code className="mt-1 inline-flex items-center gap-1 truncate font-mono text-xs text-slate-500">
-              {websiteUrl.replace(/^https?:\/\//, '')}
-            </code>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          Clinic website: live
+        </AppCardTitle>
+      </AppCardHeader>
+      <AppCardContent className="space-y-3">
+        <code className="block truncate font-mono text-xs text-slate-500">
+          {websiteUrl.replace(/^https?:\/\//, '')}
+        </code>
+        <div className="flex flex-wrap items-center gap-2">
           <a
             href={websiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
+            className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
             style={{ backgroundColor: accent }}
           >
             <ExternalLink className="h-4 w-4" />
@@ -593,13 +574,13 @@ function WebsiteStatusBanner({
           </a>
           <a
             href="/dashboard/site"
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             <Wand2 className="h-4 w-4" />
             Edit website
           </a>
         </div>
-      </div>
-    </div>
+      </AppCardContent>
+    </AppCard>
   )
 }

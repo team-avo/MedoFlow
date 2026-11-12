@@ -95,6 +95,7 @@ async function clinicContext(clinicId: string) {
           reviewNotes: true,
           termsAcceptedAt: true,
           termsVersion: true,
+          onboardingCompletedAt: true,
         },
       },
     },
@@ -473,6 +474,10 @@ export async function signAgreement(clinicId: string, input: AgreementInput, act
         termsVersion: CURRENT_TERMS_VERSION,
         verificationStatus: nextStatus,
         submittedForReviewAt: now,
+        // CTO-25: signing the agreement finishes onboarding. The owner lands on
+        // the Command Center; branding, services and the website are optional
+        // Quick setup items there, never a gate in front of the product.
+        onboardingCompletedAt: tenant.onboardingCompletedAt ?? now,
         ...(autoApproved
           ? { reviewedAt: now, reviewedById: null, reviewNotes: 'Approved automatically' }
           : {}),
@@ -536,7 +541,7 @@ export async function signAgreement(clinicId: string, input: AgreementInput, act
           to: owner.email,
           name: owner.name ?? input.signerName,
           clinicName: tenant.name,
-          dashboardUrl: `${appUrl()}/welcome`,
+          dashboardUrl: `${appUrl()}/dashboard`,
         })
       )
     }

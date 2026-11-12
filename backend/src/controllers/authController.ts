@@ -134,6 +134,8 @@ const issueSessionAndRespond = async (
       preferences: true,
       mfaEnabled: true,
       customRole: { select: { id: true, name: true, permissions: true } },
+      // The owner-doctor's own Provider (CTO-14), for "Start scribe" (CTO-30).
+      provider: { select: { id: true, isActive: true } },
       clinic: {
         select: {
           id: true,
@@ -150,6 +152,8 @@ const issueSessionAndRespond = async (
               verificationStatus: true,
               submittedForReviewAt: true,
               reviewNotes: true,
+              // CTO-28: the console accent arrives with the session (no flash).
+              brand: { select: { primaryColor: true, secondaryColor: true } },
             },
           },
           // Which application steps are done (the onboarding gate).
@@ -579,6 +583,8 @@ export const me = asyncHandler(
         tourCompletedAt: true,
         preferences: true,
         mfaEnabled: true,
+        // The owner-doctor's own Provider (CTO-14), for "Start scribe" (CTO-30).
+        provider: { select: { id: true, isActive: true } },
         clinic: {
           select: {
             id: true,
@@ -595,6 +601,8 @@ export const me = asyncHandler(
                 verificationStatus: true,
                 submittedForReviewAt: true,
                 reviewNotes: true,
+                // CTO-28: the console accent arrives with the session (no flash).
+                brand: { select: { primaryColor: true, secondaryColor: true } },
               },
             },
             // Which application steps are done (the onboarding gate).

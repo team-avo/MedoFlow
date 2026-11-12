@@ -16,6 +16,13 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+const patchUser = vi.fn()
+const apiPatch = vi.fn().mockResolvedValue({})
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { preferences: {} }, patchUser }),
+}))
+vi.mock('@/lib/api', () => ({ default: { patch: (...a: unknown[]) => apiPatch(...a) } }))
+
 const savePractitioners = vi.fn()
 const getStatus = vi.fn()
 vi.mock('@/lib/onboardingApi', async (orig) => ({
@@ -101,19 +108,22 @@ describe('setup checklist', () => {
     ...o,
   })
 
-  it('lists application, review and setup items with deep links', () => {
+  it('lists application, review and Quick setup items with deep links; the website is optional', () => {
     const items = checklistItems(status())
     expect(items.map((i) => [i.key, i.done])).toEqual([
       ['application', false],
       ['review', false],
       ['brand', true],
       ['locations', true],
+      ['disciplines', true],
       ['services', false],
       ['providers', false],
       ['availability', false],
       ['website', false],
     ])
     expect(items.every((i) => i.href.startsWith('/dashboard/'))).toBe(true)
+    // CTO-23: only the website is optional.
+    expect(items.filter((i) => i.optional).map((i) => i.key)).toEqual(['website'])
     const approved = checklistItems(
       status({
         application: { practice: true, practitioners: true, agreement: true },
@@ -132,14 +142,46 @@ describe('setup checklist', () => {
       </QueryClientProvider>
     )
 
-  it('renders the remaining items with progress', async () => {
+  it('renders the remaining items with progress over the required items only', async () => {
     getStatus.mockResolvedValue(status())
     renderChecklist()
-    expect(await screen.findByText('2 of 8 done')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Publish your website/ })).toHaveAttribute(
-      'href',
-      '/dashboard/site'
+    expect(await screen.findByText('3 of 8 done')).toBeInTheDocument()
+    const website = screen.getByRole('link', { name: /Publish your website/ })
+    expect(website).toHaveAttribute('href', '/dashboard/site')
+    expect(website).toHaveTextContent('Optional')
+  })
+
+  it('collapses to one line, remembers the choice per user, and hides once the required items are done', async () => {
+    getStatus.mockResolvedValue(status())
+    const { unmount } = renderChecklist()
+    const toggle = await screen.findByRole('button', { name: /Quick setup/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(toggle)
+    expect(patchUser).toHaveBeenCalledWith({ preferences: { setupChecklistCollapsed: true } })
+    expect(apiPatch).toHaveBeenCalledWith('/auth/me', {
+      preferences: { setupChecklistCollapsed: true },
+    })
+    unmount()
+
+    getStatus.mockResolvedValue(
+      status({
+        application: { practice: true, practitioners: true, agreement: true },
+        verification: { status: 'APPROVED', submittedAt: null, reviewedAt: null, notes: null },
+        checklist: {
+          brand: true,
+          locations: true,
+          disciplines: true,
+          services: true,
+          providers: true,
+          availability: true,
+          website: false, // optional: doesn't keep the panel around
+        },
+      })
     )
+    const { container } = renderChecklist()
+    await vi.waitFor(() => expect(getStatus).toHaveBeenCalledTimes(3))
+    await new Promise((r) => setTimeout(r, 0))
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('renders nothing (instead of crashing the page) on a partial status', async () => {

@@ -74,8 +74,10 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     if (!user) return
     if (user.hasSeenTour) return
     if (!isTourSurface(pathname, user.role)) return
-    // For SUPER_ADMIN, don't start the tour until onboarding is complete
-    if (user.role === 'SUPER_ADMIN' && !user.clinic?.tenant?.onboardingCompletedAt) return
+    // CTO-19: a clinic owner lands on the Command Center straight after the
+    // application. Don't cover the tool with the tour's welcome dialog; the
+    // tour stays one click away in the help menu ("Restart tour").
+    if (user.role === 'SUPER_ADMIN') return
     const s = pickScript(user.role)
     if (!s) return
     autoStartedRef.current = true

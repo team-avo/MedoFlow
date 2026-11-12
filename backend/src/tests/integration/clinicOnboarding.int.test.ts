@@ -390,6 +390,9 @@ describe('the practice application', () => {
     expect(tenant.verificationStatus).toBe('PENDING_REVIEW')
     expect(tenant.submittedForReviewAt).not.toBeNull()
     expect(tenant.termsVersion).toBe('v2-2026-11')
+    // CTO-25: signing finishes onboarding, so the owner goes straight to the
+    // dashboard (in review, with the banner) instead of a setup wizard.
+    expect(tenant.onboardingCompletedAt).not.toBeNull()
     const agreements = await adminDb.clinicAgreement.findMany({ where: { clinicId: c.clinicId } })
     expect(agreements).toHaveLength(1)
     expect(agreements[0]).toMatchObject({

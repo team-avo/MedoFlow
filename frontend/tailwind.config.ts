@@ -42,6 +42,15 @@ const config: Config = {
           900: '#134e4a',
           950: '#042f2e',
         },
+        // The clinic's brand accent in the staff console (CTO-28). Set at
+        // runtime from the session (lib/consoleTheme.ts); defaults to MedoFlow
+        // teal. Always paired with brand-foreground, which passes AA on it.
+        brand: {
+          DEFAULT: 'rgb(var(--brand-rgb) / <alpha-value>)',
+          foreground: 'rgb(var(--brand-foreground-rgb) / <alpha-value>)',
+          strong: 'rgb(var(--brand-strong-rgb) / <alpha-value>)',
+          soft: 'rgb(var(--brand-soft-rgb) / <alpha-value>)',
+        },
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',

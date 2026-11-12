@@ -35,6 +35,14 @@
     --mf-teal: #0d9488;
     --mf-teal-hover: #0f766e;
     --mf-teal-wash: #f0fdfa;
+
+    /* Clinic brand accent for the staff console (CTO-28), as RGB channels.
+       Defaults to MedoFlow teal; lib/consoleTheme.ts overrides these with
+       the clinic's own colour (adjusted until text on it passes WCAG AA). */
+    --brand-rgb: 13 148 136;
+    --brand-foreground-rgb: 255 255 255;
+    --brand-strong-rgb: 15 118 110;
+    --brand-soft-rgb: 240 253 250;
   }
   .dark {
     --background: 222 84% 5%;

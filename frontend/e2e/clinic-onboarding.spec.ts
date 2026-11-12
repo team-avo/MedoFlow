@@ -4,8 +4,8 @@
  *  - The owner of a just-created clinic is held in the application until it
  *    is submitted: practice details (with NPI / EIN check-digit feedback) →
  *    practitioners → agreement + typed signature → "under review".
- *  - The setup wizard's Locations step saves the existing location (PATCH).
- *  - The dashboard shows the review banner and the setup checklist.
+ *  - Signing goes straight to the dashboard (CTO-25): the review banner and
+ *    the Quick setup checklist, with the website optional (CTO-23).
  *  - A platform admin works the review queue: opens the application, requests
  *    changes, then approves.
  */
@@ -96,7 +96,13 @@ async function mockOnboarding(page: Page, live: MockOnboarding) {
           return fail(route, 400, 'validation_error', 'Confirmation name does not match')
         app.progress.agreement = true
         app.verification = { ...app.verification, submittedAt: now }
-        live.tenant = { ...live.tenant, termsAcceptedAt: now, submittedForReviewAt: now }
+        // CTO-25: signing finishes onboarding.
+        live.tenant = {
+          ...live.tenant,
+          termsAcceptedAt: now,
+          submittedForReviewAt: now,
+          onboardingCompletedAt: now,
+        }
         return ok(route, {
           acceptedAt: now,
           version: 'v2-2026-11',
@@ -234,8 +240,9 @@ test('a new clinic owner completes the application, then sets up while under rev
   await dialog.getByLabel('Clinic name').fill(CLINIC_NAME)
   await dialog.getByRole('button', { name: 'Confirm & submit' }).click()
 
-  await expect(page).toHaveURL(/\/welcome$/)
-  await expect(page.getByRole('status')).toContainText('under review')
+  // CTO-25: straight to the dashboard, in review, with Quick setup there.
+  await expect(page).toHaveURL(/\/dashboard/)
+  await expect(page.getByTestId('verification-banner')).toContainText('Your clinic is under review')
   const agreement = calls.find((c) => c.key === 'POST /onboarding/agreement')!
   expect(agreement.body).toMatchObject({
     communications: true,
@@ -249,28 +256,27 @@ test('a new clinic owner completes the application, then sets up while under rev
       authorizedSignatory: true,
     },
   })
-  // The application is closed once signed.
+  // No setup wizard: no step was saved and onboarding was never "completed" by hand.
+  expect(calls.some((c) => c.key === 'PATCH /onboarding/step')).toBe(false)
+  expect(calls.some((c) => c.key === 'POST /onboarding/complete')).toBe(false)
+  // The application and the old wizard are closed once signed.
   await page.goto('/practice')
-  await expect(page).toHaveURL(/\/welcome$/)
-
-  // ── Setup wizard: the Locations step saves the existing location ──
-  await page.goto('/locations')
-  await page.getByRole('button', { name: 'Save & continue' }).click()
-  await expect(page).toHaveURL(/\/disciplines$/)
-  const patch = calls.find((c) => c.key === 'PATCH /locations/loc-1')!
-  expect(patch.body).toMatchObject({
-    name: 'Main Location',
-    city: 'Testville',
-    timezone: 'America/Chicago',
-  })
-
-  // ── Skip the rest → dashboard with the review banner and checklist ──
-  await page.getByRole('button', { name: /Skip setup for now/ }).click()
   await expect(page).toHaveURL(/\/dashboard/)
-  await expect(page.getByTestId('verification-banner')).toContainText('Your clinic is under review')
+  await page.goto('/brand')
+  await expect(page).toHaveURL(/\/dashboard/)
+
+  // ── Command Center: Quick setup, the website optional ──
   await page.goto('/dashboard/admin')
-  await expect(page.getByTestId('setup-checklist')).toContainText('Finish setting up your clinic')
-  await expect(page.getByTestId('setup-checklist')).toContainText('Clinic approved by MedoFlow')
+  const checklist = page.getByTestId('setup-checklist')
+  await expect(checklist).toContainText('Quick setup')
+  await expect(checklist).toContainText('Clinic approved by MedoFlow')
+  await expect(checklist.getByRole('link', { name: /Publish your website/ })).toContainText(
+    'Optional'
+  )
+  await expect(checklist.getByRole('link', { name: /Add bookable services/ })).toHaveAttribute(
+    'href',
+    '/dashboard/services'
+  )
 })
 
 test('changes requested: the owner sees the note and resubmits from the clinic profile', async ({

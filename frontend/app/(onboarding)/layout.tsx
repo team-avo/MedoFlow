@@ -8,8 +8,8 @@ import { LoadingSkeleton } from '@/components/ui-system'
 
 /**
  * Minimal layout for clinic onboarding: the practice application
- * (/practice → /practitioners → /agreement) and then the setup wizard
- * (/welcome … /done). No sidebar or topbar — the step shells render their
+ * (/practice → /practitioners → /agreement). The old setup wizard paths
+ * (/welcome … /done) only redirect (CTO-25). No sidebar or topbar — the step shells render their
  * own navigation. Who may be on which step is decided by the pure, unit-tested
  * `onboardingRedirect` (lib/routeGuards.ts).
  */

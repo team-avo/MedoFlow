@@ -74,7 +74,7 @@ export default function AgreementPage() {
         confirmClinicName: confirmText.trim(),
       })
       await refetchUser()
-      router.replace('/welcome')
+      router.replace('/dashboard')
     } catch (err) {
       setError(apiErrorOf(err).message)
       setSubmitting(false)
