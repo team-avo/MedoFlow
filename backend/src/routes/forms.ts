@@ -30,6 +30,14 @@ router.post(
   formController.createTemplate
 )
 
+// CTO-21: add the default patient intake form (idempotent).
+router.post(
+  '/templates/default',
+  authorize(Role.SUPER_ADMIN, Role.FRONT_DESK),
+  requireClinic,
+  formController.addDefaultTemplate
+)
+
 router.get(
   '/templates',
   authorize(Role.SUPER_ADMIN, Role.FRONT_DESK),

@@ -132,3 +132,11 @@ export const getResponsesByPatient = asyncHandler(
     successResponse(res, 200, 'Responses retrieved', { responses })
   }
 )
+
+/** POST /forms/templates/default (CTO-21): the default intake form, once. */
+export const addDefaultTemplate = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const result = await formService.ensureDefaultIntakeTemplate(req.clinicId!, req.user!.id)
+    successResponse(res, result.created ? 201 : 200, 'Default intake form ready', result)
+  }
+)

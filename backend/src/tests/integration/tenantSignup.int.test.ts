@@ -122,6 +122,11 @@ describe('what signup creates, and what it refuses', () => {
     expect(clinic.locations.map((l) => l.name)).toEqual(['Main Location'])
     const domain = await adminDb.siteDomain.findUniqueOrThrow({ where: { hostname: sub } })
     expect(domain).toMatchObject({ clinicId: clinic.id, isPrimary: true, status: 'VERIFIED' })
+    // CTO-21: the default patient intake form, with the conditions follow-up.
+    const intake = await adminDb.formTemplate.findFirstOrThrow({
+      where: { clinicId: clinic.id, name: 'Patient intake' },
+    })
+    expect(JSON.stringify(intake.fields)).toContain('Which conditions?')
   })
 
   it('refuses a duplicate owner email, a reserved or taken subdomain, and a label a site already holds', async () => {

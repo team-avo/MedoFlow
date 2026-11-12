@@ -6,7 +6,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import type { z } from 'zod'
 import type { FormTemplate, FormFieldDefinition } from '@/lib/formsApi'
 import { submitFormResponse } from '@/lib/formsApi'
-import { buildAnswersSchema } from '@/lib/schemas/clinicalRecords'
+import {
+  answeredYes,
+  buildAnswersSchema,
+  FOLLOW_UP_SUFFIX,
+  type FollowUpAnswer,
+} from '@/lib/schemas/clinicalRecords'
 import { extractApiError } from '@/lib/apiErrors'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 
@@ -31,7 +36,9 @@ export function DynamicFormRenderer({
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    watch,
+    setValue,
+    formState: { errors, isSubmitting, isSubmitted },
   } = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: Object.fromEntries(
@@ -44,6 +51,17 @@ export function DynamicFormRenderer({
   })
 
   const [submitError, setSubmitError] = React.useState<string | null>(null)
+  const values = watch() as Record<string, unknown>
+
+  // CTO-21: a follow-up only exists while its question is answered Yes.
+  React.useEffect(() => {
+    for (const f of (template.fields as FormFieldDefinition[]) ?? []) {
+      const key = `${f.id}${FOLLOW_UP_SUFFIX}`
+      if (f.followUp && !answeredYes(f, values[f.id]) && values[key]) {
+        setValue(key, undefined)
+      }
+    }
+  }, [values, template.fields, setValue])
 
   const onSubmit = async (values: Record<string, unknown>) => {
     setSubmitError(null)
@@ -177,6 +195,21 @@ export function DynamicFormRenderer({
                   {(errors as Record<string, { message?: string }>)[field.id]?.message}
                 </p>
               )}
+
+              {field.followUp && answeredYes(field, values[field.id]) && (
+                <FollowUpQuestion
+                  field={field}
+                  value={values[`${field.id}${FOLLOW_UP_SUFFIX}`] as FollowUpAnswer | undefined}
+                  onChange={(v) =>
+                    setValue(`${field.id}${FOLLOW_UP_SUFFIX}`, v, { shouldValidate: isSubmitted })
+                  }
+                  error={
+                    (errors as Record<string, { message?: string }>)[
+                      `${field.id}${FOLLOW_UP_SUFFIX}`
+                    ]?.message
+                  }
+                />
+              )}
             </div>
           ))}
 
@@ -197,5 +230,81 @@ export function DynamicFormRenderer({
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * "Which ones?" for a yes/no question answered Yes (CTO-21): tick any listed
+ * option and, when allowed, type others.
+ */
+function FollowUpQuestion({
+  field,
+  value,
+  onChange,
+  error,
+}: {
+  field: FormFieldDefinition
+  value: FollowUpAnswer | undefined
+  onChange: (v: FollowUpAnswer) => void
+  error?: string
+}) {
+  const fu = field.followUp!
+  const selected = value?.selected ?? []
+  const other = value?.other ?? ''
+  const [otherOn, setOtherOn] = React.useState(other.length > 0)
+  const toggle = (v: string, on: boolean) =>
+    onChange({
+      selected: on ? [...selected, v] : selected.filter((s) => s !== v),
+      ...(otherOn ? { other } : {}),
+    })
+  return (
+    <fieldset
+      className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
+      data-testid={`followup-${field.id}`}
+    >
+      <legend className="px-1 text-sm font-medium text-gray-700">
+        {fu.label}
+        {fu.required !== false && <span className="text-red-500"> *</span>}
+      </legend>
+      <div className="grid gap-1.5 sm:grid-cols-2">
+        {fu.options.map((o) => (
+          <label key={o.value} className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300"
+              checked={selected.includes(o.value)}
+              onChange={(e) => toggle(o.value, e.target.checked)}
+            />
+            {o.label}
+          </label>
+        ))}
+        {fu.allowOther && (
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300"
+              checked={otherOn}
+              onChange={(e) => {
+                setOtherOn(e.target.checked)
+                onChange({ selected, ...(e.target.checked ? { other } : {}) })
+              }}
+            />
+            Other
+          </label>
+        )}
+      </div>
+      {fu.allowOther && otherOn && (
+        <input
+          type="text"
+          aria-label={`${fu.label}: other`}
+          placeholder="Please describe"
+          maxLength={2000}
+          value={other}
+          onChange={(e) => onChange({ selected, other: e.target.value })}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
+      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+    </fieldset>
   )
 }

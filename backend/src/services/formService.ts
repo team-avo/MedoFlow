@@ -1,3 +1,7 @@
+import {
+  DEFAULT_INTAKE_TEMPLATE,
+  DEFAULT_INTAKE_TEMPLATE_NAME,
+} from '../config/defaultIntakeTemplate'
 import type { Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
@@ -352,4 +356,21 @@ export const getResponsesByPatient = async (
     },
     orderBy: { createdAt: 'desc' },
   })
+}
+
+/**
+ * Adds the default patient intake form (CTO-21) to a clinic, once: a clinic
+ * that already has a template with that name keeps it. Returns the template.
+ */
+export const ensureDefaultIntakeTemplate = async (clinicId: string, performedById: string) => {
+  const existing = await prisma.formTemplate.findFirst({
+    where: { clinicId, name: DEFAULT_INTAKE_TEMPLATE_NAME },
+  })
+  if (existing) return { template: existing, created: false }
+  const template = await createTemplate(
+    DEFAULT_INTAKE_TEMPLATE as unknown as CreateTemplateData,
+    clinicId,
+    performedById
+  )
+  return { template, created: true }
 }

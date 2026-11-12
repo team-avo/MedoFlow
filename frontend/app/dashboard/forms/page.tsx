@@ -12,6 +12,7 @@ const genId = () => `field_${Date.now()}_${++_idCounter}`
 import {
   listTemplates,
   createTemplate,
+  addDefaultIntakeTemplate,
   updateTemplate,
   disableTemplate,
   type FormTemplate,
@@ -75,6 +76,20 @@ function FieldRow({
   const [optionsText, setOptionsText] = useState(
     field.options?.map((o) => o.label).join('\n') ?? ''
   )
+
+  // CTO-21: "which ones?" asked when this yes/no question is answered Yes.
+  const yesNo =
+    field.type === 'checkbox' ||
+    (field.type === 'select' && (field.options ?? []).some((o) => o.value === 'yes'))
+  const [followUpText, setFollowUpText] = useState(
+    field.followUp?.options.map((o) => o.label).join('\n') ?? ''
+  )
+  const followUpOptions = (text: string) =>
+    text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => ({ value: line.toLowerCase().replace(/\s+/g, '_'), label: line }))
 
   const handleOptionsBlur = () => {
     const options = optionsText
@@ -156,6 +171,70 @@ function FieldRow({
                 className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                 placeholder="Option one&#10;Option two&#10;Option three"
               />
+            </div>
+          )}
+          {yesNo && (
+            <div className="space-y-2 rounded-lg border border-dashed border-slate-300 p-3">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                <Checkbox
+                  checked={!!field.followUp}
+                  onCheckedChange={(checked) =>
+                    onChange({
+                      ...field,
+                      followUp:
+                        checked === true
+                          ? {
+                              label: 'Which ones?',
+                              options: followUpOptions(followUpText),
+                              allowOther: true,
+                              required: true,
+                            }
+                          : undefined,
+                    })
+                  }
+                />
+                When the answer is Yes, ask which ones
+              </label>
+              {field.followUp && (
+                <>
+                  <AppInput
+                    aria-label="Follow-up question"
+                    value={field.followUp.label}
+                    onChange={(e) =>
+                      onChange({
+                        ...field,
+                        followUp: { ...field.followUp!, label: e.target.value },
+                      })
+                    }
+                  />
+                  <textarea
+                    rows={3}
+                    aria-label="Follow-up options (one per line)"
+                    value={followUpText}
+                    onChange={(e) => setFollowUpText(e.target.value)}
+                    onBlur={() =>
+                      onChange({
+                        ...field,
+                        followUp: { ...field.followUp!, options: followUpOptions(followUpText) },
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
+                    placeholder="Diabetes&#10;High blood pressure"
+                  />
+                  <label className="flex items-center gap-2 text-xs text-slate-600">
+                    <Checkbox
+                      checked={field.followUp.allowOther ?? false}
+                      onCheckedChange={(checked) =>
+                        onChange({
+                          ...field,
+                          followUp: { ...field.followUp!, allowOther: checked === true },
+                        })
+                      }
+                    />
+                    Include &quot;Other&quot; with free text
+                  </label>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -453,6 +532,18 @@ export default function FormsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState<FormTemplate | null>(null)
 
+  const addDefault = async () => {
+    try {
+      const { created } = await addDefaultIntakeTemplate()
+      await queryClient.invalidateQueries({ queryKey: ['formTemplates'] })
+      toast.success(
+        created ? 'Default intake form added' : 'The default intake form is already here'
+      )
+    } catch {
+      toast.error('Could not add the default intake form')
+    }
+  }
+
   const {
     data: templates,
     isLoading,
@@ -498,16 +589,25 @@ export default function FormsPage() {
         title="Form Templates"
         description="Manage intake and visit forms shown to patients."
         actions={
-          <AppButton
-            onClick={() => {
-              setEditingTemplate(null)
-              setDialogOpen(true)
-            }}
-            className="rounded-full shadow-md px-6"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Template
-          </AppButton>
+          <div className="flex flex-wrap gap-2">
+            <AppButton
+              variant="outline"
+              onClick={() => void addDefault()}
+              className="rounded-full px-5"
+            >
+              Add default intake form
+            </AppButton>
+            <AppButton
+              onClick={() => {
+                setEditingTemplate(null)
+                setDialogOpen(true)
+              }}
+              className="rounded-full shadow-md px-6"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </AppButton>
+          </div>
         }
       />
 

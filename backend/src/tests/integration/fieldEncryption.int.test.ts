@@ -143,6 +143,62 @@ describe('B3.2 intake answers', () => {
   })
 })
 
+describe('CTO-21 intake follow-up: "Which conditions?" when the answer is Yes', () => {
+  it('the default intake form asks which conditions on Yes; the answer is sealed at rest', async () => {
+    const admin = (await login(server.url, C.users.admin.email)).accessToken
+    const added = await api(server.url, '/forms/templates/default', { token: admin, body: {} })
+    expect([200, 201]).toContain(added.status)
+    // Idempotent: a second call returns the same template.
+    const again = await api(server.url, '/forms/templates/default', { token: admin, body: {} })
+    expect(again.status).toBe(200)
+    expect(again.body.data.template.id).toBe(added.body.data.template.id)
+    const templateId = added.body.data.template.id as string
+
+    const send = (responses: Record<string, unknown>) =>
+      api(server.url, '/forms/respond', { token: patient, body: { templateId, responses } })
+
+    // Yes without saying which is refused; a choice not offered is refused.
+    expect((await send({ reason: 'Synthetic: check-up', existingConditions: 'yes' })).status).toBe(
+      400
+    )
+    expect(
+      (
+        await send({
+          reason: 'Synthetic: check-up',
+          existingConditions: 'yes',
+          existingConditions__followUp: { selected: ['made-up'] },
+        })
+      ).status
+    ).toBe(400)
+
+    const answers = {
+      reason: 'Synthetic: check-up',
+      existingConditions: 'yes',
+      existingConditions__followUp: { selected: ['diabetes', 'thyroid'], other: 'Synthetic gout' },
+    }
+    const res = await send(answers)
+    expect(res.status, JSON.stringify(res.body)).toBe(201)
+    const raw = await adminDb.formResponse.findUniqueOrThrow({
+      where: { id: res.body.data.response.id },
+    })
+    expect(isSealed(raw.responses)).toBe(true)
+    expect(JSON.stringify(raw.responses)).not.toMatch(/diabetes|gout/i)
+
+    // Staff see the selected conditions.
+    const list = await api(server.url, `/forms/patient/${C.users.patient.id}`, { token: admin })
+    expect(list.status, JSON.stringify(list.body).slice(0, 300)).toBe(200)
+    expect(
+      list.body.data.responses.find((r: { id: string }) => r.id === raw.id).responses
+        .existingConditions__followUp
+    ).toEqual({ selected: ['diabetes', 'thyroid'], other: 'Synthetic gout' })
+
+    // No: nothing more is asked.
+    expect((await send({ reason: 'Synthetic: check-up', existingConditions: 'no' })).status).toBe(
+      201
+    )
+  })
+})
+
 describe('B3.2 scribe transcripts, AI drafts and voice transcripts', () => {
   it('JSON and text columns round-trip through the app client; ciphertext at rest', async () => {
     const draft = { subjective: 'Synthetic draft S', plan: 'Synthetic draft P' }
