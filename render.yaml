@@ -95,8 +95,14 @@ services:
         value: k1
       - key: ALERT_WEBHOOK_URL # B0.6.5: Slack-compatible incoming webhook for security alerts
         sync: false
-      - key: REDIS_URL # redis:// or rediss:// (eviction policy must be noeviction)
+      - key: REDIS_URL # Upstash rediss:// URL (eviction must be off / noeviction)
         sync: false
+      # BullMQ idle polling (queues/redisConnection.ts). Defaults keep both idle
+      # workers near 1.7k Redis commands a day, well inside a free tier. Lower
+      # values cost commands; only set these to raise them or to fit a provider
+      # that cuts blocking calls short.
+      # - key: BULLMQ_DRAIN_DELAY_SECONDS   # default 300
+      # - key: BULLMQ_STALLED_INTERVAL_MS   # default 300000
       - key: GROQ_API_KEY # AI front desk (voice agent); optional
         sync: false
       - key: STRIPE_SECRET_KEY
