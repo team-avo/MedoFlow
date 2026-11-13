@@ -37,7 +37,7 @@ export interface FileStorageDriver {
   /** The first `bytes` bytes of a stored object. */
   readHead(key: string, bytes: number): Promise<Buffer>
   delete(key: string): Promise<void>
-  /** Server-side write — maintenance only (migrating legacy disk files). */
+  /** Server-side write: maintenance only (migrating legacy disk files). */
   putObject(key: string, body: Buffer, contentType: string): Promise<void>
 }
 

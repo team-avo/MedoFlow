@@ -1,5 +1,5 @@
 /**
- * F0.2.1 — after the idle window the user sees a warning, then is signed
+ * F0.2.1: after the idle window the user sees a warning, then is signed
  * out, and protected data is cleared from the screen.
  */
 import { expect, test } from '@playwright/test'

@@ -1,7 +1,7 @@
 /**
  * One-off script: set password for a user by email.
  * Usage: npx ts-node -r dotenv/config scripts/set-password.ts
- * Required env: SET_PASSWORD_EMAIL and SET_PASSWORD_PLAIN (no defaults — never commit real accounts or passwords).
+ * Required env: SET_PASSWORD_EMAIL and SET_PASSWORD_PLAIN (no defaults: never commit real accounts or passwords).
  */
 import 'dotenv/config'
 import bcrypt from 'bcryptjs'

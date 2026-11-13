@@ -1,7 +1,7 @@
 /**
  * Building blocks every section and site setting is made of: typed links,
  * image references, colours and bounded text. Raw in-site URLs are never
- * stored — a link names its target (page, service, route…) and is resolved
+ * stored: a link names its target (page, service, route…) and is resolved
  * to a path at render time, so renaming a slug never breaks a menu.
  */
 import { z } from 'zod'
@@ -83,5 +83,5 @@ export const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Colours are #rrgg
 
 export const shortText = (max = 160) => z.string().max(max).default('')
 export const longText = (max = 2000) => z.string().max(max).default('')
-/** Safe markdown subset (bold, italic, links, lists) — rendered without HTML. */
+/** Safe markdown subset (bold, italic, links, lists), rendered without HTML. */
 export const markdownText = (max = 10000) => z.string().max(max).default('')

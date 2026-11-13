@@ -1,10 +1,10 @@
 /**
  * Fonts for clinic sites (theme font pairs, lib/site/theme.ts). Self-hosted
- * from app/fonts/site (SIL OFL 1.1 — licences alongside): the latin woff2s
+ * from app/fonts/site (SIL OFL 1.1: licences alongside): the latin woff2s
  * Google Fonts serves, kept in the repo so `next build` never downloads fonts
- * (next/font/google could crash the build — see app/layout.tsx).
+ * (next/font/google could crash the build, see app/layout.tsx).
  * `preload: false` so a page only downloads the faces its theme uses.
- * (next/font needs literal options at every call — no shared spread.)
+ * (next/font needs literal options at every call, no shared spread.)
  */
 import localFont from 'next/font/local'
 

@@ -1,5 +1,5 @@
 /**
- * FR-3 … FR-7 / B2.2 — the scribe's AI steps against a scripted LLM.
+ * FR-3 … FR-7 / B2.2, the scribe's AI steps against a scripted LLM.
  * Schema-validated output, one repair pass, no "[object Object]", dose kept
  * separate, prior-visit context in the prompt, idempotent speaker labels.
  */

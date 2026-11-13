@@ -87,7 +87,7 @@ export const joinByToken = asyncHandler(
   }
 )
 
-/** GET /consultations/join/:token/video-token — Get room info via join token (for patients)
+/** GET /consultations/join/:token/video-token: Get room info via join token (for patients)
  *
  *  Mints a per-patient, non-moderator JaaS JWT so the patient can join the
  *  same room the provider created. The provider is always the moderator.
@@ -150,6 +150,19 @@ export const grantConsent = asyncHandler(
   }
 )
 
+/** POST /consultations/:id/consent/attest: the provider records verbal consent (in person). */
+export const attestConsent = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const { providerId } = await providerScope(req)
+    const session = await consultationService.attestVerbalConsent(
+      req.params.id as string,
+      providerId,
+      req.user!.id
+    )
+    successResponse(res, 200, 'Consent recorded', { session })
+  }
+)
+
 /** POST /consultations/:id/consent/decline */
 export const declineConsent = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -179,7 +192,7 @@ export const stopRecording = asyncHandler(
   }
 )
 
-/** POST /consultations/:id/live-transcript — one live-caption segment (WS2). */
+/** POST /consultations/:id/live-transcript: one live-caption segment (WS2). */
 export const liveTranscript = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { providerId } = await providerScope(req)
@@ -312,7 +325,7 @@ async function logVideoToken(
   })
 }
 
-/** POST /consultations/:id/video-room — Create (or reuse) the call room
+/** POST /consultations/:id/video-room: Create (or reuse) the call room
  *
  *  Only the session's own provider may open the room; they join as moderator.
  *  The patient gets a non-moderator token from /join/:token/video-token.
@@ -379,7 +392,7 @@ export const createVideoRoom = asyncHandler(
   }
 )
 
-/** GET /consultations/:id/video-token — Rejoin the existing room
+/** GET /consultations/:id/video-token: Rejoin the existing room
  *
  *  For the session's own patient (participant) or the session's own provider
  *  (moderator), e.g. after a tab refresh mid-call. Anyone else gets 404, the
@@ -424,5 +437,33 @@ export const getVideoToken = asyncHandler(
     await logVideoToken(req, session, isProvider, 'session')
 
     successResponse(res, 200, 'Video room info', videoRoomPayload(room))
+  }
+)
+
+/**
+ * POST /consultations/:id/video/auto-ended (CTO-35): the call ended itself
+ * after everyone else left and nobody answered "Are you still there?".
+ * Audited with ids only. The session's own provider or patient only.
+ */
+export const videoAutoEnded = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const sessionId = req.params.id as string
+    const session = await prisma.consultationSession.findUnique({
+      where: { id: sessionId, ...clinicScope() },
+      select: { id: true, clinicId: true, patientId: true, provider: { select: { userId: true } } },
+    })
+    const user = req.user!
+    const mine = !!session && (session.patientId === user.id || session.provider.userId === user.id)
+    if (!session || !mine) throw apiError('Consultation session not found', 404)
+    await auditService.logAudit({
+      clinicId: session.clinicId,
+      entityType: 'ConsultationSession',
+      entityId: session.id,
+      action: 'VIDEO_CALL_AUTO_ENDED',
+      newValue: { by: user.role === 'PATIENT' ? 'patient' : 'provider' },
+      performedById: user.id,
+      ...auditService.requestMeta(req),
+    })
+    successResponse(res, 200, 'Recorded', { sessionId: session.id })
   }
 )

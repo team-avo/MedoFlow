@@ -3,7 +3,7 @@
  *
  * A clinic site on its own domain is a different browser *site* from the app,
  * so the refresh cookie a patient got when signing in on the app never reaches
- * it (SameSite=None + Partitioned in production, Lax locally — ADR 0005). The
+ * it (SameSite=None + Partitioned in production, Lax locally, ADR 0005). The
  * booking page there would then ask a signed-in patient to sign in again.
  *
  * The handoff is a short top-level bounce through the app host:

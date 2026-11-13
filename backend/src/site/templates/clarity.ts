@@ -75,7 +75,7 @@ export const clarity: SiteTemplate = {
     homeMenu: { items: DEFAULT_HOME_MENU },
     announcement: {
       enabled: true,
-      text: 'Now booking flu and seasonal vaccinations — walk-ins welcome on weekday mornings.',
+      text: 'Now booking flu and seasonal vaccinations. Walk-ins welcome on weekday mornings.',
       link: { kind: 'route', route: 'services' },
     },
     social: {},
@@ -97,7 +97,7 @@ export const clarity: SiteTemplate = {
           eyebrow: 'Primary care, made simple',
           headline: 'Healthcare that starts with listening',
           subheadline:
-            'Same-week appointments with doctors who take the time to understand you. Book online in under a minute — in person or by video.',
+            'Same-week appointments with doctors who take the time to understand you. Book online in under a minute, in person or by video.',
           primaryCta: bookCta('Book a visit'),
           secondaryCta: routeCta('Explore services', 'services'),
           image: { src: '/site-samples/hero-clarity.svg', alt: 'A bright, welcoming clinic' },
@@ -136,7 +136,7 @@ export const clarity: SiteTemplate = {
           items: [
             {
               title: 'Choose a time',
-              text: 'Pick a service and a time that suits you — online, 24/7.',
+              text: 'Pick a service and a time that suits you, online, 24/7.',
             },
             { title: 'Meet your doctor', text: 'Visit us in person or join securely by video.' },
             {

@@ -317,7 +317,7 @@ function SiteEditor() {
       await siteApi.publishSite([pageId])
       invalidate()
       void qc.invalidateQueries({ queryKey: ['site', 'page', pageId] })
-      toast.success('Published — your changes are live')
+      toast.success('Published. Your changes are live')
     } catch (e) {
       toast.error(siteErrorMessage(e, 'Could not publish'))
     } finally {

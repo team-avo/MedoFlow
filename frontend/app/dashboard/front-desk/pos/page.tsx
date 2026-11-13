@@ -224,7 +224,7 @@ export default function PointOfSalePage() {
 
   return (
     // On lg+ we lock to h-screen and use dual internal scroll (desktop app feel).
-    // On smaller screens we stack and let the page scroll — two tiny scroll
+    // On smaller screens we stack and let the page scroll, two tiny scroll
     // panes on a phone is a usability disaster.
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-slate-50 lg:h-[calc(100vh-3.5rem)] lg:overflow-hidden">
       <div className="border-b bg-white px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
@@ -334,7 +334,7 @@ export default function PointOfSalePage() {
           </div>
         </div>
 
-        {/* Right side: Operations Sidebar — stacks below catalog on mobile,
+        {/* Right side: Operations Sidebar: stacks below catalog on mobile,
             fixed 450-wide column on lg+. */}
         <div className="z-10 flex w-full flex-col border-t border-slate-200 bg-white lg:w-[450px] lg:border-l lg:border-t-0 lg:shadow-lg">
           <div className="p-6 border-b bg-slate-50/50 space-y-4">
@@ -388,7 +388,7 @@ export default function PointOfSalePage() {
             )}
           </div>
 
-          {/* Cart Items — scrolls within the sidebar on lg+; natural page scroll on mobile */}
+          {/* Cart Items: scrolls within the sidebar on lg+; natural page scroll on mobile */}
           <div className="flex-1 space-y-4 p-6 lg:overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-widest">

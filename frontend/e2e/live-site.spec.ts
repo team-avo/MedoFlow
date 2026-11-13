@@ -1,5 +1,5 @@
 /**
- * Component 8 — LIVE front-end ↔ back-end check of the website builder (no
+ * Component 8: LIVE front-end ↔ back-end check of the website builder (no
  * mocks): real API, real Postgres with RLS + field encryption, real host
  * routing through <clinic-slug>.localhost (Chromium resolves *.localhost to
  * loopback). Opt-in: runs only when E2E_LIVE_API is set. See the Component 8
@@ -102,7 +102,7 @@ test('a draft edit stays private until it is published again', async ({ page }) 
   expect(body).not.toContain('Private live draft headline')
 
   await page.getByTestId('publish-page').click()
-  await expect(page.getByText('Published — your changes are live')).toBeVisible()
+  await expect(page.getByText('Published. Your changes are live')).toBeVisible()
   await page.goto(`${host()}/`)
   await expect(
     page.getByRole('heading', { level: 1, name: 'Private live draft headline' })
@@ -121,7 +121,7 @@ test('contact form on the clinic host → sealed enquiry → audited read in the
   await page.waitForTimeout(3000)
   await page.getByRole('button', { name: 'Send message' }).click()
   await expect(
-    page.getByText('Thank you — a member of our team will reply within one business day.')
+    page.getByText('Thank you. A member of our team will reply within one business day.')
   ).toBeVisible()
 
   await signIn(page, '/dashboard/site/leads')

@@ -1,4 +1,4 @@
-/** /api/v1/site/leads — contact-form enquiries (PHI; owners + front desk). */
+/** /api/v1/site/leads: contact-form enquiries (PHI; owners + front desk). */
 import { Router } from 'express'
 import { z } from 'zod'
 import { asyncHandler } from '../../../utils/asyncHandler'

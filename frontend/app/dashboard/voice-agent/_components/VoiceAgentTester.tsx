@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * VoiceAgentTester — Groq-powered push-to-talk voice agent.
+ * VoiceAgentTester: Groq-powered push-to-talk voice agent.
  *
  * Flow per turn:
  *   1. User holds the big Talk button (mouse/touch) → MediaRecorder captures mic.
@@ -160,7 +160,7 @@ export function VoiceAgentTester() {
     setState('starting')
 
     try {
-      // Mic permission early — if denied, fail fast.
+      // Mic permission early: if denied, fail fast.
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
@@ -229,7 +229,7 @@ export function VoiceAgentTester() {
     try {
       const blob = await stopPromise
       if (blob.size < 1000) {
-        // Too short — just go back to live.
+        // Too short: just go back to live.
         setState('live')
         return
       }
@@ -297,7 +297,7 @@ export function VoiceAgentTester() {
       return
     }
     if (state === 'speaking') {
-      // Barge-in — interrupt the agent and start listening immediately.
+      // Barge-in: interrupt the agent and start listening immediately.
       stopAudio()
       setState('live')
       // After state flush, begin recording.
@@ -423,7 +423,7 @@ export function VoiceAgentTester() {
                     : state === 'thinking'
                       ? 'Hang on, working on it…'
                       : state === 'speaking'
-                        ? 'Agent is replying — click mic to interrupt'
+                        ? 'Agent is replying. Click the mic to interrupt'
                         : ''}
               </p>
               <button

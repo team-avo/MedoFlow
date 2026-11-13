@@ -1,5 +1,5 @@
 /**
- * RFC 6238 TOTP (HMAC-SHA1, 30-second step, 6 digits) — what Google
+ * RFC 6238 TOTP (HMAC-SHA1, 30-second step, 6 digits), what Google
  * Authenticator, 1Password, Authy and Microsoft Authenticator use. Built on
  * node:crypto so no third-party code sits in the MFA path.
  */

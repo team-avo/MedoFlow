@@ -16,8 +16,10 @@ import {
   normalizeDea,
   normalizeEin,
   normalizeNpi,
+  isValidPracticeTypeOther,
   PRACTICE_TYPE_KEYS,
   US_STATE_CODES,
+  US_ZIP,
 } from '../utils/practiceIds'
 
 const requiredText = (label: string, max = 200) =>
@@ -62,9 +64,10 @@ const state = z
   .transform((v) => v.toUpperCase())
 const optionalState = blankable(isState, 'Choose a US state', (v) => v.toUpperCase())
 
-const ZIP = /^\d{5}(-\d{4})?$/
-const zip = z.string().trim().regex(ZIP, 'Enter a 5-digit ZIP code')
-const optionalZip = blankable((v) => ZIP.test(v), 'Enter a 5-digit ZIP code')
+// CTO-22: US-only addresses; same rule on both sides (practice-lists.json).
+const ZIP_MESSAGE = 'Enter a 5-digit ZIP or ZIP+4'
+const zip = z.string().trim().regex(US_ZIP, ZIP_MESSAGE)
+const optionalZip = blankable((v) => US_ZIP.test(v), ZIP_MESSAGE)
 
 /** "www.clinic.com" or "https://clinic.com" → a normalised https URL. */
 function toWebsite(v: string): string | null {
@@ -92,6 +95,8 @@ export const practiceDetailsBody = z
     practiceType: z.enum(PRACTICE_TYPE_KEYS as [string, ...string[]], {
       message: 'Choose a practice type',
     }),
+    /** Required (2 to 80 characters) when practiceType is OTHER (CTO-18). */
+    practiceTypeOther: optionalText(80),
     locationCount: z.coerce.number().int().min(1).max(500),
 
     // Primary location (written to the clinic's first location)
@@ -112,10 +117,11 @@ export const practiceDetailsBody = z
     primaryContactName: requiredText('Primary contact name'),
     primaryContactEmail: email,
     primaryContactPhone: optionalPhone,
-    officeManagerName: optionalText(200),
-    officeManagerEmail: optionalEmail,
-    accountsPayableName: optionalText(200),
-    accountsPayableEmail: optionalEmail,
+    // CTO-17: one optional secondary contact (office manager and accounts
+    // payable are no longer asked; unknown keys are stripped).
+    secondaryContactName: optionalText(200),
+    secondaryContactEmail: optionalEmail,
+    secondaryContactPhone: optionalPhone,
 
     // Mailing / billing address
     mailingSameAsPrimary: z.boolean(),
@@ -128,6 +134,8 @@ export const practiceDetailsBody = z
     // Regulatory identifiers
     noNpi: z.boolean(),
     groupNpi: optionalNpi,
+    /** CTO-29: why a registry mismatch is fine (wrong type, not found, deactivated). */
+    groupNpiOverrideReason: optionalText(300),
     /** Omitted on an edit = keep the number on file (the API only returns it masked). */
     federalTaxId: z
       .string()
@@ -146,9 +154,16 @@ export const practiceDetailsBody = z
     // About the account
     estimatedSeats: z.coerce.number().int().min(1).max(1000),
     referralSource: optionalText(200),
-    salesRep: optionalText(100),
+    // CTO-04: "Sales rep" is gone; a client that still sends it is fine (stripped).
   })
   .superRefine((v, ctx) => {
+    if (v.practiceType === 'OTHER' && !isValidPracticeTypeOther(v.practiceTypeOther)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['practiceTypeOther'],
+        message: 'Type your practice type (2 to 80 characters)',
+      })
+    }
     if (!v.noNpi && !v.groupNpi) {
       ctx.addIssue({
         code: 'custom',
@@ -182,8 +197,14 @@ export const practitionerBody = z.object({
   licenseNumber: optionalText(50),
   licenseState: optionalState,
   npi: optionalNpi,
+  /** CTO-29: why a registry mismatch on this NPI is fine. */
+  npiOverrideReason: optionalText(300),
+  /** Founder, CEO, Medical Director… (PRACTITIONER_TITLES) or free text (CTO-16). */
+  title: optionalText(80),
   isOwner: z.boolean(),
   isSelf: z.boolean(),
+  /** Only meaningful on the owner's own row (CTO-14): false for a non-clinical owner. */
+  seesPatients: z.boolean().optional().default(true),
 })
 
 export type PractitionerInput = z.infer<typeof practitionerBody>
@@ -201,7 +222,7 @@ export const practitionersBody = z
       ctx.addIssue({
         code: 'custom',
         path: ['practitioners'],
-        message: 'Mark exactly one practitioner as the owner on record',
+        message: 'Mark exactly one practitioner as the primary account holder',
       })
     }
     if (v.practitioners.filter((p) => p.isSelf).length > 1) {
@@ -248,9 +269,10 @@ export const agreementBody = z.object({
   communications: z.boolean(),
   signerName: requiredText('Your full name'),
   signerTitle: requiredText('Your title', 100),
-  /** Typed signature — must match signerName. */
+  /** Typed signature: must match signerName. */
   signature: requiredText('Signature'),
-  confirmClinicName: z.string().trim().min(1).max(200),
+  /** Required only when ONBOARDING_CONFIRM_NAME is on (CTO-10); checked in the service. */
+  confirmClinicName: z.string().trim().max(200).optional(),
 })
 
 export type AgreementInput = z.infer<typeof agreementBody>

@@ -32,7 +32,7 @@ const patientClinicId = async (req: Request): Promise<string> => {
   return clinicId
 }
 
-/** POST /files/uploads — step 1: presigned upload URL. */
+/** POST /files/uploads: step 1: presigned upload URL. */
 export const createUpload = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const body = req.body as z.infer<typeof createUploadIntentSchema>
@@ -51,7 +51,7 @@ export const createUpload = asyncHandler(
   }
 )
 
-/** POST /files/:id/complete — step 2: verify the stored object. */
+/** POST /files/:id/complete: step 2: verify the stored object. */
 export const completeUpload = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const result = await fileService.completeUpload(req.params.id as string, req.clinicId!, req)
@@ -83,7 +83,7 @@ export const listMyFiles = asyncHandler(
   }
 )
 
-/** GET /files/:id/download-url — staff; time-limited presigned GET. */
+/** GET /files/:id/download-url: staff; time-limited presigned GET. */
 export const downloadUrl = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const grant = await fileService.getStaffDownloadUrl(
@@ -96,7 +96,7 @@ export const downloadUrl = asyncHandler(
   }
 )
 
-/** GET /files/patient/me/:id/download-url — patient; own files only. */
+/** GET /files/patient/me/:id/download-url: patient; own files only. */
 export const myDownloadUrl = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const grant = await fileService.getPatientDownloadUrl(

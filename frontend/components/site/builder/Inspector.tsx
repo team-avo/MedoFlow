@@ -41,7 +41,7 @@ export function SectionInspector({
           role="alert"
           className="flex items-start gap-1.5 rounded-lg bg-red-50 p-2 text-xs text-red-700"
         >
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {check.error} — fix this to save
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {check.error}: fix this to save
           the page.
         </p>
       )}

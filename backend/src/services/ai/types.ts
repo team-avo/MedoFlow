@@ -2,8 +2,8 @@
  * The AI scribe's provider contract (B2.1, docs/adr/0006).
  *
  * The scribe pipeline only ever talks to these two interfaces. Which vendor
- * sits behind them — OpenAI, Azure OpenAI, Groq, Gemini / Vertex AI, a
- * self-hosted Ollama or whisper server, or the in-process mock — is chosen
+ * sits behind them: OpenAI, Azure OpenAI, Groq, Gemini / Vertex AI, a
+ * self-hosted Ollama or whisper server, or the in-process mock, is chosen
  * by AI_SCRIBE_* configuration (see ./config.ts), so switching vendors is a
  * config change, never a code change.
  */

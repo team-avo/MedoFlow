@@ -1,5 +1,5 @@
 /**
- * Clinic onboarding — practice application, signed agreement, platform review
+ * Clinic onboarding: practice application, signed agreement, platform review
  * and the go-live gate.
  *
  *  - A clinic that signs up is PENDING_REVIEW: none of its public surfaces
@@ -19,6 +19,8 @@ import * as argon2 from 'argon2'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { adminDb, api, FIXTURE_PASSWORD, login, startServer, type TestServer } from './helpers'
 import { createClinicFixture } from './fixtures'
+import { setNpiFetchForTests } from '../../services/npiRegistryService'
+import { NPPES_INDIVIDUAL, NPPES_NOT_FOUND, NPPES_ORGANISATION } from '../fixtures/nppes'
 
 let server: TestServer
 let platformToken: string
@@ -167,6 +169,21 @@ async function completeApplication(c: SignedUp) {
   })
   expect(a.status, JSON.stringify(a.body)).toBe(200)
   return a
+}
+
+/** Practitioners + agreement for a clinic whose practice details are saved. */
+async function completeRest(c: SignedUp) {
+  const pr = await api(server.url, '/onboarding/application/practitioners', {
+    method: 'PUT',
+    token: c.token,
+    body: { practitioners: [practitioner({ npiOverrideReason: 'Recorded registry answer' })] },
+  })
+  expect(pr.status, JSON.stringify(pr.body)).toBe(200)
+  const a = await api(server.url, '/onboarding/agreement', {
+    token: c.token,
+    body: agreementBody(c.clinicName),
+  })
+  expect(a.status, JSON.stringify(a.body)).toBe(200)
 }
 
 const review = (tenantId: string, body: Record<string, unknown>, token = platformToken) =>
@@ -390,6 +407,9 @@ describe('the practice application', () => {
     expect(tenant.verificationStatus).toBe('PENDING_REVIEW')
     expect(tenant.submittedForReviewAt).not.toBeNull()
     expect(tenant.termsVersion).toBe('v2-2026-11')
+    // CTO-25: signing finishes onboarding, so the owner goes straight to the
+    // dashboard (in review, with the banner) instead of a setup wizard.
+    expect(tenant.onboardingCompletedAt).not.toBeNull()
     const agreements = await adminDb.clinicAgreement.findMany({ where: { clinicId: c.clinicId } })
     expect(agreements).toHaveLength(1)
     expect(agreements[0]).toMatchObject({
@@ -639,6 +659,359 @@ describe('owner-only onboarding and the Locations step', () => {
       licenseState: 'TX',
       credentials: 'MD',
     })
+  })
+})
+
+describe('practice details after the CTO review (CTO-04, CTO-06, CTO-09, CTO-17, CTO-18, CTO-22)', () => {
+  const save = (c: SignedUp, overrides: Record<string, unknown>) =>
+    api(server.url, '/onboarding/application/practice', {
+      method: 'PUT',
+      token: c.token,
+      body: practiceBody(overrides),
+    })
+
+  it('accepts but drops Sales rep, office manager and accounts payable; stores a secondary contact', async () => {
+    const c = await signUp()
+    const res = await save(c, {
+      salesRep: 'Somebody',
+      officeManagerName: 'Olga Office',
+      accountsPayableName: 'Paula Payable',
+      secondaryContactName: 'Sam Second',
+      secondaryContactEmail: 'SAM@example.test',
+      secondaryContactPhone: '555-0199',
+      practiceType: 'LONGEVITY_MEDICAL',
+      estimatedSeats: 1,
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    const profile = res.body.data.profile
+    for (const retired of [
+      'salesRep',
+      'officeManagerName',
+      'accountsPayableName',
+      'accountsPayableEmail',
+    ]) {
+      expect(profile).not.toHaveProperty(retired)
+    }
+    expect(profile).toMatchObject({
+      secondaryContactName: 'Sam Second',
+      secondaryContactEmail: 'sam@example.test',
+      secondaryContactPhone: '555-0199',
+      practiceType: 'LONGEVITY_MEDICAL',
+      // CTO-09: a team of one is fine.
+      estimatedSeats: 1,
+    })
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.salesRep).toBeNull()
+    expect(row.officeManagerName).toBeNull()
+  })
+
+  it('"Other" needs a typed name (2 to 80 characters); a listed type clears it', async () => {
+    const c = await signUp()
+    const missing = await save(c, { practiceType: 'OTHER' })
+    expect(missing.status).toBe(400)
+    expect(JSON.stringify(missing.body)).toMatch(/practice type/i)
+    expect(
+      (await save(c, { practiceType: 'OTHER', practiceTypeOther: 'x'.repeat(81) })).status
+    ).toBe(400)
+    const ok = await save(c, { practiceType: 'OTHER', practiceTypeOther: '  Peptide clinic ' })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    expect(ok.body.data.profile.practiceTypeOther).toBe('Peptide clinic')
+    const listed = await save(c, { practiceType: 'CHIROPRACTIC', practiceTypeOther: 'ignored' })
+    expect(listed.body.data.profile.practiceTypeOther).toBeNull()
+  })
+
+  it('US addresses: ZIP or ZIP+4, a US state or territory', async () => {
+    const c = await signUp()
+    const bad = await save(c, { postalCode: '7500' })
+    expect(bad.status).toBe(400)
+    expect(JSON.stringify(bad.body)).toContain('Enter a 5-digit ZIP or ZIP+4')
+    expect((await save(c, { state: 'ZZ' })).status).toBe(400)
+    expect((await save(c, { postalCode: '96799-0001', state: 'AS' })).status).toBe(200)
+  })
+})
+
+describe('real NPI lookup (CTO-29)', () => {
+  const registry = (byNpi: Record<string, unknown>, fail = false) =>
+    setNpiFetchForTests(async (url: string) => {
+      if (fail) throw new Error('The operation was aborted due to timeout')
+      const npi = new URL(url).searchParams.get('number')!
+      return { ok: true, status: 200, json: async () => byNpi[npi] ?? NPPES_NOT_FOUND }
+    })
+  afterEach(() => setNpiFetchForTests(null))
+
+  it('the group NPI must be type 2: a mismatch needs a reason, which the reviewer sees', async () => {
+    registry({ [VALID_NPI]: NPPES_INDIVIDUAL })
+    const c = await signUp()
+    const save = (o: Record<string, unknown>) =>
+      api(server.url, '/onboarding/application/practice', {
+        method: 'PUT',
+        token: c.token,
+        body: practiceBody(o),
+      })
+    const refused = await save({})
+    expect(refused.status).toBe(400)
+    expect(refused.body.code).toBe('npi_mismatch')
+    expect(refused.body.message).toMatch(/registered to an individual \(type 1\)/)
+    const ok = await save({ groupNpiOverrideReason: 'Solo practice billing under my own NPI' })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.npiVerification).toMatchObject({
+      group: {
+        verdict: 'WRONG_TYPE',
+        overrideReason: 'Solo practice billing under my own NPI',
+        lookup: { type: 1, name: 'OLIVIA SYNTHETIC' },
+      },
+    })
+    // The reviewer sees the lookup and the override.
+    await completeRest(c)
+    const review = await api(server.url, `/platform/clinics/${c.tenantId}`, {
+      token: platformToken,
+    })
+    expect(review.body.data.application.profile.npiVerification.group.overrideReason).toBe(
+      'Solo practice billing under my own NPI'
+    )
+  })
+
+  it('a real type-2 group NPI and type-1 practitioner NPIs pass; the lookup endpoint reports them', async () => {
+    registry({ [VALID_NPI]: NPPES_ORGANISATION, [OTHER_NPI]: NPPES_INDIVIDUAL })
+    const c = await signUp()
+    const look = await api(server.url, `/onboarding/npi/${VALID_NPI}?expect=2`, { token: c.token })
+    expect(look.status).toBe(200)
+    expect(look.body.data).toMatchObject({ verdict: 'OK', lookup: { type: 2, state: 'TX' } })
+    expect((await api(server.url, '/onboarding/npi/1234567890', { token: c.token })).status).toBe(
+      400
+    )
+    expect(
+      (
+        await api(server.url, '/onboarding/application/practice', {
+          method: 'PUT',
+          token: c.token,
+          body: practiceBody(),
+        })
+      ).status
+    ).toBe(200)
+    // Practitioner with the organisation's NPI: wrong type, refused without a reason.
+    const wrong = await api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: [practitioner({ npi: VALID_NPI })] },
+    })
+    expect(wrong.status).toBe(400)
+    expect(wrong.body.code).toBe('npi_mismatch')
+    const right = await api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: [practitioner({ npi: OTHER_NPI })] },
+    })
+    expect(right.status, JSON.stringify(right.body)).toBe(200)
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.npiVerification).toMatchObject({
+      group: { verdict: 'OK' },
+      practitioners: { [OTHER_NPI]: { verdict: 'OK', lookup: { type: 1 } } },
+    })
+  })
+
+  it('NPPES down or slow: falls back to the checksum with "could not verify"', async () => {
+    registry({}, true)
+    const c = await signUp()
+    const res = await api(server.url, '/onboarding/application/practice', {
+      method: 'PUT',
+      token: c.token,
+      body: practiceBody(),
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    const row = await adminDb.clinicProfile.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(row.npiVerification).toMatchObject({
+      group: { verdict: 'UNVERIFIED', lookup: { status: 'UNAVAILABLE' } },
+    })
+  })
+})
+
+describe('the account creator is a provider (CTO-14)', () => {
+  const savePractice = (c: SignedUp, body = practiceBody()) =>
+    api(server.url, '/onboarding/application/practice', { method: 'PUT', token: c.token, body })
+  const savePractitioners = (c: SignedUp, rows: Record<string, unknown>[]) =>
+    api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: rows },
+    })
+
+  it('a clinical owner gets exactly one provider, with locations and default hours, idempotently', async () => {
+    const c = await signUp()
+    expect((await savePractice(c)).status).toBe(200)
+    const first = await savePractitioners(c, [practitioner({ title: 'Medical Director' })])
+    expect(first.status, JSON.stringify(first.body)).toBe(200)
+    // The title is stored with the row (CTO-16).
+    expect(first.body.data.profile.practitioners[0].title).toBe('Medical Director')
+
+    const providers = await adminDb.provider.findMany({ where: { userId: c.ownerId } })
+    expect(providers).toHaveLength(1)
+    const provider = providers[0]!
+    expect(provider).toMatchObject({ clinicId: c.clinicId, isActive: true, npi: VALID_NPI })
+    expect(
+      await adminDb.providerLocationAssignment.count({ where: { providerId: provider.id } })
+    ).toBeGreaterThan(0)
+    const hours = await adminDb.providerAvailability.findMany({
+      where: { providerId: provider.id },
+    })
+    expect(hours.map((h) => h.weekday).sort()).toEqual([1, 2, 3, 4, 5])
+
+    // Revisiting the step creates nothing new and keeps the owner's hours.
+    expect((await savePractitioners(c, [practitioner()])).status).toBe(200)
+    expect(await adminDb.provider.count({ where: { userId: c.ownerId } })).toBe(1)
+    expect(await adminDb.providerAvailability.count({ where: { providerId: provider.id } })).toBe(5)
+
+    // "Add me" (the old step) is now a no-op that returns the same provider.
+    const linked = await api(server.url, `/staff/${c.ownerId}/link-provider`, {
+      token: c.token,
+      body: {},
+    })
+    expect(linked.body.data.provider.id).toBe(provider.id)
+
+    // A solo practice: a new service is the owner's to offer at once.
+    const discipline = await api(server.url, '/disciplines', {
+      token: c.token,
+      body: { name: 'Longevity' },
+    })
+    expect(discipline.status, JSON.stringify(discipline.body)).toBe(201)
+    const service = await api(server.url, '/services', {
+      token: c.token,
+      body: {
+        disciplineId: discipline.body.data.discipline.id,
+        name: 'Longevity consult',
+        duration: 30,
+        defaultPrice: 0,
+      },
+    })
+    expect(service.status, JSON.stringify(service.body)).toBe(201)
+    expect(
+      await adminDb.providerService.count({
+        where: { providerId: provider.id, serviceId: service.body.data.service.id },
+      })
+    ).toBe(1)
+
+    // Unticking "I see patients" later deactivates (never deletes) the provider.
+    expect((await savePractitioners(c, [practitioner({ seesPatients: false })])).status).toBe(200)
+    expect(await adminDb.provider.findUniqueOrThrow({ where: { id: provider.id } })).toMatchObject({
+      isActive: false,
+    })
+  })
+
+  it('a non-clinical owner gets no provider and needs no NPI', async () => {
+    const c = await signUp()
+    expect((await savePractice(c)).status).toBe(200)
+    const res = await savePractitioners(c, [
+      practitioner({ npi: null, seesPatients: false, title: 'Practice Manager' }),
+    ])
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    expect(await adminDb.provider.count({ where: { userId: c.ownerId } })).toBe(0)
+    // Any other practitioner still needs an NPI on a group-NPI practice.
+    const bad = await savePractitioners(c, [
+      practitioner({ npi: null, seesPatients: false }),
+      practitioner({
+        name: 'Dr Nate',
+        email: 'nate@example.test',
+        isOwner: false,
+        isSelf: false,
+        npi: null,
+      }),
+    ])
+    expect(bad.status).toBe(400)
+  })
+})
+
+describe('the retype-the-clinic-name switch (CTO-10)', () => {
+  const saved = process.env.ONBOARDING_CONFIRM_NAME
+  afterEach(() => {
+    if (saved === undefined) delete process.env.ONBOARDING_CONFIRM_NAME
+    else process.env.ONBOARDING_CONFIRM_NAME = saved
+  })
+
+  async function readyToSign() {
+    const c = await signUp()
+    await api(server.url, '/onboarding/application/practice', {
+      method: 'PUT',
+      token: c.token,
+      body: practiceBody(),
+    })
+    await api(server.url, '/onboarding/application/practitioners', {
+      method: 'PUT',
+      token: c.token,
+      body: { practitioners: [practitioner()] },
+    })
+    return c
+  }
+
+  it('off: the form skips the step and the agreement needs no clinic name', async () => {
+    process.env.ONBOARDING_CONFIRM_NAME = 'off'
+    const c = await readyToSign()
+    const app = await api(server.url, '/onboarding/application', { token: c.token })
+    expect(app.body.data.config).toEqual({ confirmClinicName: false })
+    const { confirmClinicName: _omit, ...body } = agreementBody(c.clinicName)
+    const res = await api(server.url, '/onboarding/agreement', { token: c.token, body })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+  })
+
+  it('on: the clinic name is required and must match', async () => {
+    process.env.ONBOARDING_CONFIRM_NAME = 'on'
+    const c = await readyToSign()
+    const app = await api(server.url, '/onboarding/application', { token: c.token })
+    expect(app.body.data.config).toEqual({ confirmClinicName: true })
+    const { confirmClinicName: _omit, ...body } = agreementBody(c.clinicName)
+    expect((await api(server.url, '/onboarding/agreement', { token: c.token, body })).status).toBe(
+      400
+    )
+    expect(
+      (
+        await api(server.url, '/onboarding/agreement', {
+          token: c.token,
+          body: agreementBody(c.clinicName),
+        })
+      ).status
+    ).toBe(200)
+  })
+})
+
+describe('brand colours (CTO-27 / CTO-28)', () => {
+  it('saving the brand feeds the console (session) and the site draft only; unsafe SVGs are refused', async () => {
+    const c = await signUp()
+    const svg = (body: string) =>
+      `data:image/svg+xml;base64,${Buffer.from(body).toString('base64')}`
+    const bad = await api(server.url, '/onboarding/brand', {
+      method: 'PATCH',
+      token: c.token,
+      body: { logoUrl: svg('<svg onload="alert(1)"/>') },
+    })
+    expect(bad.status).toBe(400)
+    // A site with a published theme, to prove the live one is untouched.
+    await adminDb.site.upsert({
+      where: { clinicId: c.clinicId },
+      create: { clinicId: c.clinicId, settingsPublishedJson: { marker: 'published' } },
+      update: { settingsPublishedJson: { marker: 'published' } },
+    })
+    const ok = await api(server.url, '/onboarding/brand', {
+      method: 'PATCH',
+      token: c.token,
+      body: {
+        primaryColor: '#B91C1C',
+        secondaryColor: '#f97316',
+        logoUrl: svg('<svg xmlns="http://www.w3.org/2000/svg"><rect fill="#b91c1c"/></svg>'),
+      },
+    })
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200)
+    const me = await api(server.url, '/auth/me', { token: c.token })
+    expect(me.body.data.user.clinic.tenant.brand).toEqual({
+      primaryColor: '#b91c1c',
+      secondaryColor: '#f97316',
+    })
+    const clinic = await adminDb.clinic.findUniqueOrThrow({ where: { id: c.clinicId } })
+    expect(clinic.themeColor).toBe('#b91c1c')
+    const site = await adminDb.site.findUniqueOrThrow({ where: { clinicId: c.clinicId } })
+    expect(site.settingsDraftJson).toMatchObject({
+      theme: { colors: { primary: '#b91c1c', secondary: '#f97316' } },
+    })
+    expect(site.settingsPublishedJson).toEqual({ marker: 'published' })
   })
 })
 

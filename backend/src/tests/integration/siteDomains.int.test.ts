@@ -1,5 +1,5 @@
 /**
- * Component 8 / B8.2 — clinic subdomains, custom domains and host routing,
+ * Component 8 / B8.2: clinic subdomains, custom domains and host routing,
  * against Postgres (enforce + RLS). SITE_ROOT_DOMAIN=site.test (setup.ts);
  * the DNS provider is stubbed so verification is deterministic.
  */

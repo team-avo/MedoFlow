@@ -1,5 +1,5 @@
 /**
- * Frontend smoothness pass — layout & navigation smoke, per role.
+ * Frontend smoothness pass: layout & navigation smoke, per role.
  *
  *  - Every nav link a role sees is clicked (client-side, as a user would):
  *    the page renders (no "Application error", 404 or error boundary), and
@@ -44,10 +44,8 @@ const ROLES: RolePlan[] = [
     role: 'SUPER_ADMIN',
     start: '/dashboard/admin',
     navSelector: 'aside nav a[href^="/dashboard"]',
+    // Disciplines, Locations & hours and Security are Settings items now (CTO-20).
     extra: [
-      '/dashboard/disciplines',
-      '/dashboard/locations',
-      '/dashboard/settings',
       '/dashboard/staff/roles',
       '/dashboard/site/domains',
       '/dashboard/site/redirects',
@@ -89,7 +87,7 @@ const ROLES: RolePlan[] = [
 
 /**
  * Counts, every animation frame, how long an element with role="status"
- * covers (nearly) the whole viewport — i.e. a blocking loading overlay.
+ * covers (nearly) the whole viewport: i.e. a blocking loading overlay.
  */
 async function trackBlockingOverlay(page: Page) {
   await page.addInitScript(() => {

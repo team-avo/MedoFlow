@@ -77,7 +77,9 @@ const rotateJoinToken = async (sessionId: string, clinicId: string) => {
       joinTokenExpiresAt: getJoinTokenExpiry(),
     },
     include: {
-      appointment: { select: { id: true, startTime: true, endTime: true, meetLink: true } },
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
       patient: { select: { id: true, name: true, email: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
     },
@@ -85,7 +87,7 @@ const rotateJoinToken = async (sessionId: string, clinicId: string) => {
 }
 
 // ---------------------------------------------------------------------------
-// Sanitization — strip sensitive fields for patient view
+// Sanitization: strip sensitive fields for patient view
 // ---------------------------------------------------------------------------
 
 export function sanitizeForPatient(session: Record<string, unknown>) {
@@ -116,7 +118,7 @@ export const createOrGetSession = async (
     throwApi('Appointment not found', 404)
   }
   if (appointment.providerId !== providerId) {
-    throwApi('Access denied — appointment belongs to another provider', 403, 'forbidden')
+    throwApi('Access denied: appointment belongs to another provider', 403, 'forbidden')
   }
   if (!['CONFIRMED', 'COMPLETED'].includes(appointment.status)) {
     throwApi(
@@ -134,7 +136,9 @@ export const createOrGetSession = async (
       status: { not: ConsultationStatus.FAILED },
     },
     include: {
-      appointment: { select: { id: true, startTime: true, endTime: true, meetLink: true } },
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
       patient: { select: { id: true, name: true, email: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
     },
@@ -146,7 +150,7 @@ export const createOrGetSession = async (
     return existing
   }
 
-  // Create new session — pre-grant consent if the patient opted in while
+  // Create new session: pre-grant consent if the patient opted in while
   // booking. The appointment carries `aiScribeConsentGrantedAt` when so.
   const preGrantedAt = appointment.aiScribeConsentGrantedAt ?? null
   const session = await prisma.consultationSession.create({
@@ -162,7 +166,9 @@ export const createOrGetSession = async (
       consentGrantedAt: preGrantedAt,
     },
     include: {
-      appointment: { select: { id: true, startTime: true, endTime: true, meetLink: true } },
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
       patient: { select: { id: true, name: true, email: true } },
       provider: { select: { id: true, firstName: true, lastName: true } },
     },
@@ -194,6 +200,7 @@ export const getSessionById = async (sessionId: string, userId: string, role: Ro
           endTime: true,
           status: true,
           meetLink: true,
+          mode: true,
         },
       },
       provider: { select: { id: true, firstName: true, lastName: true } },
@@ -235,13 +242,20 @@ export const getSessionById = async (sessionId: string, userId: string, role: Ro
 
 export const getSessionByToken = async (joinToken: string) => {
   // The join token is the capability (anonymous patients join with it alone),
-  // so the lookup is cross-clinic by design — also for logged-in callers.
+  // so the lookup is cross-clinic by design, also for logged-in callers.
   const session = await withTenantBypass('consultation.join_by_token', () =>
     prisma.consultationSession.findUnique({
       where: { joinToken },
       include: {
         appointment: {
-          select: { id: true, startTime: true, endTime: true, status: true, meetLink: true },
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            status: true,
+            meetLink: true,
+            mode: true,
+          },
         },
         provider: { select: { firstName: true, lastName: true } },
         patient: { select: { id: true, name: true } },
@@ -269,7 +283,14 @@ export const getSessionForAppointment = async (
     orderBy: { createdAt: 'desc' },
     include: {
       appointment: {
-        select: { id: true, startTime: true, endTime: true, status: true, meetLink: true },
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          status: true,
+          meetLink: true,
+          mode: true,
+        },
       },
       provider: { select: { id: true, firstName: true, lastName: true } },
       patient: { select: { id: true, name: true } },
@@ -335,9 +356,54 @@ export const grantConsent = async (sessionId: string, userId: string, performedB
 }
 
 /**
+ * In person (CTO-30/31): the patient is in the room, not on a join link, so
+ * the provider records that they agreed out loud. Only the visit's own
+ * provider, never over a decline, audited as CONSENT_ATTESTED_VERBAL. Same
+ * rule as the AI scribe's PROVIDER_ATTESTED_VERBAL.
+ */
+export const attestVerbalConsent = async (
+  sessionId: string,
+  providerId: string,
+  performedById: string
+) => {
+  const session = await prisma.consultationSession.findUnique({
+    where: { id: sessionId, ...clinicScope() },
+  })
+  if (!session || session.providerId !== providerId) throwApi('Session not found', 404)
+  if (session.consentStatus === ConsentStatus.GRANTED) return session
+  if (session.consentStatus === ConsentStatus.DECLINED) {
+    throwApi('The patient declined recording for this visit', 409, 'consent_declined')
+  }
+  if (session.status === ConsultationStatus.ENDED || session.status === ConsultationStatus.FAILED) {
+    throwApi('Session has ended', 400, 'invalid_state')
+  }
+  const updated = await prisma.consultationSession.update({
+    where: { id: sessionId, clinicId: session.clinicId },
+    data: { consentStatus: ConsentStatus.GRANTED, consentGrantedAt: new Date() },
+    // The same shape the consult room loads: it needs appointment.mode to
+    // know an in-person visit records audio, not a video call.
+    include: {
+      appointment: {
+        select: { id: true, startTime: true, endTime: true, meetLink: true, mode: true },
+      },
+      patient: { select: { id: true, name: true, email: true } },
+      provider: { select: { id: true, firstName: true, lastName: true } },
+    },
+  })
+  await auditService.logAudit({
+    clinicId: session.clinicId,
+    entityType: 'ConsultationSession',
+    entityId: sessionId,
+    action: 'CONSENT_ATTESTED_VERBAL',
+    performedById,
+  })
+  return updated
+}
+
+/**
  * The patient declines AI recording (FR-1). Recording is then refused on
  * every path for this visit; the provider documents manually. A patient who
- * declined can still grant consent later (they changed their mind) — but
+ * declined can still grant consent later (they changed their mind): but
  * never once recording has stopped.
  */
 export const declineConsent = async (sessionId: string, userId: string, performedById: string) => {
@@ -386,10 +452,10 @@ export const startRecording = async (
 
   // Consent must be granted
   if (session.consentStatus !== ConsentStatus.GRANTED) {
-    throwApi('Recording cannot start — patient consent is required', 400, 'consent_required')
+    throwApi('Recording cannot start: patient consent is required', 400, 'consent_required')
   }
 
-  // Validate session state — must be READY or LIVE
+  // Validate session state: must be READY or LIVE
   const sessionStatus = session.status as string
   if (sessionStatus !== 'READY' && sessionStatus !== 'LIVE') {
     throwApi(`Cannot start recording in session state: ${session.status}`, 400, 'invalid_state')
@@ -593,7 +659,7 @@ export const uploadRecording = async (
 }
 
 // ---------------------------------------------------------------------------
-// Transcription — bridge to existing AI Scribe pipeline
+// Transcription: bridge to existing AI Scribe pipeline
 // ---------------------------------------------------------------------------
 
 export const startTranscription = async (
@@ -638,7 +704,7 @@ export const startTranscription = async (
     visitRecordId = newVisitRecord.id
   }
 
-  // Create AIScribeSession — this is the bridge to existing pipeline
+  // Create AIScribeSession: this is the bridge to existing pipeline
   const aiSession = await aiScribeService.createSession(
     visitRecordId,
     providerId,
@@ -662,7 +728,7 @@ export const startTranscription = async (
   })
 
   // Add to AI Scribe Queue to trigger background worker. A queue outage is a
-  // clean 503 and a FAILED consultation the provider can retry — not a 500
+  // clean 503 and a FAILED consultation the provider can retry, not a 500
   // that leaves it stuck in PROCESSING.
   const { aiScribeQueue } = await import('../queues/aiScribeQueue')
   try {
@@ -742,7 +808,7 @@ export const getTranscript = async (sessionId: string, userId: string, role: Rol
 }
 
 // ---------------------------------------------------------------------------
-// Convert to template — delegates to existing AI scribe flow
+// Convert to template: delegates to existing AI scribe flow
 // ---------------------------------------------------------------------------
 
 export const convertToTemplate = async (

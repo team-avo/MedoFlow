@@ -30,7 +30,7 @@ export interface DomainRecordInput {
  * Where custom domains are registered and checked (B8.2).
  *   manual      the clinic points DNS at us; we check TXT + CNAME ourselves.
  *               TLS for the domain is the operator's job (see the Cloudflare
- *               guide). Works with no API token — local dev and small setups.
+ *               guide). Works with no API token, local dev and small setups.
  *   cloudflare  Cloudflare for SaaS: each domain becomes a custom hostname on
  *               our zone; Cloudflare validates ownership and issues the
  *               certificate. Fully automatic.

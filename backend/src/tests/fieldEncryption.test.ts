@@ -1,5 +1,5 @@
 /**
- * B3.2 — field-level encryption: AES-256-GCM round trip, tamper and
+ * B3.2: field-level encryption: AES-256-GCM round trip, tamper and
  * column-swap detection, legacy plaintext, JSON columns, key rotation, KMS
  * unwrap, and the Prisma integration helpers.
  */

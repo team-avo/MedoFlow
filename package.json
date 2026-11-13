@@ -2,7 +2,7 @@
   "name": "medoflow",
   "version": "0.0.0",
   "private": true,
-  "description": "MedoFlow — multi-tenant SaaS clinic-management platform",
+  "description": "MedoFlow, a multi-tenant SaaS clinic-management platform",
   "engines": {
     "node": ">=20.0.0",
     "pnpm": ">=10.0.0"
@@ -16,6 +16,7 @@
     "typecheck": "turbo run typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "check:em-dash": "node scripts/check-no-em-dash.js",
     "prepare": "husky"
   },
   "devDependencies": {

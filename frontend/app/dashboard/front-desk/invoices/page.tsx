@@ -85,7 +85,7 @@ function formatCurrency(amount?: string | number | null) {
 }
 
 function formatDate(iso?: string | null) {
-  if (!iso) return '—'
+  if (!iso) return 'Not set'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -349,7 +349,7 @@ export default function FrontDeskInvoicesPage() {
                   mobilePrimary: true,
                   render: (i) => (
                     <div>
-                      <p className="font-bold text-slate-900">{i.patient?.name ?? '—'}</p>
+                      <p className="font-bold text-slate-900">{i.patient?.name ?? 'Not set'}</p>
                       <p className="text-[10px] text-slate-400 font-black uppercase tracking-tighter mt-0.5">
                         Inv: {i.id.slice(-6).toUpperCase()}
                       </p>

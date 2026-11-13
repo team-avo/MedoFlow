@@ -1,5 +1,5 @@
 /**
- * B3.3 — malformed clinical-record input is rejected by Zod. Runs the shared
+ * B3.3: malformed clinical-record input is rejected by Zod. Runs the shared
  * parity cases (shared/validation-cases/clinical-records.json); the frontend
  * suite runs the same file against its own schemas (F3.2).
  */

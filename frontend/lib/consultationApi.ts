@@ -52,6 +52,8 @@ export interface ConsultationSession {
     endTime: string
     status?: string
     meetLink?: string | null
+    /** CTO-31: in person (audio only) or a video visit. */
+    mode?: 'IN_PERSON' | 'VIRTUAL'
   }
   provider?: {
     id: string
@@ -146,6 +148,19 @@ export const grantConsent = async (sessionId: string): Promise<ConsultationSessi
   return data.data.session
 }
 
+/** POST /consultations/:id/consent/attest: the provider records the patient's spoken consent (in person). */
+export const attestConsent = async (sessionId: string): Promise<ConsultationSession> => {
+  const { data } = await api.post<ApiRes<{ session: ConsultationSession }>>(
+    `/consultations/${sessionId}/consent/attest`
+  )
+  return data.data.session
+}
+
+/** POST /consultations/:id/video/auto-ended (CTO-35): audited, ids only. */
+export const videoAutoEnded = async (sessionId: string): Promise<void> => {
+  await api.post(`/consultations/${sessionId}/video/auto-ended`)
+}
+
 /** POST /consultations/:id/recording/start */
 export const startRecording = async (
   sessionId: string,
@@ -190,7 +205,7 @@ export const uploadRecording = async (
 }
 
 /**
- * POST /consultations/:id/live-transcript — one live-caption segment while
+ * POST /consultations/:id/live-transcript: one live-caption segment while
  * recording (WS2). The text is a preview; nothing is stored server-side.
  */
 export const liveTranscript = async (
@@ -242,12 +257,12 @@ export interface VideoRoomResult {
   domain: string
   roomUrl: string
   roomName: string
-  /** Signed JWT from the backend — empty string when JaaS is not configured */
+  /** Signed JWT from the backend, empty string when JaaS is not configured */
   jwt: string
   jaasEnabled: boolean
 }
 
-/** POST /consultations/:id/video-room — Create (or reuse) the 8x8 JaaS call room */
+/** POST /consultations/:id/video-room: Create (or reuse) the 8x8 JaaS call room */
 export const createVideoRoom = async (
   sessionId: string,
   clinicId?: string
@@ -260,13 +275,13 @@ export const createVideoRoom = async (
   return data.data
 }
 
-/** GET /consultations/:id/video-token — Get meeting token (authenticated) */
+/** GET /consultations/:id/video-token: Get meeting token (authenticated) */
 export const getVideoToken = async (sessionId: string): Promise<VideoRoomResult> => {
   const { data } = await api.get<ApiRes<VideoRoomResult>>(`/consultations/${sessionId}/video-token`)
   return data.data
 }
 
-/** GET /consultations/join/:token/video-token — Get meeting token via join token (for patients) */
+/** GET /consultations/join/:token/video-token: Get meeting token via join token (for patients) */
 export const getVideoTokenByJoinToken = async (joinToken: string): Promise<VideoRoomResult> => {
   const { data } = await api.get<ApiRes<VideoRoomResult>>(
     `/consultations/join/${joinToken}/video-token`
@@ -285,4 +300,23 @@ export const convertToTemplate = async (
     body
   )
   return data.data
+}
+
+/**
+ * The next session state, keeping the related records the room already has
+ * when a response leaves them out (e.g. consent or recording calls return
+ * the bare row). Without this, a visit loses `appointment.mode` and an
+ * in-person room would switch to video.
+ */
+export function withSessionContext(
+  prev: ConsultationSession | null,
+  next: ConsultationSession | null
+): ConsultationSession | null {
+  if (!next || !prev || prev.id !== next.id) return next
+  return {
+    ...next,
+    appointment: next.appointment ? { ...prev.appointment, ...next.appointment } : prev.appointment,
+    provider: next.provider ?? prev.provider,
+    patient: next.patient ?? prev.patient,
+  }
 }

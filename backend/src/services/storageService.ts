@@ -146,7 +146,7 @@ export async function deleteAudio(storagePath: string): Promise<void> {
     return
   }
   if (s3Client && storagePath.includes('/')) {
-    // "<bucket>/<key>" — honour the bucket the object was written to.
+    // "<bucket>/<key>", honour the bucket the object was written to.
     const parts = storagePath.replace(/^https?:\/\/[^/]+\//, '').split('/')
     const key = parts.slice(1).join('/')
     await s3Client.send(new DeleteObjectCommand({ Bucket: parts[0] || BUCKET, Key: key }))

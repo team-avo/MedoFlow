@@ -224,7 +224,7 @@ export function AppointmentPayment({
               Payment already completed for this appointment.
             </p>
           ) : (
-            // F1.1: an expired reservation is a recoverable state — the
+            // F1.1: an expired reservation is a recoverable state, the
             // slot was released, so send the patient straight back to
             // pick another time (IDs only in the URL).
             <div role="status" data-testid="hold-expired" className="mt-3 space-y-3">
@@ -275,8 +275,8 @@ export function AppointmentPayment({
             <span className="ml-1 font-normal text-gray-500">(optional)</span>
           </h2>
           <p className="mt-1 text-xs text-gray-500">
-            Saved with the card you pay with today, so prescribed items can be ordered in one click
-            — no re-entering details.
+            Saved with the card you pay with today, so prescribed items can be ordered in one click,
+            with no re-entering details.
           </p>
           <div className="mt-3">
             {onFile?.shippingAddress && !editAddress ? (

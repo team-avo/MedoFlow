@@ -65,7 +65,7 @@ export default function AccountOverviewPage() {
           <div>
             <p className="text-sm font-semibold text-slate-900">Book your next appointment</p>
             <p className="mt-1 text-sm text-slate-600">
-              Pick a time with any of your clinic's providers — online, in seconds.
+              Pick a time with any of your clinic's providers, online and in seconds.
             </p>
           </div>
           <Link

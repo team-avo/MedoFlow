@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * B3.1 — object-storage posture check for the patient-files bucket, run with
+ * B3.1: object-storage posture check for the patient-files bucket, run with
  * the API's S3_* settings (e.g. `node --env-file=.env scripts/ops/check-bucket-private.js`):
  *
  *  1. writes a synthetic probe object (with the configured SSE),
@@ -115,7 +115,7 @@ async function main() {
   } catch (e) {
     info(
       'public access block',
-      `not supported by this store (${e.name}) — rely on the anonymous GET check`
+      `not supported by this store (${e.name}): rely on the anonymous GET check`
     )
   }
 

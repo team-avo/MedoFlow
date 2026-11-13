@@ -2,7 +2,7 @@
  * AI copywriting for a clinic's home page (B8.3). Rewrites the hero and the
  * closing call-to-action of the HOME page draft in the clinic's voice.
  *
- * Inputs are business facts only — the clinic name, service names and
+ * Inputs are business facts only, the clinic name, service names and
  * discipline names. No patient data can reach the prompt (unit-tested).
  * Any model failure leaves the template copy untouched.
  */
@@ -105,7 +105,7 @@ export async function personaliseHomeCopy(actor: SiteActor) {
     copy = parseCopy(res.text)
   } catch (e) {
     console.warn(
-      '[site-ai] copy generation unavailable — keeping template copy:',
+      '[site-ai] copy generation unavailable: keeping template copy:',
       (e as Error).message
     )
   }

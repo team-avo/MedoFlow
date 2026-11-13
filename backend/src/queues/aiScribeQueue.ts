@@ -7,7 +7,7 @@
  * Visit note versions are only created during explicit provider approval.
  *
  * PHI (B2.6): job data holds ids only; failures are stored, logged and kept
- * as BullMQ failure reasons as safe codes (services/ai/errors.ts) — never
+ * as BullMQ failure reasons as safe codes (services/ai/errors.ts): never
  * model input, model output or provider error text.
  */
 
@@ -246,7 +246,7 @@ export async function processAiScribeJob(job: ScribeJob, signal?: AbortSignal): 
     entityType: 'AIScribeSession',
     entityId: sessionId,
     action: regenerateSoapOnly ? 'AI_DRAFT_REGENERATED' : 'AI_DRAFT_GENERATED',
-    // Provenance only — never content (FR-15).
+    // Provenance only: never content (FR-15).
     newValue: { aiProvider: provenance(llm), aiModel: model, sttModel },
     performedById: session.provider?.userId ?? null,
   })

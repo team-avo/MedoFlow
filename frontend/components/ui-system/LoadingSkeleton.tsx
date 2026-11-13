@@ -12,7 +12,7 @@ export interface LoadingSkeletonProps {
 }
 
 /**
- * Unified skeleton loader — replaces scattered `animate-spin` divs.
+ * Unified skeleton loader: replaces scattered `animate-spin` divs.
  * Use `variant` to match the shape of what you're loading.
  */
 export function LoadingSkeleton({ variant = 'card', count = 1, className }: LoadingSkeletonProps) {

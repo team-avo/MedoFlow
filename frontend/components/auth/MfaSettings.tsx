@@ -240,7 +240,7 @@ export function MfaSettings() {
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Recovery codes</h3>
               <p className="mt-1 text-sm text-slate-600">
-                Each code signs you in once if you lose your phone. Store them somewhere safe — they
+                Each code signs you in once if you lose your phone. Store them somewhere safe; they
                 are shown only now.
               </p>
               <ul

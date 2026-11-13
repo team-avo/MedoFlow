@@ -1,11 +1,11 @@
 'use client'
 
 /**
- * F5.2 / F5.3 — "Pay with card on file".
+ * F5.2 / F5.3: "Pay with card on file".
  *
  * For a returning patient the card and shipping address saved at booking
  * are shown read-only ("on file from booking") and the order is paid in one
- * action — no card or address fields. A decline is a recoverable state.
+ * action: no card or address fields. A decline is a recoverable state.
  * When nothing is on file this renders `fallback` (the regular checkout).
  */
 import React from 'react'

@@ -210,7 +210,7 @@ export default function PlatformClinicsListPage() {
                     >
                       {row.name}
                     </Link>
-                    <p className="text-xs text-slate-500">{row.clinics[0]?.email ?? '—'}</p>
+                    <p className="text-xs text-slate-500">{row.clinics[0]?.email ?? 'Not set'}</p>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-slate-600">{row.slug}</td>
                   <td className="px-4 py-3">
@@ -243,7 +243,7 @@ export default function PlatformClinicsListPage() {
                     {row.onboardingCompletedAt ? (
                       <span className="text-emerald-700">Done</span>
                     ) : (
-                      <span className="text-slate-400">—</span>
+                      <span className="text-slate-400">Not set</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">

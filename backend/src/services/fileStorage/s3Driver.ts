@@ -18,8 +18,8 @@ export type SseMode = 'AES256' | 'aws:kms' | 'provider-default'
 
 /**
  * Server-side encryption requested on every write (B3.1).
- *  - AES256 / aws:kms  — AWS S3 (and S3-compatible stores that honour the header)
- *  - provider-default  — the store always encrypts at rest and rejects the
+ *  - AES256 / aws:kms: AWS S3 (and S3-compatible stores that honour the header)
+ *  - provider-default: the store always encrypts at rest and rejects the
  *                        header, e.g. Cloudflare R2 (AES-256, always on)
  */
 export function getSseMode(env: NodeJS.ProcessEnv = process.env): SseMode {

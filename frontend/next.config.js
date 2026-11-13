@@ -7,7 +7,15 @@ const nextConfig = {
   outputFileTracingRoot: path.join(__dirname, '..'),
   async redirects() {
     return [
-      // Phase 2: killed /dashboard/patient/* — patients live on /account/*
+      // CTO-02: the old "Video Room" tab is gone. The path remains the Google
+      // OAuth callback (it carries ?code); any other visit goes to Appointments.
+      {
+        source: '/dashboard/provider/meetings',
+        missing: [{ type: 'query', key: 'code' }],
+        destination: '/dashboard/appointments',
+        permanent: false,
+      },
+      // Phase 2: killed /dashboard/patient/*, patients live on /account/*
       {
         source: '/dashboard/patient',
         destination: '/account',

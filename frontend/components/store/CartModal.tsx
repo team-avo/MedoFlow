@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * CartModal — slide-in cart panel triggered from the nav / store hero.
+ * CartModal: slide-in cart panel triggered from the nav / store hero.
  *
  * Separate from the <AuthModal> flow. The shell lives in CartModalProvider
  * so the nav bell icon, product cards, and store hero can all open it via
@@ -20,7 +20,7 @@ import { useCart, type CartItem } from '@/hooks/useCart'
 import { categorize } from '@/lib/product-categories'
 import { OneClickPay } from '@/components/store/OneClickPay'
 
-const DEFAULT_ACCENT = '#0F766E' // teal-700 — matches the Medoflow store
+const DEFAULT_ACCENT = '#0F766E' // teal-700: matches the Medoflow store
 
 type ClinicCartCtx = { themeColor: string; routeId: string }
 
@@ -191,7 +191,7 @@ function CartModal({
                   pendingDecisions={pendingDecisions}
                   accent={accent}
                   onPaid={async () => {
-                    toast.success('Payment complete — your order is confirmed')
+                    toast.success('Payment complete. Your order is confirmed')
                     await fetchCartItems()
                     await queryClient.invalidateQueries({ queryKey: ['carts', 'one-click'] })
                     onOpenChange(false)
@@ -243,7 +243,7 @@ function EmptyCart({ onBrowse }: { onBrowse: () => void }) {
   )
 }
 
-/** "Prescribed · Dr. X" — who sent this item from the visit (F5.2). */
+/** "Prescribed · Dr. X", who sent this item from the visit (F5.2). */
 export function PrescribedBadge({ item }: { item: CartItem }) {
   if (!item.rxOrderLineId || !item.prescribedBy) return null
   return (
@@ -300,7 +300,7 @@ export function DecisionButtons({
             Accepted
           </>
         ) : (
-          'Declined — not charged'
+          'Declined, not charged'
         )}
       </span>
       <button

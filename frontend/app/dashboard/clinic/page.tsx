@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { PageContainer } from '@/components/layout'
 import { AppErrorState, AppPageHeader, LoadingSkeleton } from '@/components/ui-system'
 import { PracticeDetailsForm } from '@/components/onboarding/PracticeDetailsForm'
+import { BrandCard } from '@/components/onboarding/BrandCard'
 import { PractitionersForm } from '@/components/onboarding/PractitionersForm'
 import { useApplication } from '@/components/onboarding/useApplication'
 import { useAppToast } from '@/hooks/useAppToast'
@@ -49,7 +50,7 @@ const TABS = [
 ] as const
 
 /**
- * Clinic profile (owner only): the practice application after onboarding —
+ * Clinic profile (owner only): the practice application after onboarding,
  * review status, the signed agreement, and edits to practice details and
  * practitioners. When changes were requested, the owner resubmits from here.
  */
@@ -85,8 +86,11 @@ export default function ClinicProfilePage() {
     <PageContainer className="space-y-6">
       <AppPageHeader
         title="Clinic profile"
-        description="Your practice application, licensing and practitioners."
+        description="Your practice application, licensing, practitioners and brand."
       />
+
+      {/* CTO-27: logo and brand colours (Quick setup links here). */}
+      <BrandCard />
 
       {isLoading ? (
         <LoadingSkeleton variant="card" count={2} />

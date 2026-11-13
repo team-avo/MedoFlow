@@ -1,7 +1,7 @@
 /**
  * Website images (B8.5): logos, hero images, galleries. They are public by
  * design, so they live in a separate public bucket (SITE_ASSETS_BUCKET,
- * served from SITE_ASSETS_PUBLIC_BASE_URL) — never the patient-files bucket.
+ * served from SITE_ASSETS_PUBLIC_BASE_URL): never the patient-files bucket.
  * Same presigned flow as patient files: intent → browser PUT → complete,
  * where complete checks the stored bytes really are the declared image type.
  */
@@ -187,7 +187,7 @@ export async function completeUpload(actor: SiteActor, id: string) {
     if (head) await driver.delete(asset.storageKey).catch(() => undefined)
     throw siteError(422, 'site_asset_rejected', msg)
   }
-  if (!head) return reject('The upload did not arrive — please try again')
+  if (!head) return reject('The upload did not arrive. Please try again')
   if (head.size !== asset.size) return reject('The uploaded file size does not match')
   const bytes = await driver.readHead(asset.storageKey, 64 * 1024)
   if (!contentMatchesMime(bytes, asset.mimeType as AllowedMime, head.size)) {
@@ -248,7 +248,7 @@ export async function deleteAsset(actor: SiteActor, id: string) {
     throw siteError(
       409,
       'site_asset_in_use',
-      'This image is used on your site — remove it there first'
+      'This image is used on your site. Remove it there first'
     )
   }
   await storage()

@@ -4,6 +4,7 @@ import * as membershipService from '../services/membershipService'
 import prisma from '../config/prisma'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
+import * as clinicPatientService from '../services/clinicPatientService'
 
 export const getMyPackages = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -57,5 +58,17 @@ export const getPatientEntitlements = asyncHandler(
     const patientId = req.params.patientId as string
     const entitlements = await membershipService.getPatientEntitlementSummary(clinicId, patientId)
     successResponse(res, 200, 'Patient entitlements retrieved', { entitlements })
+  }
+)
+
+/** CTO-24: staff add a patient for a walk-in or phone booking. */
+export const createClinicPatient = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const result = await clinicPatientService.createClinicPatient(
+      req.clinicId!,
+      req.body as clinicPatientService.CreateClinicPatientInput,
+      req.user!.id
+    )
+    successResponse(res, result.created ? 201 : 200, 'Patient ready', result)
   }
 )

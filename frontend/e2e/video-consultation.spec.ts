@@ -161,7 +161,7 @@ test('patient: "Join video consultation" opens the same room', async ({ page }) 
   expect(jitsi).toMatchObject({ roomName: ROOM, jwt: 'patient.jwt' })
 })
 
-test('patient: no video set up — says so instead of waiting', async ({ page }) => {
+test('patient: no video set up, says so instead of waiting', async ({ page }) => {
   await patientWith(page, (route) =>
     fail(route, 503, 'video_not_configured', 'Video calls are not set up on this server')
   )

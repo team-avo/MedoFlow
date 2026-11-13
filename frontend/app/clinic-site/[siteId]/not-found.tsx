@@ -1,5 +1,5 @@
 /**
- * 404 for clinic websites — a real 404 status with the clinic's own header,
+ * 404 for clinic websites: a real 404 status with the clinic's own header,
  * footer and theme. not-found components get no route params, so the site
  * comes from the x-mf-site request header set by middleware.ts.
  */

@@ -2,7 +2,7 @@ import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
 // Per-area loading screen. Deliberately not at app/loading.tsx: a root
 // boundary would also wrap clinic websites (app/clinic-site), streaming them
-// with a MedoFlow loader and a fixed 200 status — clinic sites need real
+// with a MedoFlow loader and a fixed 200 status, clinic sites need real
 // 404 / 301 responses and their own branding (Component 8).
 // A page-shaped skeleton in place, not a full-screen takeover: the top
 // progress bar (TopProgressBar) already says something is loading.

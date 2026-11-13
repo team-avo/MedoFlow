@@ -1,5 +1,5 @@
 /**
- * Vertex AI access tokens (auth style 'google-adc') — the BAA-eligible path
+ * Vertex AI access tokens (auth style 'google-adc'): the BAA-eligible path
  * for Gemini. Service-account JWT exchange (RFC 7523), metadata-server
  * fallback, caching, and failures as ai_auth.
  */

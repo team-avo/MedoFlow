@@ -81,7 +81,7 @@ function ProviderAIScribePageContent() {
     onSuccess: (s) => {
       setSession({ ...session!, ...s })
       scribe.restartPolling()
-      toast.success('Recording uploaded — the AI is drafting the note')
+      toast.success('Recording uploaded. The AI is drafting the note')
     },
     onError,
     onSettled: () => setUploadProgress(null),

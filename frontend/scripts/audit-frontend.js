@@ -46,8 +46,8 @@ for (const adv of Object.values(report.advisories ?? {})) {
   const exception = exceptions.find((e) => e.id === ghsa)
   const line = `${adv.severity.toUpperCase()} ${adv.module_name} ${adv.vulnerable_versions} (${ghsa}) via ${frontendPaths[0]}`
   if (exception && exception.expires >= today)
-    accepted.push(`${line} — accepted until ${exception.expires}: ${exception.reason}`)
-  else failures.push(exception ? `${line} — exception EXPIRED ${exception.expires}` : line)
+    accepted.push(`${line}: accepted until ${exception.expires}: ${exception.reason}`)
+  else failures.push(exception ? `${line}: exception EXPIRED ${exception.expires}` : line)
 }
 
 for (const a of accepted) console.warn(`! ${a}`)

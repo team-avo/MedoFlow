@@ -33,7 +33,7 @@ export function DemoPlansBanner({ catalog }: { catalog: PlanCatalog | undefined 
       className="mx-auto mb-8 flex max-w-2xl items-center justify-center gap-2 rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-center text-sm text-teal-900"
     >
       <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
-      Demo environment — plans are illustrative. Every clinic gets every feature, and nothing
+      Demo environment: plans are illustrative. Every clinic gets every feature, and nothing
       expires.
     </p>
   )
@@ -110,7 +110,7 @@ export function PlanCards({ className }: { className?: string }) {
                       ? 'bg-teal-600 text-white hover:bg-teal-700'
                       : 'border border-slate-300 text-slate-800 hover:bg-slate-50'
                   )}
-                  aria-label={`${trialLabel} — ${plan.name}`}
+                  aria-label={`${trialLabel}: ${plan.name}`}
                 >
                   {trialLabel}
                 </Link>

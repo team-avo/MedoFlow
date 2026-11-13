@@ -1,6 +1,6 @@
 /**
  * Stateful stand-in for the AI scribe API (Component 2 e2e), layered over
- * installMockApi's auth contract with page.route() — anything not handled
+ * installMockApi's auth contract with page.route(): anything not handled
  * here falls back to the auth mock.
  *
  *  provider: consent → (demo) draft → edit → "Approve & send"; a failed run

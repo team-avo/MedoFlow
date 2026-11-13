@@ -1,6 +1,6 @@
 // ESLint flat config (Next.js 16 removed `next lint`; run `pnpm run lint`).
 // Same rules as the former .eslintrc.json: Next core-web-vitals, no-console
-// (client logs go through lib/clientLog — F0.3.2), with the same exceptions.
+// (client logs go through lib/clientLog, F0.3.2), with the same exceptions.
 import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 

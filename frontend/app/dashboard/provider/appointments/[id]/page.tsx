@@ -81,7 +81,8 @@ export default function ProviderAppointmentDetailPage() {
   const toast = useAppToast()
   const queryClient = useQueryClient()
   const { user } = useAuth()
-  const isProvider = user?.role === 'PROVIDER'
+  // The owner-doctor (SUPER_ADMIN with their own Provider, CTO-14) treats patients too.
+  const isProvider = user?.role === 'PROVIDER' || !!user?.provider?.isActive
 
   const [addServiceOpen, setAddServiceOpen] = useState(false)
   const [recordSheetOpen, setRecordSheetOpen] = useState(false)
@@ -168,7 +169,7 @@ export default function ProviderAppointmentDetailPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <PageContainer className="space-y-8 py-8">
-        {/* Hero — gradient, patient + status, primary actions */}
+        {/* Hero: gradient, patient + status, primary actions */}
         <div className="relative overflow-clip rounded-3xl border border-[#E5E7EB] bg-gradient-to-br from-[#1E3A5F] via-[#23436B] to-[#0F766E] text-white">
           <div className="relative flex flex-col gap-6 p-8 lg:p-10">
             <div className="flex items-center justify-between gap-4">

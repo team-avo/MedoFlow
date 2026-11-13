@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * useClinicContext — when the current pathname is under /clinic/[idOrSlug]
+ * useClinicContext: when the current pathname is under /clinic/[idOrSlug]
  * (or /clinic/[idOrSlug]/store), returns the resolved clinic + themeColor.
  * Returns `null` everywhere else so callers can fall back to default chrome.
  *
@@ -20,7 +20,7 @@ export interface ClinicContextValue {
   clinic: Clinic | null
   /** Resolved theme color, falls back to teal default if the clinic hasn't set one. */
   themeColor: string
-  /** Slug or cuid as it appears in the URL — useful for back links. */
+  /** Slug or cuid as it appears in the URL, useful for back links. */
   routeId: string
 }
 

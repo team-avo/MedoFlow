@@ -24,21 +24,13 @@ type GuardUser = Pick<User, 'role' | 'clinicId'> & {
 }
 
 /**
- * Clinic onboarding, in order. The application (practice → practitioners →
- * agreement) must be finished before the setup wizard; the wizard is
- * skippable. `onboardingStep` (saved by each wizard step) is the index of the
- * next setup step, so a returning owner resumes where they left off.
+ * Clinic onboarding is the practice application only: practice →
+ * practitioners → agreement, in order. Signing the agreement finishes
+ * onboarding (CTO-25): the owner lands on the Command Center, where branding,
+ * locations, services, providers and the (optional) website are Quick setup
+ * items. Nothing about the website gates the product.
  */
 export const APPLICATION_PATHS = ['/practice', '/practitioners', '/agreement'] as const
-export const SETUP_PATHS = [
-  '/welcome',
-  '/brand',
-  '/locations',
-  '/disciplines',
-  '/services',
-  '/providers',
-  '/done',
-] as const
 
 /** The first application step still to do, or null when the agreement is signed. */
 export function nextApplicationPath(user: GuardUser): (typeof APPLICATION_PATHS)[number] | null {
@@ -49,33 +41,36 @@ export function nextApplicationPath(user: GuardUser): (typeof APPLICATION_PATHS)
   return null
 }
 
+/**
+ * True once the owner is done with onboarding. A signed agreement counts even
+ * where `onboardingCompletedAt` was never stamped, so a clinic left mid-way
+ * through the old setup wizard is sent to the dashboard, not stranded.
+ */
+export function onboardingFinished(user: GuardUser): boolean {
+  const tenant = user.clinic?.tenant
+  return !!tenant?.onboardingCompletedAt || !!tenant?.termsAcceptedAt
+}
+
 /** Where an owner who hasn't finished onboarding should continue. */
 export function onboardingResumePath(user: GuardUser): string {
-  const app = nextApplicationPath(user)
-  if (app) return app
-  const step = user.clinic?.tenant?.onboardingStep ?? 0
-  return SETUP_PATHS[Math.min(Math.max(step, 0), SETUP_PATHS.length - 1)]!
+  return nextApplicationPath(user) ?? '/dashboard'
 }
 
 /**
- * The (onboarding) area. Only a clinic owner who hasn't finished onboarding
+ * The (onboarding) area. Only a clinic owner who hasn't signed the agreement
  * may be here. Application steps can be revisited (to edit) up to the first
- * unfinished one; once the agreement is signed they are closed — the
- * application is edited from /dashboard/clinic from then on.
+ * unfinished one; once the agreement is signed the whole area is closed and
+ * the application is edited from /dashboard/clinic.
  */
 export function onboardingRedirect(user: GuardUser | null, pathname: string): string | null {
-  if (!user) return loginRedirect(pathname, '/welcome')
+  if (!user) return loginRedirect(pathname, '/practice')
   if (user.role !== 'SUPER_ADMIN' || !user.clinicId) return '/dashboard'
-  if (user.clinic?.tenant?.onboardingCompletedAt) return '/dashboard'
+  if (onboardingFinished(user)) return '/dashboard'
 
-  const next = nextApplicationPath(user)
+  const next = nextApplicationPath(user) ?? '/agreement'
   const appIndex = APPLICATION_PATHS.indexOf(pathname as (typeof APPLICATION_PATHS)[number])
-  if (next) {
-    const nextIndex = APPLICATION_PATHS.indexOf(next)
-    if (appIndex === -1 || appIndex > nextIndex) return next
-    return null
-  }
-  if (appIndex !== -1) return '/welcome'
+  const nextIndex = APPLICATION_PATHS.indexOf(next)
+  if (appIndex === -1 || appIndex > nextIndex) return next
   return null
 }
 
@@ -112,12 +107,10 @@ const matches = (pathname: string, prefix: string) =>
 
 /** True while a first-time SUPER_ADMIN must finish onboarding before seeing the dashboard. */
 export function needsOnboarding(user: GuardUser, _pathname: string): boolean {
-  return (
-    user.role === 'SUPER_ADMIN' && !!user.clinicId && !user.clinic?.tenant?.onboardingCompletedAt
-  )
+  return user.role === 'SUPER_ADMIN' && !!user.clinicId && !onboardingFinished(user)
 }
 
-/** /dashboard/** — staff, providers and clinic admins. */
+/** /dashboard/**, staff, providers and clinic admins. */
 export function dashboardRedirect(user: GuardUser | null, pathname: string): string | null {
   if (!user) return loginRedirect(pathname)
   // Patients live on /account/*.
@@ -136,7 +129,7 @@ export function dashboardRedirect(user: GuardUser | null, pathname: string): str
   ) {
     return '/dashboard'
   }
-  // Website builder (Component 8) — same roles the /site API allows:
+  // Website builder (Component 8): same roles the /site API allows:
   // editors are owners + marketing; enquiries (PHI) owners + front desk;
   // domains owners only.
   if (matches(pathname, '/dashboard/site')) {
@@ -150,14 +143,14 @@ export function dashboardRedirect(user: GuardUser | null, pathname: string): str
   return null
 }
 
-/** /account/** — the patient portal. */
+/** /account/**, the patient portal. */
 export function accountRedirect(user: GuardUser | null, pathname: string): string | null {
   if (!user) return loginRedirect(pathname, '/account')
   if (user.role !== 'PATIENT') return '/dashboard'
   return null
 }
 
-/** /platform/** — MedoFlow operators only. */
+/** /platform/**, MedoFlow operators only. */
 export function platformRedirect(user: GuardUser | null): string | null {
   if (!user) return loginRedirect('/platform/clinics')
   if (user.role !== 'PLATFORM_ADMIN') return '/dashboard'

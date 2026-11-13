@@ -1,12 +1,12 @@
 'use client'
 
 /**
- * /store — clinic storefront.
+ * /store: clinic storefront.
  *
  * Layout (top-down):
  *   1. Navy hero with store intro + search + trust row.
  *   2. Category chip rail (scrolls by letter, filters the grid live).
- *   3. Featured ribbon — three hero products from the most-stocked category.
+ *   3. Featured ribbon: three hero products from the most-stocked category.
  *   4. Main product grid (filtered by the active chip).
  *   5. Care packages strip.
  *   6. Memberships strip.
@@ -143,7 +143,7 @@ export default function StorePage() {
               The clinic store, <span className="text-teal-bright">built by your care team.</span>
             </h1>
             <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/70">
-              Physician-vetted supplements, recovery essentials, and home diagnostics — curated for
+              Physician-vetted supplements, recovery essentials, and home diagnostics, curated for
               your plan of care and shipped to your door.
             </p>
 

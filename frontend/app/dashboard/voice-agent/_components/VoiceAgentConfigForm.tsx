@@ -1,14 +1,14 @@
 'use client'
 
 /**
- * VoiceAgentConfigForm — clinic owner configures the AI receptionist.
+ * VoiceAgentConfigForm: clinic owner configures the AI receptionist.
  *
  * Sections:
- *   • Status        — enabled toggle
- *   • Personality   — greeting, persona preset, voice
- *   • Capabilities  — book / reschedule / refill / messages / transfer
- *   • Hand-off      — escalation phone, after-hours message
- *   • Advanced      — clinic-specific instructions appended to prompt
+ *   • Status: enabled toggle
+ *   • Personality: greeting, persona preset, voice
+ *   • Capabilities: book / reschedule / refill / messages / transfer
+ *   • Hand-off: escalation phone, after-hours message
+ *   • Advanced: clinic-specific instructions appended to prompt
  */
 
 import React, { useEffect, useState } from 'react'
@@ -27,9 +27,9 @@ const PERSONAS: Array<{
   label: string
   blurb: string
 }> = [
-  { id: 'WARM', label: 'Warm', blurb: 'Friendly, conversational — default' },
-  { id: 'PROFESSIONAL', label: 'Professional', blurb: 'Calm, concise — specialists' },
-  { id: 'UPBEAT', label: 'Upbeat', blurb: 'Energetic — wellness, aesthetics' },
+  { id: 'WARM', label: 'Warm', blurb: 'Friendly and conversational (default)' },
+  { id: 'PROFESSIONAL', label: 'Professional', blurb: 'Calm and concise, for specialists' },
+  { id: 'UPBEAT', label: 'Upbeat', blurb: 'Energetic, for wellness and aesthetics' },
 ]
 
 const VOICES: Array<{ id: RealtimeVoice; label: string; note: string }> = [
@@ -185,7 +185,7 @@ export function VoiceAgentConfigForm() {
           >
             {VOICES.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.label} — {v.note}
+                {v.label}: {v.note}
               </option>
             ))}
           </select>
@@ -221,7 +221,7 @@ export function VoiceAgentConfigForm() {
       <Card title="Hand-off" subtitle="Where to send the call when the agent escalates.">
         <Field
           label="Escalation phone"
-          help="Optional — leave blank to route escalations to voicemail."
+          help="Optional: leave blank to route escalations to voicemail."
         >
           <input
             type="tel"

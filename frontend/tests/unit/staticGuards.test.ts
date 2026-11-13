@@ -73,7 +73,7 @@ describe('F0.3.1 no PHI in URLs', () => {
 describe('F3.3 file names never leave the browser except as upload metadata', () => {
   // A patient file's original name ("Jane-Doe-HIV-result.pdf") is PHI. It may
   // be shown, used as the local download name, and sent once in the upload
-  // request body — never in a URL, a toast, or a log line.
+  // request body: never in a URL, a toast, or a log line.
   const FILE_NAME = '(originalName|fileName|file\\.name)'
   const IN_URL_TEMPLATE = new RegExp(`\`[^\`]*/[^\`]*\\$\\{[^}]*\\b${FILE_NAME}\\b[^}]*\\}`)
   const IN_URL_CONCAT = new RegExp(`['"]/[^'"]*['"]\\s*\\+\\s*[\\w.]*${FILE_NAME}`)

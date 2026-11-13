@@ -5,7 +5,7 @@
  * opening a chart during an emergency) activates a grant with a written
  * justification. While the grant is live:
  *  - their effective permissions become full access WITHIN THEIR OWN CLINIC
- *    (clinic isolation is never relaxed — allowedClinicIds is unchanged);
+ *    (clinic isolation is never relaxed, allowedClinicIds is unchanged);
  *  - role checks (`authorize`) pass for staff routes;
  *  - every request writes a `critical` BREAK_GLASS_ACCESS audit row.
  * Grants are capped at BREAK_GLASS_MAX_MINUTES (default 60) and auto-expire:

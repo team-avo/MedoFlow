@@ -1,5 +1,5 @@
 /**
- * F3.1 / F3.3 — patient files in the browser:
+ * F3.1 / F3.3: patient files in the browser:
  *  - staff upload through a backend-issued presigned URL (bytes go straight
  *    to storage, no Authorization header, no cookies), then the file lists;
  *  - disallowed / oversize files are blocked before any request;

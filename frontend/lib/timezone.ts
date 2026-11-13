@@ -2,7 +2,7 @@
  * One display time zone for every appointment, slot and visit time in the UI.
  *
  * Set NEXT_PUBLIC_DISPLAY_TIMEZONE to an IANA zone (e.g. "America/Los_Angeles")
- * to pin it for a deployment. Unset — the default — it is the viewer's system
+ * to pin it for a deployment. Unset, the default, it is the viewer's system
  * zone. The API always speaks UTC ISO strings; clinic opening hours are defined
  * in the clinic location's zone on the server. All formatting goes through
  * Intl with one locale, so every screen shows the same slot the same way.
@@ -85,7 +85,7 @@ export const formatShortDateTime = (d: DateInput) =>
 export const formatDayHeading = (d: DateInput) =>
   fmt(d, { weekday: 'long', month: 'short', day: 'numeric' })
 
-/** "9:30" (no AM/PM) — for compact calendar blocks. */
+/** "9:30" (no AM/PM): for compact calendar blocks. */
 export function formatClockShort(d: DateInput): string {
   const p = zonedParts(d)
   return `${p.hour % 12 || 12}:${String(p.minute).padStart(2, '0')}`
@@ -153,7 +153,7 @@ export function addDaysToDateKey(key: string, days: number): string {
 }
 
 /**
- * Format a calendar date key (yyyy-MM-dd) itself — no zone conversion, so
+ * Format a calendar date key (yyyy-MM-dd) itself: no zone conversion, so
  * "2026-10-26" is always Oct 26 whatever the display zone.
  */
 export function formatDateKey(key: string, options: Intl.DateTimeFormatOptions): string {
@@ -165,7 +165,7 @@ export function formatDateKey(key: string, options: Intl.DateTimeFormatOptions):
 /**
  * A slot's time for a slot list. Availability is requested per clinic
  * calendar day (`pickedDate`, yyyy-MM-dd); when the slot falls on another
- * date in the display zone — e.g. Los Angeles afternoons seen from India —
+ * date in the display zone, e.g. Los Angeles afternoons seen from India,
  * the date is added so the list is never ambiguous: "12:30 AM · Tue, Oct 27".
  */
 export function formatSlotTime(start: DateInput, pickedDate?: string | null): string {

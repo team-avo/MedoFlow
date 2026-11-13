@@ -249,7 +249,7 @@ export const getLongitudinal = async (sessionId: string): Promise<LongitudinalVi
   return data.data.visits
 }
 
-/** "Drafted by gpt-4o-mini" — the model, and the vendor preset when it adds information. */
+/** "Drafted by gpt-4o-mini", the model, and the vendor preset when it adds information. */
 export function provenanceLabel(
   session: Pick<AIScribeSession, 'aiModel' | 'aiProvider'>
 ): string | null {

@@ -1,12 +1,12 @@
 /**
- * Jitsi as a Service (JaaS / 8x8.vc) — JWT-signed room tokens.
+ * Jitsi as a Service (JaaS / 8x8.vc): JWT-signed room tokens.
  *
  * Every participant joins with a short-lived token the backend signs with the
  * clinic's JaaS private key: the provider as moderator, the patient as a plain
  * participant, so neither sees an 8x8 log-in prompt.
  *
  * Minimum necessary (HIPAA): the token carries an opaque user id and a short
- * display name only — never an email — and turns off every 8x8 feature that
+ * display name only: never an email, and turns off every 8x8 feature that
  * would store the call on 8x8's side (recording, livestreaming, transcription).
  * The AI scribe records the provider's microphone locally instead.
  *
@@ -14,7 +14,7 @@
  *   JAAS_APP_ID       e.g. "vpaas-magic-cookie-abcd1234..."
  *   JAAS_KID          API Key ID from the JaaS console ("<appId>/<id>")
  *   JAAS_PRIVATE_KEY  PEM-encoded RSA private key, raw or with escaped `\n`
- *                     sequences — or JAAS_PRIVATE_KEY_PATH, a path to the PEM.
+ *                     sequences: or JAAS_PRIVATE_KEY_PATH, a path to the PEM.
  *   VIDEO_PHI_POLICY  production only: "baa-signed" once 8x8's BAA is signed,
  *                     or "synthetic-data-only" for test environments.
  *
@@ -44,7 +44,7 @@ export interface JaasConfig {
 export interface JaasTokenOptions {
   roomName: string
   user: {
-    /** Opaque internal id — never an email or a name. */
+    /** Opaque internal id: never an email or a name. */
     id: string
     /** What the other participant sees, e.g. "Dr. Chen" or "Anika". */
     name: string
@@ -127,7 +127,7 @@ export function videoConfigProblems(
   const names = ['JAAS_APP_ID', 'JAAS_KID', 'JAAS_PRIVATE_KEY', 'JAAS_PRIVATE_KEY_PATH']
   const anySet = names.some((n) => env[n]?.trim())
   if (!anySet) {
-    return [{ fatal: false, message: 'JAAS_* is not set — video consultations are disabled' }]
+    return [{ fatal: false, message: 'JAAS_* is not set: video consultations are disabled' }]
   }
 
   const problems: { fatal: boolean; message: string }[] = []
@@ -158,7 +158,7 @@ export function videoConfigProblems(
       problems.push({
         fatal: true,
         message:
-          'VIDEO_PHI_POLICY must be "baa-signed" (8x8 BAA signed) or "synthetic-data-only" — video calls carry PHI to 8x8',
+          'VIDEO_PHI_POLICY must be "baa-signed" (8x8 BAA signed) or "synthetic-data-only"; video calls carry PHI to 8x8',
       })
     }
   }

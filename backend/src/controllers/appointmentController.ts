@@ -13,6 +13,43 @@ type CreateAppointmentBody = Omit<appointmentService.CreateAppointmentData, 'pat
   patientId?: string
   slotHoldId?: string
   patientPackageId?: string
+  bookingSource?: 'WALK_IN' | 'PHONE'
+  collectAtDesk?: boolean
+}
+
+/**
+ * How the booking reached the clinic. Patients book online; staff record a
+ * walk-in or a phone booking (CTO-24), defaulting to "front desk". An owner
+ * booking was mislabelled PUBLIC before.
+ */
+export function bookingSourceFor(
+  role: string,
+  requested?: 'WALK_IN' | 'PHONE' | null
+): BookingSource {
+  if (role === 'PATIENT') return BookingSource.PATIENT_PORTAL
+  if (requested === 'WALK_IN') return BookingSource.WALK_IN
+  if (requested === 'PHONE') return BookingSource.PHONE
+  return BookingSource.FRONT_DESK
+}
+
+/** 404 unless the patient belongs to this clinic (a member, or it's their home clinic). */
+async function assertClinicPatient(clinicId: string, patientId: string) {
+  const [membership, home] = await Promise.all([
+    prisma.patientClinicMembership.findFirst({
+      where: { clinicId, patientId },
+      select: { id: true },
+    }),
+    prisma.user.findFirst({
+      where: { id: patientId, clinicId, role: 'PATIENT' },
+      select: { id: true },
+    }),
+  ])
+  if (!membership && !home) {
+    const err = new Error('Patient not found') as ApiError
+    err.statusCode = 404
+    err.code = 'not_found'
+    throw err
+  }
 }
 
 /**
@@ -55,14 +92,19 @@ export const create = asyncHandler(
     }
     // Patients can't book a clinic that isn't approved yet (clinic onboarding).
     if (req.user!.role === 'PATIENT') await clinicVerification.assertClinicLive(clinicId)
-    const { patientId, slotHoldId, patientPackageId, ...rest } = body as CreateAppointmentBody
+    const {
+      patientId,
+      slotHoldId,
+      patientPackageId,
+      bookingSource: requestedSource,
+      collectAtDesk,
+      ...rest
+    } = body as CreateAppointmentBody
     const resolvedPatientId = resolveBookingPatientId(req, patientId)
-    const bookingSource =
-      req.user!.role === 'FRONT_DESK'
-        ? BookingSource.FRONT_DESK
-        : req.user!.role === 'PATIENT'
-          ? BookingSource.PATIENT_PORTAL
-          : BookingSource.PUBLIC
+    const staffBooking = req.user!.role !== 'PATIENT'
+    // Staff may only book their own clinic's patients (CTO-24): a patient id
+    // from another clinic is "not found", never silently enrolled here.
+    if (staffBooking) await assertClinicPatient(clinicId, resolvedPatientId)
     const result = await appointmentService.createAppointment(
       { ...rest, patientId: resolvedPatientId },
       clinicId,
@@ -70,7 +112,9 @@ export const create = asyncHandler(
         performedById: req.user!.id,
         slotHoldId,
         patientPackageId,
-        bookingSource,
+        bookingSource: bookingSourceFor(req.user!.role, requestedSource),
+        staffBooking,
+        collectAtDesk: staffBooking && collectAtDesk === true,
       }
     )
     successResponse(res, 201, 'Appointment created', result)

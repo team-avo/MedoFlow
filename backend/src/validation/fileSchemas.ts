@@ -3,7 +3,7 @@ import { FILE_SIZE_LIMIT_BYTES, MIME_WHITELIST } from '../config/fileConstants'
 
 const id = z.string().trim().min(1).max(64)
 
-/** POST /files/uploads — request a presigned upload (B3.1). */
+/** POST /files/uploads: request a presigned upload (B3.1). */
 export const createUploadIntentSchema = z
   .object({
     patientId: id,

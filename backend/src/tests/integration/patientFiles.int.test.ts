@@ -1,5 +1,5 @@
 /**
- * B3.1 / F3.1 / F3.3 — patient files through presigned URLs, end to end
+ * B3.1 / F3.1 / F3.3, patient files through presigned URLs, end to end
  * against Postgres (enforce + RLS) with the local presigned-URL driver:
  *  - upload: intent → PUT to the presigned URL → complete (size + content verified)
  *  - every download is a time-limited presigned URL, authorised, tenant-scoped, audited

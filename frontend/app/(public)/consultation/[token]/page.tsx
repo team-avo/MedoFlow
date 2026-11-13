@@ -5,9 +5,10 @@ import { useParams } from 'next/navigation'
 import axios from 'axios'
 import api from '@/lib/api'
 import { JitsiVideoCall } from '@/components/consultation/JitsiVideoCall'
+import { videoAutoEnded } from '@/lib/consultationApi'
 
 // ---------------------------------------------------------------------------
-// Types (minimal — patient only sees sanitized data)
+// Types (minimal: patient only sees sanitized data)
 // ---------------------------------------------------------------------------
 
 interface PatientSession {
@@ -76,7 +77,7 @@ export default function PatientJoinPage() {
   // FR-1: the patient may say no. The visit still goes ahead, unrecorded.
   const [consentDeclined, setConsentDeclined] = useState(false)
   const [declining, setDeclining] = useState(false)
-  // Video room — becomes available once the provider clicks "Start Video Call"
+  // Video room: becomes available once the provider clicks "Start Video Call"
   // on their side. We poll for it and render the Jitsi iframe in-place.
   const [videoRoom, setVideoRoom] = useState<{
     roomName: string
@@ -284,6 +285,10 @@ export default function PatientJoinPage() {
             jwt={videoRoom.jwt}
             userName={session.patient?.name?.split(' ')[0] || 'Patient'}
             onCallEnded={() => setVideoActive(false)}
+            // CTO-35: left alone and silent, the call ends for the patient too.
+            onAutoEnd={() => {
+              if (session.id) void videoAutoEnded(session.id).catch(() => undefined)
+            }}
             onRetry={() => void retryVideo()}
             height="calc(100dvh - 6rem)"
             className="w-full"
@@ -469,7 +474,7 @@ export default function PatientJoinPage() {
               recording.
             </p>
 
-            {/* Join video — enabled once provider creates the room */}
+            {/* Join video: enabled once provider creates the room */}
             {session.status !== 'ENDED' &&
               session.status !== 'PROCESSING' &&
               session.status !== 'TRANSCRIPT_READY' && (

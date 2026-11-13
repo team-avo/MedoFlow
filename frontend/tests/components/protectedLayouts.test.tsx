@@ -1,5 +1,5 @@
 /**
- * F0.2.4 — a protected route never renders its content before auth has
+ * F0.2.4: a protected route never renders its content before auth has
  * resolved, nor for a user the guard sends elsewhere.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,7 +32,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import AccountLayout from '@/app/(public)/account/layout'
 import PlatformLayout from '@/app/platform/layout'
 
-const PHI_MARKER = 'Synthetic Patient Chart — DOB 1980-02-03'
+const PHI_MARKER = 'Synthetic Patient Chart: DOB 1980-02-03'
 const Chart = () => <p>{PHI_MARKER}</p>
 
 const user = (role: User['role']): User => ({

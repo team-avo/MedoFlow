@@ -2,7 +2,7 @@
  * Backfill PatientClinicMembership rows for every PATIENT user that has a
  * non-null `clinicId` but no membership row yet.
  *
- * Idempotent — uses upsert under the hood. Safe to run multiple times.
+ * Idempotent: uses upsert under the hood. Safe to run multiple times.
  *
  * Run from the backend directory:
  *   npx ts-node scripts/backfill-memberships.ts

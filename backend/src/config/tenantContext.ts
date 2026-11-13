@@ -5,19 +5,19 @@
  * extension in `config/prisma.ts`, which:
  *
  *  1. asserts that every query on a clinic-scoped model names a clinicId that
- *     belongs to the caller (`allowedClinicIds`) — B0.1.2, and
+ *     belongs to the caller (`allowedClinicIds`): B0.1.2, and
  *  2. forwards the same scope to Postgres row-level security as session
- *     variables (`app.clinic_ids`, `app.rls_bypass`) — B0.1.3.
+ *     variables (`app.clinic_ids`, `app.rls_bypass`): B0.1.3.
  *
  * Design notes:
  *  - The context is OPT-IN at the request level. If a request never runs
  *    through `protect`/`withPublicScope` (e.g. a background job), Prisma
  *    queries against clinic-scoped models fail in enforce mode. That's
- *    intentional — background jobs MUST call `withTenantBypass(reason, fn)`
+ *    intentional: background jobs MUST call `withTenantBypass(reason, fn)`
  *    or `withTenantContext(ctx, fn)` to declare their scope explicitly.
  *  - Bypass is a named escape hatch, not a silent flag. Every bypass
  *    carries a reason string so a future audit can grep for them.
- *  - We carry `userId` too for audit correlation only — the bypass logic
+ *  - We carry `userId` too for audit correlation only, the bypass logic
  *    does not consult it.
  */
 
@@ -50,8 +50,8 @@ export function getTenantContext(): TenantContext | undefined {
 }
 
 /**
- * Runs `fn` inside `ctx`. If `fn` returns a thenable — notably a lazy
- * PrismaPromise, which only executes when `.then` is called — it is started
+ * Runs `fn` inside `ctx`. If `fn` returns a thenable: notably a lazy
+ * PrismaPromise, which only executes when `.then` is called: it is started
  * *inside* the scope, so `withTenantBypass('x', () => prisma.a.findFirst(…))`
  * behaves the same as the `async () => await …` form.
  */
@@ -81,18 +81,18 @@ export function getAllowedClinicIds(ctx: TenantContext | undefined = getTenantCo
 
 /**
  * Run a function with the current tenant scope bypassed. Every call site
- * MUST pass a descriptive reason — these are logged and reviewed.
+ * MUST pass a descriptive reason, these are logged and reviewed.
  *
  * Legitimate uses:
  *  - auth flows before a user is authenticated (login, signup, refresh)
  *  - platform-admin cross-tenant operations
  *  - signup that creates the first tenant/clinic/user (no context yet)
- *  - public webhooks (stripe) — use the embedded tenantId from metadata
+ *  - public webhooks (stripe): use the embedded tenantId from metadata
  *  - background jobs (cron sweeps, queue workers)
  *
  * Misuse note: do NOT wrap a handler in `withTenantBypass` just to make
  * a failing query stop failing. The failure means the query is missing a
- * clinicId filter — fix the query, don't bypass the guard.
+ * clinicId filter: fix the query, don't bypass the guard.
  */
 export function withTenantBypass<T>(reason: string, fn: () => T): T {
   const prev = storage.getStore()
@@ -116,7 +116,7 @@ export function withTenantBypass<T>(reason: string, fn: () => T): T {
  *  - staff:        `{ clinicId: '<their clinic>' }`
  *  - patient:      `{ clinicId: { in: [<home + member clinics>] } }`
  *  - bypass scope: `{}` (cross-clinic by design; the bypass reason is the audit trail)
- *  - no context:   `{ clinicId: { in: [] } }` — matches nothing (fail closed)
+ *  - no context:   `{ clinicId: { in: [] } }`, matches nothing (fail closed)
  */
 export function clinicScope(): { clinicId?: string | { in: string[] } } {
   const ctx = getTenantContext()
@@ -128,10 +128,10 @@ export function clinicScope(): { clinicId?: string | { in: string[] } } {
 
 /**
  * Isolation modes:
- *  - off      — extension inactive.
- *  - warn     — violations are logged with model/operation/where-keys, but
+ *  - off: extension inactive.
+ *  - warn: violations are logged with model/operation/where-keys, but
  *               the query still runs. Useful while fixing flagged queries.
- *  - enforce  — violations throw. Any query on a clinic-scoped model that
+ *  - enforce: violations throw. Any query on a clinic-scoped model that
  *               doesn't name one of the caller's clinics, and has no active
  *               bypass, is rejected before it reaches Postgres.
  *

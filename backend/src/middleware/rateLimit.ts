@@ -2,7 +2,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 
 /**
  * Login rate limiter: 5 failed attempts per 15 minutes per IP.
- * Brute-force defense — counts only failures so legit users who mistype once
+ * Brute-force defense: counts only failures so legit users who mistype once
  * or twice don't burn the budget.
  *
  * In production this should use a Redis store so limits survive restarts
@@ -27,7 +27,7 @@ export const authRateLimit = rateLimit({
 
 /**
  * Clinic signup (POST /tenants/signup): 10 attempts per hour per IP,
- * successful ones included — each success creates a whole tenant, so this
+ * successful ones included: each success creates a whole tenant, so this
  * caps how many clinics one address can create. SIGNUP_RATE_LIMIT_MAX
  * overrides (raise it for a demo rehearsal).
  */
@@ -106,7 +106,7 @@ export const publicApiRateLimit = rateLimit({
 
 /**
  * Clinic-site rendering (B8.5). The frontend Worker calls these on behalf of
- * every visitor, so requests arrive from a handful of Cloudflare IPs — the
+ * every visitor, so requests arrive from a handful of Cloudflare IPs, the
  * ceiling is deliberately high and the real protection is caching
  * (s-maxage + ETag). SITE_RENDER_RATE_LIMIT_MAX overrides.
  */
@@ -119,7 +119,7 @@ export const siteRenderRateLimit = rateLimit({
 })
 
 /**
- * Website contact form (B8.5): 5 enquiries per 10 minutes per IP — a real
+ * Website contact form (B8.5): 5 enquiries per 10 minutes per IP, a real
  * visitor sends one. SITE_LEAD_RATE_LIMIT_MAX overrides.
  */
 export const siteLeadRateLimit = rateLimit({
@@ -145,4 +145,17 @@ export const liveTranscriptRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many live caption requests. Please slow down.' },
+})
+
+/**
+ * NPPES look-ups while filling in the application (CTO-29): 30 per minute per
+ * signed-in owner. NPI_LOOKUP_RATE_LIMIT_MAX overrides.
+ */
+export const npiLookupRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: () => Number(process.env.NPI_LOOKUP_RATE_LIMIT_MAX) || 30,
+  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : ipKeyGenerator(req.ip ?? '')),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many NPI look-ups. Wait a minute and try again.' },
 })

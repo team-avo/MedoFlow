@@ -121,7 +121,7 @@ export function LiveTranscriptPanel({
         </p>
       )}
       <p className="border-t border-slate-100 px-5 py-2 text-[11px] text-slate-400">
-        Live preview — the final transcript is generated from the full recording after the consult.
+        Live preview: the final transcript is generated from the full recording after the consult.
       </p>
     </section>
   )

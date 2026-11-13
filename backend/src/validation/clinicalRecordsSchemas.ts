@@ -97,6 +97,42 @@ export const prescriptionCreateSchema = z
 
 export const FORM_FIELD_TYPES = ['text', 'textarea', 'number', 'checkbox', 'select'] as const
 
+/**
+ * A conditional follow-up (CTO-21): when a yes/no question is answered Yes
+ * (a ticked checkbox, or the select value "yes"), the patient picks which
+ * ones from a list, plus "Other" with free text. The answer is stored under
+ * `<fieldId>__followUp` as `{ selected: string[], other?: string }`, inside
+ * the same field-encrypted responses as every other answer.
+ */
+export const FOLLOW_UP_SUFFIX = '__followUp'
+
+const followUpSchema = z
+  .object({
+    label: z.string().trim().min(1, 'Follow-up label is required').max(LIMITS.fieldLabelMax),
+    options: z
+      .array(
+        z.object({
+          value: z.string().trim().min(1).max(LIMITS.fieldLabelMax),
+          label: z.string().trim().min(1).max(LIMITS.fieldLabelMax),
+        })
+      )
+      .min(1, 'A follow-up needs at least one option')
+      .max(LIMITS.optionsMax),
+    allowOther: z.boolean().optional(),
+    /** Default true: a Yes must say which. */
+    required: z.boolean().optional(),
+  })
+  .strict()
+
+type YesNoCandidate = { type: string; options?: { value: string }[] }
+const isYesNoField = (f: YesNoCandidate) =>
+  f.type === 'checkbox' ||
+  (f.type === 'select' && (f.options ?? []).some((o) => o.value.toLowerCase() === 'yes'))
+
+/** True when the answer to a yes/no field is Yes. */
+export const answeredYes = (f: YesNoCandidate, v: unknown) =>
+  f.type === 'checkbox' ? v === true : typeof v === 'string' && v.toLowerCase() === 'yes'
+
 const formField = z
   .object({
     id: z
@@ -115,10 +151,15 @@ const formField = z
       )
       .max(LIMITS.optionsMax)
       .optional(),
+    followUp: followUpSchema.optional(),
   })
   .refine((f) => f.type !== 'select' || (f.options?.length ?? 0) > 0, {
     message: 'A select field needs at least one option',
     path: ['options'],
+  })
+  .refine((f) => !f.followUp || isYesNoField(f), {
+    message: 'A follow-up needs a checkbox or a select with a "yes" option',
+    path: ['followUp'],
   })
 
 const formFields = z
@@ -169,11 +210,19 @@ export const formTemplateUpdateSchema = z
 
 // ── Intake form responses ──────────────────────────────────────────────────
 
+const followUpAnswer = z
+  .object({
+    selected: z.array(z.string().max(LIMITS.fieldLabelMax)).max(LIMITS.optionsMax),
+    other: z.string().max(LIMITS.answerMax).optional(),
+  })
+  .strict()
+
 const answer = z.union([
   z.string().max(LIMITS.answerMax),
   z.number().finite(),
   z.boolean(),
   z.null(),
+  followUpAnswer,
 ])
 
 export const formResponseSubmitSchema = z
@@ -189,7 +238,8 @@ export const formResponseSubmitSchema = z
   .strict()
 
 export type FormFieldDefinition = z.infer<typeof formField>
-export type FormAnswers = Record<string, string | number | boolean | null>
+export type FollowUpAnswer = { selected: string[]; other?: string }
+export type FormAnswers = Record<string, string | number | boolean | null | FollowUpAnswer>
 
 /**
  * Checks answers against the template's field definitions: every required
@@ -201,10 +251,12 @@ export type FormAnswers = Record<string, string | number | boolean | null>
 export function answerProblems(fields: FormFieldDefinition[], answers: FormAnswers): string[] {
   const problems: string[] = []
   const known = new Set(fields.map((f) => f.id))
+  for (const f of fields) if (f.followUp) known.add(`${f.id}${FOLLOW_UP_SUFFIX}`)
   for (const key of Object.keys(answers)) {
     if (!known.has(key)) problems.push(`Unknown field "${key}"`)
   }
   for (const f of fields) {
+    if (f.followUp) problems.push(...followUpProblems(f, answers))
     const v = answers[f.id]
     const empty = v === undefined || v === null || v === ''
     if (f.type === 'checkbox') {
@@ -225,6 +277,32 @@ export function answerProblems(fields: FormFieldDefinition[], answers: FormAnswe
     } else if (v.trim() === '' && f.required) {
       problems.push(`${f.label} is required`)
     }
+  }
+  return problems
+}
+
+/** CTO-21: a Yes must say which (when required); a No carries no follow-up. */
+function followUpProblems(f: FormFieldDefinition, answers: FormAnswers): string[] {
+  const fu = f.followUp!
+  const raw = answers[`${f.id}${FOLLOW_UP_SUFFIX}`]
+  const given = raw !== undefined && raw !== null
+  if (given && (typeof raw !== 'object' || !Array.isArray(raw.selected))) {
+    return [`${fu.label} must be a list`]
+  }
+  const value = raw as FollowUpAnswer | null | undefined
+  const selected = value?.selected ?? []
+  const other = value?.other?.trim() ?? ''
+  if (!answeredYes(f, answers[f.id])) {
+    return selected.length || other ? [`${fu.label} applies only when the answer is Yes`] : []
+  }
+  const problems: string[] = []
+  const allowed = new Set(fu.options.map((o) => o.value))
+  if (selected.some((s) => !allowed.has(s))) {
+    problems.push(`${fu.label} must be among the listed options`)
+  }
+  if (other && !fu.allowOther) problems.push(`${fu.label} doesn't take free text`)
+  if (fu.required !== false && selected.length === 0 && !other) {
+    problems.push(`${fu.label} is required`)
   }
   return problems
 }

@@ -134,6 +134,8 @@ const issueSessionAndRespond = async (
       preferences: true,
       mfaEnabled: true,
       customRole: { select: { id: true, name: true, permissions: true } },
+      // The owner-doctor's own Provider (CTO-14), for "Start scribe" (CTO-30).
+      provider: { select: { id: true, isActive: true } },
       clinic: {
         select: {
           id: true,
@@ -150,6 +152,8 @@ const issueSessionAndRespond = async (
               verificationStatus: true,
               submittedForReviewAt: true,
               reviewNotes: true,
+              // CTO-28: the console accent arrives with the session (no flash).
+              brand: { select: { primaryColor: true, secondaryColor: true } },
             },
           },
           // Which application steps are done (the onboarding gate).
@@ -291,7 +295,7 @@ export const login = asyncHandler(
     // surface the SAME generic 401 here ("Invalid email or password") so an
     // attacker can't enumerate which accounts belong to which clinic.
     //
-    // PATIENT role is the only one this applies to — staff/SUPER_ADMIN sign
+    // PATIENT role is the only one this applies to, staff/SUPER_ADMIN sign
     // in from /dashboard, not a clinic page, and never carry a clinicId hint.
     if (clinicHint && user.role === 'PATIENT') {
       const targetClinic = await prisma.clinic.findFirst({
@@ -325,7 +329,7 @@ export const login = asyncHandler(
   }
 )
 
-/** POST /auth/mfa/verify — second step of an MFA login. */
+/** POST /auth/mfa/verify: second step of an MFA login. */
 export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const { mfaToken, code, recoveryCode } = req.body as {
     mfaToken?: string
@@ -339,7 +343,7 @@ export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): 
   try {
     userId = verifyMfaChallengeToken(mfaToken).userId
   } catch {
-    throw httpError('MFA challenge expired — sign in again', 401, 'mfa_challenge_invalid')
+    throw httpError('MFA challenge expired: sign in again', 401, 'mfa_challenge_invalid')
   }
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -366,7 +370,7 @@ export const verifyMfaLogin = asyncHandler(async (req: Request, res: Response): 
 })
 
 /**
- * POST /auth/handoff/start — called by the app host's /auth/handoff page.
+ * POST /auth/handoff/start: called by the app host's /auth/handoff page.
  * Returns where to send the browser: back to the clinic page with a one-time
  * code (signed-in patient) or with `handoff=none` (anyone else).
  */
@@ -378,7 +382,7 @@ export const handoffStart = asyncHandler(async (req: Request, res: Response): Pr
 })
 
 /**
- * POST /auth/handoff/exchange — called from the clinic origin. Trades a
+ * POST /auth/handoff/exchange: called from the clinic origin. Trades a
  * one-time code for a session there (the refresh cookie set on this response
  * lands in the clinic site's cookie partition).
  */
@@ -423,7 +427,7 @@ export const refreshToken = asyncHandler(
     if (!storedToken) throw httpError('Invalid refresh token', 401)
 
     if (storedToken.revoked) {
-      // Token reuse detected — this indicates a stolen token.
+      // Token reuse detected: this indicates a stolen token.
       // Revoke ALL sessions + refresh tokens for this user (nuclear option).
       await sessionService.revokeAllSessions(storedToken.userId, 'refresh_token_reuse')
       await logAuthEvent({
@@ -546,19 +550,44 @@ export const logout = asyncHandler(
 )
 
 /** Session settings the client needs to mirror (F0.2.1 idle-logoff UX). */
-const sessionInfo = (): { idleTimeoutMinutes: number } => ({
-  idleTimeoutMinutes: Math.round(sessionService.getIdleTimeoutMs() / 60_000),
+const sessionInfo = (
+  session?: { idleTimeoutMinutes?: number | null } | null
+): { idleTimeoutMinutes: number } => ({
+  idleTimeoutMinutes: Math.round(sessionService.getIdleTimeoutMs(session ?? undefined) / 60_000),
 })
 
 /**
- * GET /auth/session — heartbeat. The client calls it while the user is
+ * GET /auth/session: heartbeat. The client calls it while the user is
  * actively working (typing a long note makes no API calls), which records
  * activity on the server session; an idle screen sends nothing, so the
  * server-side idle timeout still fires.
+ *
+ * `?context=onboarding` (CTO-13): while a clinic owner fills in the
+ * application (agreement not signed yet), the session gets the longer
+ * ONBOARDING_IDLE_TIMEOUT_MINUTES window. Anyone else, and the owner once
+ * they leave onboarding, gets the normal window back.
  */
-export const sessionHeartbeat = (_req: Request, res: Response): void => {
-  successResponse(res, 200, 'Session active', { session: sessionInfo() })
-}
+export const sessionHeartbeat = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const sessionId = req.user?.sessionId
+    let minutes: number | null = null
+    if (req.query['context'] === 'onboarding' && sessionId && req.user?.role === 'SUPER_ADMIN') {
+      const clinic = req.user.clinicId
+        ? await prisma.clinic.findUnique({
+            where: { id: req.user.clinicId },
+            select: { tenant: { select: { termsAcceptedAt: true } } },
+          })
+        : null
+      if (clinic && !clinic.tenant.termsAcceptedAt) {
+        minutes = sessionService.getOnboardingIdleMinutes()
+      }
+    }
+    if (sessionId) await sessionService.setSessionIdleOverride(sessionId, minutes)
+    successResponse(res, 200, 'Session active', {
+      session: sessionInfo({ idleTimeoutMinutes: minutes }),
+    })
+  }
+)
 
 export const me = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
@@ -579,6 +608,8 @@ export const me = asyncHandler(
         tourCompletedAt: true,
         preferences: true,
         mfaEnabled: true,
+        // The owner-doctor's own Provider (CTO-14), for "Start scribe" (CTO-30).
+        provider: { select: { id: true, isActive: true } },
         clinic: {
           select: {
             id: true,
@@ -595,6 +626,8 @@ export const me = asyncHandler(
                 verificationStatus: true,
                 submittedForReviewAt: true,
                 reviewNotes: true,
+                // CTO-28: the console accent arrives with the session (no flash).
+                brand: { select: { primaryColor: true, secondaryColor: true } },
               },
             },
             // Which application steps are done (the onboarding gate).
@@ -605,9 +638,16 @@ export const me = asyncHandler(
         },
       },
     })
+    // The session's own idle window (CTO-13), so the client mirrors it.
+    const session = req.user.sessionId
+      ? await prisma.userSession.findUnique({
+          where: { id: req.user.sessionId },
+          select: { idleTimeoutMinutes: true },
+        })
+      : null
     successResponse(res, 200, 'User retrieved', {
       user: { ...user, breakGlass: req.breakGlass ?? null },
-      session: sessionInfo(),
+      session: sessionInfo(session),
     })
   }
 )
@@ -706,7 +746,7 @@ export const setPassword = asyncHandler(
   }
 )
 
-/** POST /auth/change-password — signed-in password change; signs out other sessions. */
+/** POST /auth/change-password: signed-in password change; signs out other sessions. */
 export const changePassword = asyncHandler(async (req: Request, res: Response): Promise<void> => {
   if (!req.user) throw httpError('Authentication required', 401)
   const { currentPassword, newPassword } = req.body as {
@@ -770,7 +810,7 @@ export const mfaEnable = asyncHandler(async (req: Request, res: Response): Promi
   successResponse(
     res,
     200,
-    'MFA enabled. Store these recovery codes somewhere safe — they are shown once.',
+    'MFA enabled. Store these recovery codes somewhere safe. They are shown once.',
     {
       recoveryCodes,
     }

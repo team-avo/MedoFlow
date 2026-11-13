@@ -1,5 +1,5 @@
 /**
- * Client-side validation for the shipping address saved at booking (F5.3) —
+ * Client-side validation for the shipping address saved at booking (F5.3):
  * the mirror of shippingAddressSchema in backend/src/validation/rxCartSchemas.ts.
  * Both suites run shared/validation-cases/commerce.json.
  */

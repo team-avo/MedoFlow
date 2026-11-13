@@ -1,3 +1,4 @@
+import { confirmVirtualVisit } from './virtualVisitService'
 import prisma from '../config/prisma'
 import type { Request } from 'express'
 import type { ApiError } from '../types/errors'
@@ -41,6 +42,8 @@ export interface CreateAppointmentData {
    * consultation session will start with consent already granted.
    */
   aiScribeConsent?: boolean
+  /** CTO-31: in person or video; defaults to the service's defaultMode. */
+  mode?: 'IN_PERSON' | 'VIRTUAL'
 }
 
 export interface CreateAppointmentContext {
@@ -60,6 +63,17 @@ export interface CreateAppointmentContext {
    * overlap constraint, and a failure leaves the old appointment untouched.
    */
   rescheduleFromAppointmentId?: string
+  /**
+   * Booked by clinic staff (owner, front desk, custom role), CTO-24. Staff
+   * book walk-ins "now", so the service's online minimum-notice rule doesn't
+   * apply; the overlap checks and the clinic's own limits still do.
+   */
+  staffBooking?: boolean
+  /**
+   * Staff only: a prepay service is paid at the front desk instead of online.
+   * The appointment is confirmed straight away with nothing charged now.
+   */
+  collectAtDesk?: boolean
 }
 
 const ACTIVE_APPOINTMENT_STATUSES: AppointmentStatus[] = [
@@ -360,7 +374,9 @@ export const createAppointment = async (
       const maxFuture = service.maxFutureBookingDays ?? 365
 
       try {
-        checkMinimumNotice(startDate, minNotice, clinicId, serviceId, performedById)
+        if (!context?.staffBooking) {
+          checkMinimumNotice(startDate, minNotice, clinicId, serviceId, performedById)
+        }
       } catch (err) {
         if (performedById) {
           await tx.auditLog.create({
@@ -487,13 +503,15 @@ export const createAppointment = async (
         : standardPriceAtBooking
       const priceAtBooking = usingPackage ? ZERO : discountedPriceAtBooking
 
-      const paymentRequirementType = usingPackage
-        ? PaymentRequirementType.NONE
-        : service.requirePrepayment && service.prepaymentType === 'DEPOSIT'
-          ? PaymentRequirementType.DEPOSIT
-          : service.requirePrepayment
-            ? PaymentRequirementType.FULL
-            : PaymentRequirementType.NONE
+      const collectAtDesk = Boolean(context?.staffBooking && context.collectAtDesk)
+      const paymentRequirementType =
+        usingPackage || collectAtDesk
+          ? PaymentRequirementType.NONE
+          : service.requirePrepayment && service.prepaymentType === 'DEPOSIT'
+            ? PaymentRequirementType.DEPOSIT
+            : service.requirePrepayment
+              ? PaymentRequirementType.FULL
+              : PaymentRequirementType.NONE
 
       const requirePrepayment = paymentRequirementType !== PaymentRequirementType.NONE
       const now = new Date()
@@ -541,6 +559,7 @@ export const createAppointment = async (
         updatedById: performedById ?? null,
         recurringSeriesId: context?.recurringSeriesId ?? null,
         aiScribeConsentGrantedAt: data.aiScribeConsent ? new Date() : null,
+        mode: data.mode ?? service.defaultMode,
       }
 
       const rescheduleFromId = context?.rescheduleFromAppointmentId
@@ -665,6 +684,7 @@ export const createAppointment = async (
             priceAtBooking: Number(priceAtBooking),
             packageApplied: usingPackage,
             membershipDiscountPercent: Number(membershipDiscountPercent),
+            ...(collectAtDesk ? { collectAtDesk: true } : {}),
           } as Prisma.InputJsonValue,
           oldValue: Prisma.JsonNull,
           performedById: performedById ?? patientId,
@@ -683,8 +703,8 @@ export const createAppointment = async (
     .catch((err: unknown) => {
       // B1.1/B1.2: the overlap constraint is the last line of defence when the
       // advisory lock and the checks above are bypassed (e.g. a concurrent
-      // writer outside this code path). The transaction has rolled back — the
-      // slot hold is still ACTIVE, nothing was written — so answer a clean 409.
+      // writer outside this code path). The transaction has rolled back, the
+      // slot hold is still ACTIVE, nothing was written, so answer a clean 409.
       if (isAppointmentOverlapError(err)) throw slotTakenError()
       throw err
     })
@@ -703,6 +723,13 @@ export const createAppointment = async (
                 amount: amountToCharge,
               })
             )
+      // CTO-31: a confirmed video visit gets its room and join link now, sent
+      // with the confirmation (a prepaid one gets them when payment lands).
+      if (appointment.mode === 'VIRTUAL' && appointment.status === 'CONFIRMED') {
+        await withPatientSelfEnrollScope(clinicId, patientId, () =>
+          confirmVirtualVisit(appointment.id, clinicId)
+        )
+      }
       return { appointment, clientSecret }
     })
 }

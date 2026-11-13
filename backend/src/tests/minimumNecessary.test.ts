@@ -1,6 +1,6 @@
 /**
  * F0.3.4 minimum necessary: a Prisma `include: { patient: true }` (or
- * `user: true`) returns the whole User row — password hash, MFA secret and
+ * `user: true`) returns the whole User row, password hash, MFA secret and
  * recovery codes included. Response-building code must `select` the fields
  * the screen shows. The only allowed full includes are server-internal (they
  * never reach a response) and are listed here with the reason.

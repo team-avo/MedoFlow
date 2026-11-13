@@ -1,5 +1,5 @@
 /**
- * Component 8 — clinic-site routing on the frontend: the route registry and
+ * Component 8: clinic-site routing on the frontend: the route registry and
  * host classification run the same shared cases as the backend
  * (shared/validation-cases/site-routes.json), plus the edge-routing rules
  * middleware.ts applies and the legacy /clinic/* redirects.
@@ -32,7 +32,7 @@ const cases = JSON.parse(
   )
 ) as RouteCases
 
-describe('route registry — shared parity cases', () => {
+describe('route registry: shared parity cases', () => {
   it.each(cases.match.map((c) => [c.path, c.expect] as const))('match %s', (p, expected) => {
     const m = matchSitePath(p)
     const got =
@@ -76,7 +76,7 @@ describe('route registry — shared parity cases', () => {
   })
 })
 
-describe('host classification — shared parity cases', () => {
+describe('host classification: shared parity cases', () => {
   it.each(cases.hosts.cases.map((c) => [c.host, c.expect] as const))('%s', (host, expected) => {
     expect(classifyHost(host, cases.hosts.env)).toEqual(expected)
   })

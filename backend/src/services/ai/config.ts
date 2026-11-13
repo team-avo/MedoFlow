@@ -5,7 +5,7 @@
  * mixed (e.g. OpenAI transcription + Gemini drafting). A preset fills in the
  * base URL, default model, auth style and JSON mode for a known vendor; any
  * of those can be overridden. Everything is read from the environment once,
- * when the registry is built — switching vendors is an env change + restart.
+ * when the registry is built, switching vendors is an env change + restart.
  *
  *   AI_SCRIBE_LLM_PRESET   openai | azure | groq | gemini | vertex-gemini | ollama | custom
  *   AI_SCRIBE_LLM_PROVIDER openai-compatible (default when a preset/base URL is set) | mock | disabled

@@ -2,6 +2,7 @@
 
 /** Website overview (F8.1): live URL, publish state, setup checklist and every page. */
 import React from 'react'
+import { LaunchStatus } from '@/components/site/LaunchStatus'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -115,7 +116,7 @@ export default function SiteOverviewPage() {
         <h1 className="mt-4 text-2xl font-semibold text-slate-900">Build your clinic’s website</h1>
         <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">
           Pick a template designed for your kind of practice. Your services, team, products and
-          opening hours fill in automatically — then make it yours.
+          opening hours fill in automatically; then make it yours.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <AppButton onClick={() => router.push('/dashboard/site/templates')}>
@@ -186,6 +187,10 @@ export default function SiteOverviewPage() {
             {site.templateKey ?? 'none'}
             {site.publishedAt && ` · published ${new Date(site.publishedAt).toLocaleString()}`}
           </p>
+          {/* CTO-26: the address goes live on Cloudflare from Publish. */}
+          <div className="mt-3">
+            <LaunchStatus />
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <AppButton
@@ -364,7 +369,7 @@ export default function SiteOverviewPage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         title="New page"
-        description="It starts as a draft — publish it when it’s ready."
+        description="It starts as a draft; publish it when it’s ready."
         primaryAction={{
           label: 'Create page',
           disabled: !newTitle.trim() || !newSlug || !!slugError || busy === 'create',

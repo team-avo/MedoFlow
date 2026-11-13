@@ -1,3 +1,4 @@
+import { ensureDefaultIntakeTemplate } from './formService'
 import * as argon2 from 'argon2'
 import type { TenantPlan } from '@prisma/client'
 import prisma from '../config/prisma'
@@ -58,7 +59,7 @@ const RESERVED_SUBDOMAINS = new Set([
   'staging',
   'medoflow',
   // 'default' was listed here historically but the seed tenant uses that
-  // slug — removing it so the reserved list reflects what's actually
+  // slug: removing it so the reserved list reflects what's actually
   // forbidden for new signups. Tenant slug uniqueness is still enforced
   // via the unique constraint on Brand.subdomain.
 ])
@@ -216,6 +217,14 @@ export async function provisionTenant(data: SignupData) {
     },
     performedById: result.user.id,
   })
+
+  // CTO-21: every clinic starts with the default patient intake form. Best
+  // effort: a failure here must never block a sign-up.
+  try {
+    await ensureDefaultIntakeTemplate(result.clinic.id, result.user.id)
+  } catch (err) {
+    console.warn('[signup] default intake form not created:', (err as Error).message)
+  }
 
   return result
 }

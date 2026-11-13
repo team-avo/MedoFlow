@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * BentoGridSection — the four pillars.
+ * BentoGridSection: the four pillars.
  *
- * Each card is a LIVE product surface — not a marketing tile. The user
+ * Each card is a LIVE product surface, not a marketing tile. The user
  * should look at this and think "that's the actual product." Each card
  * has its own micro-animation showing the feature working.
  */
@@ -31,7 +31,7 @@ export function BentoGridSection() {
               Four products. <span className="text-ink-muted">One platform.</span>
             </>
           }
-          description="Charting, scheduling, payments, and a patient experience — built to operate as one system, not four apps stitched together."
+          description="Charting, scheduling, payments, and a patient experience, built to operate as one system, not four apps stitched together."
         />
 
         <div className="mx-auto mt-20 grid max-w-6xl grid-cols-1 gap-5 md:auto-rows-[360px] md:grid-cols-3">
@@ -48,7 +48,7 @@ export function BentoGridSection() {
 // ─────────────────────────── 1 · AI Scribe (large) ──────────────────────
 
 function AIScribeCard() {
-  // The finished note, shown whole — no typing loop re-rendering every 26ms.
+  // The finished note, shown whole, no typing loop re-rendering every 26ms.
   const typed =
     'Patient reports 30% reduction in lower-back pain since last visit. Mobility improved, sleeping through the night. Continue current PT protocol; add foam-roll routine. Re-eval in 2 weeks.'
 
@@ -76,7 +76,7 @@ function AIScribeCard() {
         </div>
 
         <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink-muted">
-          Ambient listening, structured SOAP output. Provider reviews, edits, approves — done in 90
+          Ambient listening, structured SOAP output. Provider reviews, edits, approves. Done in 90
           seconds instead of 15 minutes.
         </p>
 
@@ -237,8 +237,9 @@ function PatientAppCard() {
             <span className="text-ink-muted">Without calling.</span>
           </h3>
           <p className="mt-3 max-w-md text-[14px] leading-relaxed text-ink-muted">
-            A branded site, online booking, intake forms, telehealth, package balances, invoices —
-            under your domain, in your colors. Your patients see "Atlas Physio." Never "MedoFlow."
+            A branded site, online booking, intake forms, telehealth, package balances, invoices,
+            all under your domain, in your colors. Your patients see "Atlas Physio." Never
+            "MedoFlow."
           </p>
 
           <div className="mt-5 flex flex-wrap gap-2">
@@ -255,7 +256,7 @@ function PatientAppCard() {
           </div>
         </div>
 
-        {/* Phone mockup — booking flow */}
+        {/* Phone mockup: booking flow */}
         <div className="hidden md:block">
           <div
             className="relative h-[240px] w-[140px] rounded-[28px] bg-navy p-2 shadow-card-hover"

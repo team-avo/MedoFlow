@@ -178,7 +178,7 @@ export function LinkPicker({
         >
           {ed?.pages.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.title} ({p.path}){p.status === 'DRAFT' ? ' — draft' : ''}
+              {p.title} ({p.path}){p.status === 'DRAFT' ? ', draft' : ''}
             </option>
           ))}
         </select>

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * ROICalculatorSection — make it personal.
+ * ROICalculatorSection: make it personal.
  *
  * Two sliders: number of providers, average ticket. We compute three
  * concrete numbers: hours saved per week, dollars recovered from no-shows,
@@ -49,7 +49,7 @@ function Slider({
           style={{ width: `calc(${pct}% + 4px)` }}
           aria-hidden
         />
-        {/* Visual thumb — solid teal, slightly outset white ring */}
+        {/* Visual thumb: solid teal, slightly outset white ring */}
         <div
           className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-transform"
           style={{ left: `${pct}%` }}
@@ -59,7 +59,7 @@ function Slider({
             <div className="absolute inset-[3px] rounded-full bg-gradient-to-br from-teal to-[#5EEAD4]" />
           </div>
         </div>
-        {/* Real input — invisible, sits on top for interaction */}
+        {/* Real input: invisible, sits on top for interaction */}
         <input
           type="range"
           min={min}

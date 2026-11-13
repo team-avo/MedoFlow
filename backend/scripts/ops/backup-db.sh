@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B0.6.4 — encrypted database backup.
+# B0.6.4: encrypted database backup.
 #
 #   pg_dump (custom format) → age-encrypt to BACKUP_AGE_RECIPIENT → upload to the
 #   private backup bucket. The plaintext dump never touches disk; only the

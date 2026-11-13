@@ -1,5 +1,5 @@
 /**
- * Clinic onboarding — NPI / EIN / DEA checks. Same cases as the backend
+ * Clinic onboarding: NPI / EIN / DEA checks. Same cases as the backend
  * (shared/validation-cases/practice-ids.json, backend/src/tests/practiceIds.test.ts).
  */
 import fs from 'node:fs'

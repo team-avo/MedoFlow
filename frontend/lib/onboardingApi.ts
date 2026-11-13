@@ -15,8 +15,14 @@ export interface Practitioner {
   licenseNumber?: string | null
   licenseState?: string | null
   npi?: string | null
+  /** Founder, CEO, Medical Director… or free text (CTO-16). */
+  title?: string | null
+  /** CTO-29: why a registry mismatch on this NPI is fine. */
+  npiOverrideReason?: string | null
   isOwner: boolean
   isSelf: boolean
+  /** The owner's own row only: false for a non-clinical owner (CTO-14). */
+  seesPatients?: boolean
 }
 
 export interface ClinicProfile {
@@ -24,6 +30,13 @@ export interface ClinicProfile {
   legalName: string
   dbaName: string | null
   practiceType: string
+  /** The typed name when practiceType is OTHER (CTO-18). */
+  practiceTypeOther: string | null
+  /** CTO-29: NPPES lookups with any override reason. */
+  npiVerification?: {
+    group?: NpiCheck | null
+    practitioners?: Record<string, NpiCheck>
+  } | null
   locationCount: number
   officePhone: string | null
   fax: string | null
@@ -31,10 +44,9 @@ export interface ClinicProfile {
   primaryContactName: string
   primaryContactEmail: string
   primaryContactPhone: string | null
-  officeManagerName: string | null
-  officeManagerEmail: string | null
-  accountsPayableName: string | null
-  accountsPayableEmail: string | null
+  secondaryContactName: string | null
+  secondaryContactEmail: string | null
+  secondaryContactPhone: string | null
   mailingSameAsPrimary: boolean
   mailingAddressLine1: string | null
   mailingAddressLine2: string | null
@@ -43,7 +55,7 @@ export interface ClinicProfile {
   mailingPostalCode: string | null
   groupNpi: string | null
   noNpi: boolean
-  /** Last 4 only — the full number never comes back to the clinic. */
+  /** Last 4 only: the full number never comes back to the clinic. */
   federalTaxIdMasked: string | null
   deaNumberMasked: string | null
   hasDeaNumber: boolean
@@ -51,7 +63,6 @@ export interface ClinicProfile {
   licenseState: string | null
   estimatedSeats: number
   referralSource: string | null
-  salesRep: string | null
   practitioners: Practitioner[]
   practiceCompletedAt: string | null
   practitionersCompletedAt: string | null
@@ -78,6 +89,8 @@ export interface Verification {
 
 export interface Application {
   clinicName: string
+  /** Deployment switches (CTO-10): the retype-the-clinic-name step. */
+  config?: { confirmClinicName: boolean }
   verification: Verification
   progress: { practice: boolean; practitioners: boolean; agreement: boolean }
   profile: ClinicProfile | null
@@ -96,6 +109,8 @@ export interface PracticeDetailsPayload {
   legalName: string
   dbaName: string | null
   practiceType: string
+  /** The typed name when practiceType is OTHER (CTO-18). */
+  practiceTypeOther: string | null
   locationCount: number
   addressLine1: string
   addressLine2: string | null
@@ -109,10 +124,9 @@ export interface PracticeDetailsPayload {
   primaryContactName: string
   primaryContactEmail: string
   primaryContactPhone: string | null
-  officeManagerName: string | null
-  officeManagerEmail: string | null
-  accountsPayableName: string | null
-  accountsPayableEmail: string | null
+  secondaryContactName: string | null
+  secondaryContactEmail: string | null
+  secondaryContactPhone: string | null
   mailingSameAsPrimary: boolean
   mailingAddressLine1: string | null
   mailingAddressLine2: string | null
@@ -121,6 +135,8 @@ export interface PracticeDetailsPayload {
   mailingPostalCode: string | null
   noNpi: boolean
   groupNpi: string | null
+  /** CTO-29 */
+  groupNpiOverrideReason?: string | null
   /** Omit to keep the number on file. */
   federalTaxId?: string
   licenseNumber: string | null
@@ -129,7 +145,6 @@ export interface PracticeDetailsPayload {
   deaNumber?: string | null
   estimatedSeats: number
   referralSource: string | null
-  salesRep: string | null
 }
 
 export const ACKNOWLEDGEMENTS = {
@@ -152,7 +167,8 @@ export interface AgreementPayload {
   signerName: string
   signerTitle: string
   signature: string
-  confirmClinicName: string
+  /** Only when the retype step is on (CTO-10). */
+  confirmClinicName?: string
 }
 
 export interface OnboardingStatus {
@@ -170,6 +186,13 @@ export interface OnboardingStatus {
     availability: boolean
     website: boolean
   }
+  /** The clinic's brand (logo and colours). */
+  brand?: {
+    logoUrl: string | null
+    primaryColor: string
+    secondaryColor: string | null
+    subdomain: string
+  } | null
 }
 
 const data = <T>(p: Promise<{ data: { data: T } }>) => p.then((r) => r.data.data)
@@ -189,4 +212,38 @@ export const onboardingApi = {
       api.post('/onboarding/application/resubmit', {})
     ),
   getStatus: () => data<OnboardingStatus>(api.get('/onboarding/status')),
+  /** CTO-27: save the logo and brand colours (site draft + console). */
+  saveBrand: (body: {
+    primaryColor?: string
+    secondaryColor?: string | null
+    logoUrl?: string | null
+  }) => data<unknown>(api.patch('/onboarding/brand', body)),
+  /** CTO-29: look an NPI up in NPPES (type 2 for the group, 1 for a person). */
+  lookupNpi: (npi: string, expect: 1 | 2) =>
+    data<NpiLookupResult>(api.get(`/onboarding/npi/${encodeURIComponent(npi)}?expect=${expect}`)),
+}
+
+export interface NpiLookup {
+  npi: string
+  status: 'FOUND' | 'NOT_FOUND' | 'DEACTIVATED' | 'UNAVAILABLE'
+  type: 1 | 2 | null
+  name: string | null
+  taxonomy: string | null
+  state: string | null
+  checkedAt: string
+}
+
+export type NpiVerdict = 'OK' | 'WRONG_TYPE' | 'NOT_FOUND' | 'DEACTIVATED' | 'UNVERIFIED'
+
+export interface NpiLookupResult {
+  /** Null when registry lookups are off on this server (checksum only). */
+  lookup: NpiLookup | null
+  verdict: NpiVerdict
+  message: string | null
+}
+
+export interface NpiCheck {
+  lookup: NpiLookup | null
+  verdict: NpiVerdict
+  overrideReason: string | null
 }

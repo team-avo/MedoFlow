@@ -43,3 +43,9 @@ export const updateProduct = async (id: string, payload: Partial<CreateProductPa
 export const deleteProduct = async (id: string) => {
   await api.delete(`/products/${id}`)
 }
+
+/** Sets a product's stock count (SUPER_ADMIN; CTO-23). */
+export const adjustStock = async (productId: string, quantityInStock: number) => {
+  const res = await api.put(`/inventory/${productId}/adjust`, { quantityInStock })
+  return res.data.data.inventoryItem as { quantityInStock: number }
+}

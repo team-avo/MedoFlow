@@ -57,6 +57,8 @@ const serviceSchema = z.object({
   defaultPrice: z.string().min(1, 'Price is required'),
   disciplineId: z.string().min(1, 'Discipline is required'),
   recommendedProductIds: z.array(z.string()).optional(),
+  /** CTO-31: in person or a video visit, by default. */
+  defaultMode: z.enum(['IN_PERSON', 'VIRTUAL']).optional(),
 })
 
 type ServiceFormData = z.infer<typeof serviceSchema>
@@ -90,6 +92,7 @@ function ServiceForm({
       defaultPrice: '',
       disciplineId: '',
       recommendedProductIds: [],
+      defaultMode: 'IN_PERSON',
     },
   })
 
@@ -166,6 +169,20 @@ function ServiceForm({
               </p>
             )}
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="defaultMode" className="block text-sm font-bold text-slate-700 mb-1">
+            Default visit type
+          </label>
+          <select
+            id="defaultMode"
+            {...register('defaultMode')}
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+          >
+            <option value="IN_PERSON">In person (audio-only scribe)</option>
+            <option value="VIRTUAL">Video visit (link sent with the confirmation)</option>
+          </select>
         </div>
 
         <div>
@@ -293,6 +310,7 @@ export default function ServicesPage() {
       defaultPrice: data.defaultPrice,
       disciplineId: data.disciplineId,
       recommendedProductIds: data.recommendedProductIds,
+      defaultMode: data.defaultMode,
     })
   }
 
@@ -306,6 +324,7 @@ export default function ServicesPage() {
         defaultPrice: data.defaultPrice,
         disciplineId: data.disciplineId,
         recommendedProductIds: data.recommendedProductIds,
+        defaultMode: data.defaultMode,
       },
     })
   }
@@ -476,6 +495,7 @@ export default function ServicesPage() {
                   defaultPrice: editing.defaultPrice,
                   disciplineId: editing.discipline.id,
                   recommendedProductIds: editing.recommendedProducts?.map((p) => p.id) || [],
+                  defaultMode: editing.defaultMode ?? 'IN_PERSON',
                 }}
                 disciplines={disciplines}
                 products={products}

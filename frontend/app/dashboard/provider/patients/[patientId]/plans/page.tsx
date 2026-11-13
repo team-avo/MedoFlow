@@ -18,7 +18,7 @@ import { CreatePlanModal } from '@/components/CreatePlanModal'
 // ───────────────────── helpers ─────────────────────
 
 function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
+  if (!iso) return 'Not set'
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -128,7 +128,7 @@ function PlanCard({
           </p>
         </div>
 
-        {/* Actions — only for ACTIVE plans */}
+        {/* Actions: only for ACTIVE plans */}
         {isActive && (
           <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-5">
             <AppButton

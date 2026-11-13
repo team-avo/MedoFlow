@@ -1,5 +1,5 @@
 /**
- * Client-side validation for clinical records (F3.2) — the mirror of
+ * Client-side validation for clinical records (F3.2): the mirror of
  * backend/src/validation/clinicalRecordsSchemas.ts. Both suites run the
  * shared cases in shared/validation-cases/clinical-records.json, so the two
  * sides cannot drift without CI failing.
@@ -123,6 +123,44 @@ export const prescriptionFormSchema = z.object({ notes: prescriptionNotes })
 
 export const FORM_FIELD_TYPES = ['text', 'textarea', 'number', 'checkbox', 'select'] as const
 
+/**
+ * CTO-21: a conditional follow-up on a yes/no question. When it's answered
+ * Yes (a ticked checkbox, or the select value "yes"), "which ones?" is a
+ * multi-select plus "Other" with text. Stored under `<fieldId>__followUp` as
+ * `{ selected, other? }`. Same rules as the backend (answerProblems).
+ */
+export const FOLLOW_UP_SUFFIX = '__followUp'
+
+const followUpSchema = z
+  .object({
+    label: z.string().trim().min(1, 'Follow-up label is required').max(LIMITS.fieldLabelMax),
+    options: z
+      .array(
+        z.object({
+          value: z.string().trim().min(1).max(LIMITS.fieldLabelMax),
+          label: z.string().trim().min(1).max(LIMITS.fieldLabelMax),
+        })
+      )
+      .min(1, 'A follow-up needs at least one option')
+      .max(LIMITS.optionsMax),
+    allowOther: z.boolean().optional(),
+    required: z.boolean().optional(),
+  })
+  .strict()
+
+type YesNoCandidate = { type: string; options?: { value: string }[] }
+export const isYesNoField = (f: YesNoCandidate) =>
+  f.type === 'checkbox' ||
+  (f.type === 'select' && (f.options ?? []).some((o) => o.value.toLowerCase() === 'yes'))
+
+export const answeredYes = (f: YesNoCandidate, v: unknown) =>
+  f.type === 'checkbox' ? v === true : typeof v === 'string' && v.toLowerCase() === 'yes'
+
+export interface FollowUpAnswer {
+  selected: string[]
+  other?: string
+}
+
 export const formFieldSchema = z
   .object({
     id: z
@@ -141,10 +179,15 @@ export const formFieldSchema = z
       )
       .max(LIMITS.optionsMax)
       .optional(),
+    followUp: followUpSchema.optional(),
   })
   .refine((f) => f.type !== 'select' || (f.options?.length ?? 0) > 0, {
     message: 'A select field needs at least one option',
     path: ['options'],
+  })
+  .refine((f) => !f.followUp || isYesNoField(f), {
+    message: 'A follow-up needs a checkbox or a select with a "yes" option',
+    path: ['followUp'],
   })
 
 const formFields = z
@@ -190,7 +233,7 @@ const requiredError = (issue: { input?: unknown }) =>
   issue.input === undefined ? 'Required' : undefined
 
 /**
- * Builds the answer schema for a template — the same rules the API applies
+ * Builds the answer schema for a template, the same rules the API applies
  * (backend answerProblems): required fields answered (blank text counts as
  * unanswered), numbers are numbers, select values among the options, a
  * required checkbox ticked.
@@ -227,5 +270,33 @@ export function buildAnswersSchema(fields: FormFieldDefinition[]) {
         : text.optional()
     }
   }
-  return z.object(shape)
+  for (const f of fields) {
+    if (!f.followUp) continue
+    shape[`${f.id}${FOLLOW_UP_SUFFIX}`] = z
+      .object({
+        selected: z.array(z.string()).max(LIMITS.optionsMax),
+        other: z.string().max(LIMITS.answerMax).optional(),
+      })
+      .nullable()
+      .optional()
+  }
+  return z.object(shape).superRefine((answers, ctx) => {
+    for (const f of fields) {
+      const fu = f.followUp
+      if (!fu) continue
+      const key = `${f.id}${FOLLOW_UP_SUFFIX}`
+      const value = answers[key] as FollowUpAnswer | null | undefined
+      const selected = value?.selected ?? []
+      const other = value?.other?.trim() ?? ''
+      const issue = (message: string) => ctx.addIssue({ code: 'custom', path: [key], message })
+      if (!answeredYes(f, answers[f.id])) {
+        if (selected.length || other) issue('Only when the answer is Yes')
+        continue
+      }
+      const allowed = new Set(fu.options.map((o) => o.value))
+      if (selected.some((v) => !allowed.has(v))) issue('Choose from the listed options')
+      if (other && !fu.allowOther) issue("This question doesn't take free text")
+      if (fu.required !== false && selected.length === 0 && !other) issue('Tell us which')
+    }
+  })
 }

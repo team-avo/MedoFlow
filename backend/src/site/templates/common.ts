@@ -89,7 +89,7 @@ export function contactPage(opts: {
         heading: opts.heading,
         intro: opts.intro,
         submitLabel: 'Send message',
-        successMessage: 'Thank you — a member of our team will reply within one business day.',
+        successMessage: 'Thank you. A member of our team will reply within one business day.',
         askPhone: true,
         consentText:
           'Please don’t include detailed medical information in this form. For urgent concerns call us; in an emergency dial 911.',
@@ -115,7 +115,7 @@ export const privacyPage = (): TemplatePage => ({
       body: [
         '**Replace this page with your clinic’s Notice of Privacy Practices before you publish.**',
         '',
-        'This website collects the information you choose to send us — for example through the contact form or when you book an appointment — so that we can respond and provide care.',
+        'This website collects the information you choose to send us, for example through the contact form or when you book an appointment, so that we can respond and provide care.',
         '',
         '- We use your information to answer enquiries, schedule visits and send appointment reminders.',
         '- We never sell your information.',

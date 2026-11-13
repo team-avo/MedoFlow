@@ -1,5 +1,5 @@
 /**
- * F3.2 — Zod parity with the backend. The shared cases
+ * F3.2: Zod parity with the backend. The shared cases
  * (shared/validation-cases/clinical-records.json) are run here against the
  * frontend schemas and in backend/src/tests/clinicalRecordsValidation.test.ts
  * against the API's: the same payloads must pass and fail on both sides.

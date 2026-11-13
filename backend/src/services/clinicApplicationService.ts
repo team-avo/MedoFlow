@@ -13,9 +13,21 @@
  * Tax ID and DEA are field-encrypted at rest and only ever returned masked to
  * the clinic; platform admins see them in full, and every such read is audited.
  */
+import {
+  lookupNpi,
+  verdictFor,
+  VERDICT_MESSAGE,
+  type NpiLookup,
+  type NpiVerdict,
+} from './npiRegistryService'
+import { syncOwnerProvider } from './ownerProviderService'
 import type { ClinicVerificationStatus, Prisma } from '@prisma/client'
 import prisma from '../config/prisma'
-import { isAutoClinicReview, platformReviewRecipients } from '../config/clinicReview'
+import {
+  isAutoClinicReview,
+  platformReviewRecipients,
+  confirmClinicNameRequired,
+} from '../config/clinicReview'
 import type { ApiError } from '../types/errors'
 import { maskIdentifier } from '../utils/practiceIds'
 import type {
@@ -95,6 +107,7 @@ async function clinicContext(clinicId: string) {
           reviewNotes: true,
           termsAcceptedAt: true,
           termsVersion: true,
+          onboardingCompletedAt: true,
         },
       },
     },
@@ -103,7 +116,7 @@ async function clinicContext(clinicId: string) {
   return clinic
 }
 
-/** The clinic's first active location — signup creates it as "Main Location". */
+/** The clinic's first active location: signup creates it as "Main Location". */
 async function primaryLocation(clinicId: string) {
   return prisma.location.findFirst({
     where: { clinicId, isActive: true },
@@ -127,6 +140,24 @@ export function applicationProgress(
 }
 
 /** The application as the clinic sees it (tax ID and DEA masked). */
+/**
+ * Columns kept in the table but no longer part of the application: Sales rep
+ * (CTO-04), office manager and accounts payable (CTO-17). Never returned.
+ */
+const RETIRED_PROFILE_FIELDS = [
+  'salesRep',
+  'officeManagerName',
+  'officeManagerEmail',
+  'accountsPayableName',
+  'accountsPayableEmail',
+] as const
+
+function withoutRetired<T extends Record<string, unknown>>(profile: T) {
+  const copy: Record<string, unknown> = { ...profile }
+  for (const f of RETIRED_PROFILE_FIELDS) delete copy[f]
+  return copy as Omit<T, (typeof RETIRED_PROFILE_FIELDS)[number]>
+}
+
 export async function getApplication(clinicId: string) {
   const clinic = await clinicContext(clinicId)
   const [profile, location, agreement] = await Promise.all([
@@ -147,6 +178,8 @@ export async function getApplication(clinicId: string) {
 
   return {
     clinicName: clinic.name,
+    // Deployment switches the application form follows (CTO-10).
+    config: { confirmClinicName: confirmClinicNameRequired() },
     verification: {
       status: clinic.tenant.verificationStatus,
       submittedAt: clinic.tenant.submittedForReviewAt,
@@ -156,7 +189,7 @@ export async function getApplication(clinicId: string) {
     progress: applicationProgress(profile, clinic.tenant.termsAcceptedAt),
     profile: profile
       ? {
-          ...profile,
+          ...withoutRetired(profile),
           federalTaxId: undefined,
           deaNumber: undefined,
           federalTaxIdMasked: maskIdentifier(profile.federalTaxId),
@@ -183,6 +216,39 @@ export async function getApplication(clinicId: string) {
 }
 
 // ─── Step 1: practice details ───────────────────────────────────────────────
+
+// ─── CTO-29: NPPES lookups ──────────────────────────────────────────────────
+
+interface NpiCheck {
+  lookup: NpiLookup | null
+  verdict: NpiVerdict
+  overrideReason: string | null
+}
+
+/**
+ * Looks an NPI up and returns the check to store. A mismatch (wrong type, not
+ * in the registry, deactivated) needs an override reason, or the save is
+ * refused with a clear message on that field. An unreachable registry never
+ * blocks: the check is stored as UNVERIFIED (checksum only).
+ */
+async function checkNpi(
+  npi: string,
+  expectType: 1 | 2,
+  overrideReason: string | null | undefined,
+  path: (string | number)[]
+): Promise<NpiCheck> {
+  const lookup = await lookupNpi(npi)
+  const verdict = verdictFor(lookup, expectType)
+  if (verdict !== 'OK' && verdict !== 'UNVERIFIED' && !overrideReason) {
+    throw Object.assign(
+      httpError(400, `${VERDICT_MESSAGE[verdict](expectType)} Add a reason to continue anyway.`),
+      { code: 'npi_mismatch', details: [{ path, verdict, lookup }] }
+    )
+  }
+  return { lookup, verdict, overrideReason: verdict === 'OK' ? null : (overrideReason ?? null) }
+}
+
+type NpiVerification = { group?: NpiCheck | null; practitioners?: Record<string, NpiCheck> }
 
 export async function savePracticeDetails(
   clinicId: string,
@@ -220,10 +286,19 @@ export async function savePracticeDetails(
         mailingPostalCode: input.mailingPostalCode,
       }
 
+  // CTO-29: the group NPI must be a real organisation (type 2) NPI.
+  const previousNpi = (existing?.npiVerification ?? {}) as NpiVerification
+  const groupCheck =
+    !input.noNpi && input.groupNpi
+      ? await checkNpi(input.groupNpi, 2, input.groupNpiOverrideReason, ['groupNpi'])
+      : null
+
   const data = {
+    npiVerification: { ...previousNpi, group: groupCheck } as unknown as Prisma.InputJsonValue,
     legalName: input.legalName,
     dbaName: input.dbaName,
     practiceType: input.practiceType,
+    practiceTypeOther: input.practiceType === 'OTHER' ? input.practiceTypeOther : null,
     locationCount: input.locationCount,
     officePhone: input.officePhone,
     fax: input.fax,
@@ -231,10 +306,9 @@ export async function savePracticeDetails(
     primaryContactName: input.primaryContactName,
     primaryContactEmail: input.primaryContactEmail,
     primaryContactPhone: input.primaryContactPhone,
-    officeManagerName: input.officeManagerName,
-    officeManagerEmail: input.officeManagerEmail,
-    accountsPayableName: input.accountsPayableName,
-    accountsPayableEmail: input.accountsPayableEmail,
+    secondaryContactName: input.secondaryContactName,
+    secondaryContactEmail: input.secondaryContactEmail,
+    secondaryContactPhone: input.secondaryContactPhone,
     mailingSameAsPrimary: input.mailingSameAsPrimary,
     ...mailing,
     noNpi: input.noNpi,
@@ -243,7 +317,6 @@ export async function savePracticeDetails(
     licenseState: input.licenseState,
     estimatedSeats: input.estimatedSeats,
     referralSource: input.referralSource,
-    salesRep: input.salesRep,
     ...(input.federalTaxId ? { federalTaxId: input.federalTaxId } : {}),
     ...(input.deaNumber !== undefined ? { deaNumber: input.deaNumber } : {}),
   }
@@ -267,7 +340,7 @@ export async function savePracticeDetails(
         },
       })
 
-  // The primary address and timezone belong on the clinic's first location —
+  // The primary address and timezone belong on the clinic's first location:
   // that is what booking, reminders and the website read. Signup creates it
   // with timezone UTC, so this is where the real zone is set.
   const location = await primaryLocation(clinicId)
@@ -292,7 +365,7 @@ export async function savePracticeDetails(
     entityType: 'ClinicProfile',
     entityId: profile.id,
     action: existing ? 'CLINIC_PROFILE_UPDATED' : 'CLINIC_PROFILE_CREATED',
-    // Field names only — the values (tax ID, DEA) never enter the audit log.
+    // Field names only: the values (tax ID, DEA) never enter the audit log.
     fieldChanged: changedRegulated.length ? changedRegulated.join(',') : null,
     newValue: {
       practiceType: profile.practiceType,
@@ -333,7 +406,10 @@ export async function savePractitioners(
   // A practice with a group NPI is a covered provider practice: every
   // practitioner on it needs their own NPI too.
   if (!profile.noNpi) {
-    const missing = practitioners.findIndex((p) => !p.npi)
+    // A non-clinical owner (CTO-14: "I see patients" unticked) has no NPI.
+    const missing = practitioners.findIndex(
+      (p) => !p.npi && !(p.isSelf && p.seesPatients === false)
+    )
     if (missing >= 0) {
       throw Object.assign(
         httpError(400, `Enter an NPI for ${practitioners[missing]!.name}`, 'validation_error'),
@@ -342,20 +418,48 @@ export async function savePractitioners(
     }
   }
 
+  // CTO-29: each practitioner's NPI must be a real individual (type 1) NPI.
+  const practitionerChecks: Record<string, NpiCheck> = {}
+  for (const [i, p] of practitioners.entries()) {
+    if (!p.npi) continue
+    practitionerChecks[p.npi] = await checkNpi(p.npi, 1, p.npiOverrideReason, [
+      'practitioners',
+      i,
+      'npi',
+    ])
+  }
+  const npiVerification = {
+    ...((profile.npiVerification ?? {}) as NpiVerification),
+    practitioners: practitionerChecks,
+  }
+
   await prisma.clinicProfile.update({
     where: { clinicId },
     data: {
+      npiVerification: npiVerification as unknown as Prisma.InputJsonValue,
       practitioners: practitioners as unknown as Prisma.InputJsonValue,
       practitionersCompletedAt: profile.practitionersCompletedAt ?? new Date(),
     },
   })
+
+  // CTO-14: the account creator is a provider automatically when they see
+  // patients; no separate "Add me" step.
+  const self = practitioners.find((p) => p.isSelf)
+  if (self) {
+    await syncOwnerProvider({
+      clinicId,
+      ownerUserId: actor.userId,
+      seesPatients: self.seesPatients !== false,
+      performedById: actor.userId,
+    })
+  }
 
   await logAudit({
     clinicId,
     entityType: 'ClinicProfile',
     entityId: profile.id,
     action: 'CLINIC_PRACTITIONERS_UPDATED',
-    newValue: { count: practitioners.length },
+    newValue: { count: practitioners.length, ownerSeesPatients: self?.seesPatients !== false },
     performedById: actor.userId,
     ipAddress: actor.ipAddress,
     userAgent: actor.userAgent,
@@ -403,7 +507,7 @@ async function notifyReviewers(params: {
 /** Status a (re)submitted application moves to. */
 function statusOnSubmit(current: ClinicVerificationStatus): ClinicVerificationStatus {
   // Clinics created by a platform admin (and every clinic that existed before
-  // review was introduced) are already approved — signing doesn't undo that.
+  // review was introduced) are already approved, signing doesn't undo that.
   if (current === 'APPROVED') return 'APPROVED'
   return isAutoClinicReview() ? 'APPROVED' : 'PENDING_REVIEW'
 }
@@ -412,7 +516,7 @@ export async function signAgreement(clinicId: string, input: AgreementInput, act
   const clinic = await clinicContext(clinicId)
   const tenant = clinic.tenant
 
-  if (!sameName(input.confirmClinicName, tenant.name)) {
+  if (confirmClinicNameRequired() && !sameName(input.confirmClinicName ?? '', tenant.name)) {
     throw httpError(400, 'Confirmation name does not match clinic on file', 'validation_error')
   }
   for (const key of ACKNOWLEDGEMENT_KEYS) {
@@ -473,6 +577,10 @@ export async function signAgreement(clinicId: string, input: AgreementInput, act
         termsVersion: CURRENT_TERMS_VERSION,
         verificationStatus: nextStatus,
         submittedForReviewAt: now,
+        // CTO-25: signing the agreement finishes onboarding. The owner lands on
+        // the Command Center; branding, services and the website are optional
+        // Quick setup items there, never a gate in front of the product.
+        onboardingCompletedAt: tenant.onboardingCompletedAt ?? now,
         ...(autoApproved
           ? { reviewedAt: now, reviewedById: null, reviewNotes: 'Approved automatically' }
           : {}),
@@ -536,7 +644,7 @@ export async function signAgreement(clinicId: string, input: AgreementInput, act
           to: owner.email,
           name: owner.name ?? input.signerName,
           clinicName: tenant.name,
-          dashboardUrl: `${appUrl()}/welcome`,
+          dashboardUrl: `${appUrl()}/dashboard`,
         })
       )
     }
@@ -654,7 +762,10 @@ export async function getApplicationForReview(tenantId: string, reviewerId: stri
     clinicId: clinic.id,
     owner,
     profile: profile
-      ? { ...profile, practitioners: (profile.practitioners ?? []) as unknown as Practitioner[] }
+      ? {
+          ...withoutRetired(profile),
+          practitioners: (profile.practitioners ?? []) as unknown as Practitioner[],
+        }
       : null,
     location,
     agreements,

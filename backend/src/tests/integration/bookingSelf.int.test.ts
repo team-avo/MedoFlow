@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS1 — simplified patient booking.
+ * Demo feedback WS1: simplified patient booking.
  *
  *  - Patients book for themselves only ("book for someone else" is deferred).
  *  - The patient's phone lives on their profile (encrypted at rest) so the

@@ -1,5 +1,5 @@
 /**
- * Host classification (B8.2) — pure functions, mirrored by
+ * Host classification (B8.2): pure functions, mirrored by
  * frontend/lib/site/host.ts and held to shared/validation-cases/site-routes.json.
  *
  *   app             the dashboard app (APP_HOSTS)
@@ -26,7 +26,7 @@ export function normalizeHost(raw: string | undefined | null): string | null {
   let h = raw.trim().toLowerCase()
   h = h.replace(/^[a-z][a-z0-9+.-]*:\/\//, '') // scheme
   h = h.split('/')[0]!.split('?')[0]!
-  if (h.startsWith('[')) return null // IPv6 literal — never a site
+  if (h.startsWith('[')) return null // IPv6 literal: never a site
   h = h.replace(/:\d{1,5}$/, '').replace(/\.$/, '')
   const ascii = domainToASCII(h)
   if (!ascii || ascii.length > 253) return null

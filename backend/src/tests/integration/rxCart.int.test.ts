@@ -1,5 +1,5 @@
 /**
- * Component 5 — Prescription → Cart over HTTP against Postgres (enforce + RLS).
+ * Component 5: Prescription → Cart over HTTP against Postgres (enforce + RLS).
  *
  *  B5.1 scribe orders are mapped to clinic SKUs; unmapped items are surfaced
  *  B5.2 no cart without an explicit, audited provider confirmation
@@ -156,7 +156,7 @@ describe('B5.1 mapping scribe orders to the clinic catalog', () => {
     const proposal = await proposalFor(sessionId)
     expect(proposal?.status).toBe('PENDING')
     const lines = proposal!.lines
-    expect(lines).toHaveLength(4) // one line per scribe order — none dropped
+    expect(lines).toHaveLength(4) // one line per scribe order, none dropped
 
     expect(lineFor(lines, products.mag)).toMatchObject({ quantity: 2, route: 'CART' })
     expect(lineFor(lines, products.arnica)).toMatchObject({ quantity: 1, route: 'CART' })
@@ -569,7 +569,7 @@ describe('B5.4 card + address on file from booking, one-click checkout', () => {
     expect(res.status).toBe(200)
     expect(res.body.data.status).toBe('succeeded')
 
-    // Off-session charge of the saved card — no card details sent from the client.
+    // Off-session charge of the saved card, no card details sent from the client.
     expect(intentArgs).toMatchObject({
       customer: 'cus_synthetic_a',
       payment_method: 'pm_synthetic_visa',
@@ -597,5 +597,199 @@ describe('B5.4 card + address on file from booking, one-click checkout', () => {
     expect(await auditActions(cartBefore.id)).toEqual(
       expect.arrayContaining(['CART_ONE_CLICK_FAILED', 'CART_CHECKOUT'])
     )
+  })
+})
+
+describe('CTO-33 key changes and CTO-32 the patient checkout link', () => {
+  const keyChanges = async (sessionId: string) => {
+    const res = await api(server.url, `/rx-cart/sessions/${sessionId}/key-changes`, {
+      token: aProvider,
+    })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    return res.body.data.changes as Array<{
+      lineId: string
+      kind: string
+      label: string
+      from: string | null
+      to: string | null
+      stock: string
+    }>
+  }
+
+  it('a dose change is listed; rejecting it keeps it out of the cart; an unstocked item is flagged; the patient gets a link', async () => {
+    // A fresh patient so earlier visits in this file don't count as history.
+    const email = `keychanges.${crypto.randomBytes(3).toString('hex')}@example.test`
+    const added = await api(server.url, '/patients', {
+      token: (await login(server.url, A.users.admin.email)).accessToken,
+      body: { name: 'Kim Changes', email },
+    })
+    const patientId = added.body.data.patient.id as string
+    const visitFor = async () => {
+      visits += 1
+      const start = new Date(Date.now() - (visits * 2 + 24) * 3_600_000)
+      start.setUTCMinutes(0, 0, 0)
+      const appt = await adminDb.appointment.create({
+        data: {
+          clinicId: A.clinicId,
+          providerId: A.providerId,
+          serviceId: A.serviceId,
+          patientId,
+          locationId: A.locationId,
+          startTime: start,
+          endTime: new Date(start.getTime() + 30 * 60_000),
+          priceAtBooking: new Prisma.Decimal(100),
+          status: 'COMPLETED',
+        },
+      })
+      return (
+        await adminDb.visitRecord.create({
+          data: {
+            clinicId: A.clinicId,
+            appointmentId: appt.id,
+            providerId: A.providerId,
+            patientId,
+          },
+        })
+      ).id
+    }
+
+    // Visit 1: magnesium at 400 mg and arnica are approved and sent.
+    const first = await scribeSession(await visitFor())
+    const p1 = (await proposalFor(first))!
+    const firstChanges = await keyChanges(first)
+    // Nothing before: everything is new.
+    expect(firstChanges.find((c) => c.lineId === lineFor(p1.lines, products.mag).id)?.kind).toBe(
+      'NEW_PRODUCT'
+    )
+    expect(
+      firstChanges.find((c) => c.lineId === lineFor(p1.lines, products.tramadol).id)
+    ).toMatchObject({
+      kind: 'START',
+      stock: 'EPRESCRIBE',
+    })
+    expect(
+      firstChanges.find((c) => c.lineId === lineFor(p1.lines, null, 'Turmeric').id)
+    ).toMatchObject({
+      stock: 'UNMAPPED',
+    })
+    const ok1 = await api(server.url, `/ai-scribe/session/${first}/approve`, {
+      token: aProvider,
+      body: {
+        rxConfirmation: {
+          proposalId: p1.id,
+          confirmedLineIds: [
+            lineFor(p1.lines, products.mag).id,
+            lineFor(p1.lines, products.arnica).id,
+          ],
+          acknowledged: true,
+        },
+      },
+    })
+    expect(ok1.status, JSON.stringify(ok1.body)).toBe(200)
+    const rx1 = ok1.body.data.session.rxCart
+    expect(rx1.cartItemIds).toHaveLength(2)
+    // The unmapped item is listed, not silently dropped.
+    expect(rx1.notStocked).toEqual([
+      expect.objectContaining({ reason: 'UNMAPPED', label: expect.stringContaining('Turmeric') }),
+    ])
+    // CTO-32: no published site, so a MedoFlow-hosted, clinic-branded link.
+    const clinic = await adminDb.clinic.findUniqueOrThrow({ where: { id: A.clinicId } })
+    expect(rx1.checkoutLink.kind).toBe('medoflow')
+    expect(rx1.checkoutLink.url).toContain(`/c/${clinic.slug}/cart?t=`)
+    expect(rx1.checkoutLink.url).toMatch(/\?t=[0-9a-f]{64}$/)
+    const stored = await adminDb.checkoutLinkToken.findFirstOrThrow({ where: { patientId } })
+    const token = new URL(rx1.checkoutLink.url).searchParams.get('t')!
+    expect(stored.tokenHash).not.toBe(token) // only the hash is stored
+
+    // Visit 2: magnesium at 600 mg (a dose change); arnica is now out of stock.
+    const second = await scribeSession(await visitFor())
+    const p2 = (await proposalFor(second))!
+    const mag2 = lineFor(p2.lines, products.mag)
+    await adminDb.rxOrderLine.update({ where: { id: mag2.id }, data: { dose: '600 mg' } })
+    await adminDb.inventoryItem.update({
+      where: { productId: products.arnica },
+      data: { quantityInStock: 0 },
+    })
+    try {
+      const changes = await keyChanges(second)
+      expect(changes.find((c) => c.lineId === mag2.id)).toMatchObject({
+        kind: 'DOSE_CHANGE',
+        from: '400 mg',
+        to: '600 mg',
+        stock: 'IN_STOCK',
+      })
+      // Arnica was ordered before at no dose: not a key change, but not stocked.
+      expect(
+        changes.find((c) => c.lineId === lineFor(p2.lines, products.arnica).id)
+      ).toBeUndefined()
+
+      // The provider rejects the dose change and approves arnica and tramadol.
+      const arnica2 = lineFor(p2.lines, products.arnica)
+      const tram2 = lineFor(p2.lines, products.tramadol)
+      const ok2 = await api(server.url, `/ai-scribe/session/${second}/approve`, {
+        token: aProvider,
+        body: {
+          rxConfirmation: {
+            proposalId: p2.id,
+            confirmedLineIds: [arnica2.id, tram2.id],
+            acknowledged: true,
+          },
+        },
+      })
+      expect(ok2.status, JSON.stringify(ok2.body)).toBe(200)
+      const rx2 = ok2.body.data.session.rxCart
+      // Rejected → not in the cart; unstocked → flagged, not in the cart.
+      expect(await adminDb.cartItem.count({ where: { rxOrderLineId: mag2.id } })).toBe(0)
+      expect(await adminDb.cartItem.count({ where: { rxOrderLineId: arnica2.id } })).toBe(0)
+      expect(rx2.notStocked).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            lineId: arnica2.id,
+            reason: 'NOT_STOCKED',
+            label: 'Arnica Gel',
+          }),
+        ])
+      )
+      // B5.5 still holds: the scheduled Rx goes to e-prescribe.
+      expect(
+        await adminDb.prescription.findFirstOrThrow({ where: { rxOrderLineId: tram2.id } })
+      ).toMatchObject({ status: 'PENDING_EPRESCRIBE' })
+      // Nothing went into the cart this time, so no new link.
+      expect(rx2.checkoutLink).toBeNull()
+    } finally {
+      await adminDb.inventoryItem.update({
+        where: { productId: products.arnica },
+        data: { quantityInStock: 50 },
+      })
+    }
+
+    // CTO-32: only the cart's own patient, signed in, can open the link.
+    const patientToken = await (async () => {
+      await adminDb.user.update({
+        where: { id: patientId },
+        data: {
+          password: (await adminDb.user.findUniqueOrThrow({ where: { id: A.users.patient.id } }))
+            .password,
+        },
+      })
+      return (await login(server.url, email)).accessToken
+    })()
+    const open = (t: string, as: string) =>
+      api(server.url, '/checkout-links/open', { token: as, body: { token: t } })
+    expect((await open(token, aPatient)).status).toBe(404) // another patient
+    expect((await open('f'.repeat(64), patientToken)).status).toBe(404) // unknown
+    expect((await open(token, aProvider)).status).toBe(403) // staff never
+    const opened = await open(token, patientToken)
+    expect(opened.status, JSON.stringify(opened.body)).toBe(200)
+    expect(opened.body.data).toMatchObject({ clinicId: A.clinicId, clinicSlug: clinic.slug })
+    expect(await auditActions(stored.cartId)).toEqual(
+      expect.arrayContaining(['CHECKOUT_LINK_SENT', 'CHECKOUT_LINK_OPENED'])
+    )
+    // Expired: refused.
+    await adminDb.checkoutLinkToken.update({
+      where: { id: stored.id },
+      data: { expiresAt: new Date(Date.now() - 1000) },
+    })
+    expect((await open(token, patientToken)).status).toBe(404)
   })
 })

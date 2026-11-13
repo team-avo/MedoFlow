@@ -35,3 +35,15 @@ export const update = asyncHandler(
     successResponse(res, 200, 'Location updated', { location })
   }
 )
+
+/** DELETE /locations/:id (CTO-34): deactivate a location with nothing booked there. */
+export const remove = asyncHandler(
+  async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
+    const result = await locationService.removeLocation(
+      String(req.params.id),
+      req.user!.clinicId!,
+      req.user!.id
+    )
+    successResponse(res, 200, 'Location removed', result)
+  }
+)

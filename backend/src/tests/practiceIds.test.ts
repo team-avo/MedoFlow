@@ -1,5 +1,5 @@
 /**
- * Clinic onboarding — NPI / EIN / DEA format and checksum validation. The
+ * Clinic onboarding: NPI / EIN / DEA format and checksum validation. The
  * cases are shared with the frontend (shared/validation-cases/practice-ids.json,
  * frontend/tests/unit/practiceIds.test.ts).
  */
@@ -64,8 +64,8 @@ describe('maskIdentifier', () => {
 
 describe('reference lists', () => {
   it('lists 50 states, DC and 3 territories once each', () => {
-    assert.equal(US_STATE_CODES.length, 54)
-    assert.equal(new Set(US_STATE_CODES).size, 54)
+    assert.equal(US_STATE_CODES.length, 56)
+    assert.equal(new Set(US_STATE_CODES).size, 56)
   })
   it('offers an OTHER practice type', () => {
     assert.ok(PRACTICE_TYPE_KEYS.includes('OTHER'))

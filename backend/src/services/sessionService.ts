@@ -20,9 +20,35 @@ const DEFAULT_IDLE_MINUTES = 15
 const TOUCH_INTERVAL_MS = 60_000
 const SESSION_LIFETIME_DAYS = 7
 
-export const getIdleTimeoutMs = (): number => {
+export const getIdleTimeoutMs = (session?: { idleTimeoutMinutes?: number | null }): number => {
+  if (session?.idleTimeoutMinutes && session.idleTimeoutMinutes > 0) {
+    return session.idleTimeoutMinutes * 60_000
+  }
   const minutes = Number(process.env.SESSION_IDLE_TIMEOUT_MINUTES)
   return (Number.isFinite(minutes) && minutes > 0 ? minutes : DEFAULT_IDLE_MINUTES) * 60_000
+}
+
+const DEFAULT_ONBOARDING_IDLE_MINUTES = 60
+
+/**
+ * The idle window while a clinic owner fills in the application (CTO-13):
+ * ONBOARDING_IDLE_TIMEOUT_MINUTES, default 60. Longer than the normal 15
+ * minutes so a long form isn't lost, but still bounded: a truly idle screen
+ * still ends the session.
+ */
+export const getOnboardingIdleMinutes = (env: NodeJS.ProcessEnv = process.env): number => {
+  const minutes = Number(env.ONBOARDING_IDLE_TIMEOUT_MINUTES)
+  return Number.isFinite(minutes) && minutes > 0
+    ? Math.min(Math.round(minutes), 240)
+    : DEFAULT_ONBOARDING_IDLE_MINUTES
+}
+
+/** Sets (or clears, with null) a session's own idle window. */
+export const setSessionIdleOverride = async (sessionId: string, minutes: number | null) => {
+  await prisma.userSession.updateMany({
+    where: { id: sessionId, revokedAt: null },
+    data: { idleTimeoutMinutes: minutes },
+  })
 }
 
 const sessionError = (message: string, code: string): ApiError => {
@@ -87,7 +113,7 @@ export const revokeAllSessions = async (
 /**
  * Validates the session behind an access token or refresh token. Throws a
  * 401 ApiError if it is missing, revoked, expired or idle (and revokes it in
- * the idle case). `touch` records activity — true for API requests, false
+ * the idle case). `touch` records activity: true for API requests, false
  * for token refresh.
  */
 export const assertSessionActive = async (
@@ -95,22 +121,22 @@ export const assertSessionActive = async (
   userId: string,
   opts: { touch: boolean; now?: Date }
 ) => {
-  if (!sessionId) throw sessionError('Session required — please sign in again', 'session_required')
+  if (!sessionId) throw sessionError('Session required: please sign in again', 'session_required')
   const now = opts.now ?? new Date()
   const session = await prisma.userSession.findUnique({ where: { id: sessionId } })
   if (!session || session.userId !== userId) {
-    throw sessionError('Session not found — please sign in again', 'session_invalid')
+    throw sessionError('Session not found: please sign in again', 'session_invalid')
   }
   if (session.revokedAt) {
-    throw sessionError('Session has ended — please sign in again', 'session_revoked')
+    throw sessionError('Session has ended: please sign in again', 'session_revoked')
   }
   if (session.expiresAt <= now) {
     await revokeSession(session.id, 'expired')
-    throw sessionError('Session expired — please sign in again', 'session_expired')
+    throw sessionError('Session expired: please sign in again', 'session_expired')
   }
-  if (now.getTime() - session.lastActivityAt.getTime() > getIdleTimeoutMs()) {
+  if (now.getTime() - session.lastActivityAt.getTime() > getIdleTimeoutMs(session)) {
     await revokeSession(session.id, 'idle_timeout')
-    throw sessionError('Signed out after inactivity — please sign in again', 'session_idle_timeout')
+    throw sessionError('Signed out after inactivity: please sign in again', 'session_idle_timeout')
   }
   if (opts.touch && now.getTime() - session.lastActivityAt.getTime() > TOUCH_INTERVAL_MS) {
     await prisma.userSession.update({ where: { id: session.id }, data: { lastActivityAt: now } })

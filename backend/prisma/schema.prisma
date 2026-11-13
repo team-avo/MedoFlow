@@ -72,6 +72,17 @@ enum BookingSource {
   FRONT_DESK
   PROVIDER
   WAITLIST
+  /// Staff booked a patient who walked in (CTO-24).
+  WALK_IN
+  /// Staff booked a patient over the phone (CTO-24).
+  PHONE
+}
+
+/// CTO-31: in person (the consult room records audio only) or a video visit
+/// (a room and patient join link are created when the booking is confirmed).
+enum AppointmentMode {
+  IN_PERSON
+  VIRTUAL
 }
 
 enum SlotHoldStatus {
@@ -289,6 +300,8 @@ model ClinicProfile {
   legalName                String
   dbaName                  String?
   practiceType             String
+  /// The typed name when practiceType is OTHER (CTO-18). Never added to the list automatically.
+  practiceTypeOther        String?
   locationCount            Int       @default(1)
   officePhone              String?
   fax                      String?
@@ -296,6 +309,11 @@ model ClinicProfile {
   primaryContactName       String
   primaryContactEmail      String
   primaryContactPhone      String?
+  /// Optional second contact (CTO-17).
+  secondaryContactName     String?
+  secondaryContactEmail    String?
+  secondaryContactPhone    String?
+  /// Retired from the form (CTO-17); kept so existing rows are untouched.
   officeManagerName        String?
   officeManagerEmail       String?
   accountsPayableName      String?
@@ -314,9 +332,13 @@ model ClinicProfile {
   deaNumber                String?
   estimatedSeats           Int       @default(1)
   referralSource           String?
+  /// Retired (CTO-04): no longer accepted or returned; dropping the column needs agreement.
   salesRep                 String?
   /// [{name, email, phone?, credentials?, licenseNumber?, licenseState?, npi?, isOwner, isSelf}]
   practitioners            Json      @default("[]")
+  /// CTO-29: NPPES lookups for the group NPI and each practitioner's NPI, with
+  /// any override reason: { group?: Check, practitioners?: { [npi]: Check } }.
+  npiVerification          Json?
   practiceCompletedAt      DateTime?
   practitionersCompletedAt DateTime?
   createdAt                DateTime  @default(now())
@@ -425,6 +447,9 @@ model Clinic {
   rxOrderLines              RxOrderLine[]
   patientCommerceProfiles   PatientCommerceProfile[]
   clinicProfile             ClinicProfile?
+  notifications             Notification[]
+  checkoutLinkTokens        CheckoutLinkToken[]
+  siteLaunch                SiteLaunch?
   clinicAgreements          ClinicAgreement[]
 
   @@index([tenantId])
@@ -546,7 +571,7 @@ enum SiteAssetStatus {
 }
 
 // Public website images (logo, hero, gallery). Stored in the public site
-// assets bucket — never the patient-files (PHI) bucket.
+// assets bucket: never the patient-files (PHI) bucket.
 model SiteAsset {
   id           String          @id @default(cuid())
   clinicId     String
@@ -675,6 +700,7 @@ model User {
   clinic                        Clinic?                    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   customRole                    CustomRole?                @relation(fields: [customRoleId], references: [id], onDelete: SetNull)
   provider                      Provider?
+  notifications                 Notification[]
   passwordSetupTokens           PasswordSetupToken[]
   authHandoffCodes              AuthHandoffCode[]
   refreshTokens                 RefreshToken[]
@@ -799,7 +825,7 @@ enum ScribeTone {
 
 // Specialty-aware AI Scribe prompt template. Clinic-scoped so each clinic
 // can fork the platform defaults, but the seed templates have clinicId=null
-// to signal "system default" — those are visible to every clinic and cannot
+// to signal "system default", those are visible to every clinic and cannot
 // be edited by clinic admins (only the platform admin can).
 model ScribeTemplate {
   id           String   @id @default(cuid())
@@ -956,6 +982,8 @@ model Service {
   prepaymentType          String   @default("NONE") // NONE, DEPOSIT, FULL
   depositAmount           Decimal? @db.Decimal(10, 2)
   requirePrepayment       Boolean  @default(false)
+  /// CTO-31: the visit type a new booking of this service starts with.
+  defaultMode             AppointmentMode @default(IN_PERSON)
   requireProviderApproval Boolean  @default(false)
   isActive                Boolean  @default(true)
   isArchived              Boolean  @default(false)
@@ -1074,6 +1102,8 @@ model Appointment {
   startTime                DateTime
   endTime                  DateTime
   status                   AppointmentStatus      @default(CONFIRMED)
+  /// CTO-31: in person or a video visit; set from the service default, changeable at booking.
+  mode                     AppointmentMode        @default(IN_PERSON)
   priceAtBooking           Decimal                @db.Decimal(10, 2)
   paymentStatus            PaymentStatus          @default(NONE)
   paymentRequirementType   PaymentRequirementType @default(NONE)
@@ -1445,6 +1475,9 @@ model UserSession {
   mfaVerifiedAt  DateTime?
   ipAddress      String?
   userAgent      String?
+  /// Per-session idle window override (CTO-13: longer while an owner fills in
+  /// the clinic application). Null = SESSION_IDLE_TIMEOUT_MINUTES.
+  idleTimeoutMinutes Int?
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
@@ -2082,4 +2115,71 @@ model PatientCommerceProfile {
 
   @@unique([clinicId, patientId])
   @@index([clinicId])
+}
+
+/// In-app notifications for staff (CTO-30): the red dot on the bell and the
+/// Command Center "starting soon" card. Payload is ids and a time only, never
+/// patient details. One per (user, kind, appointment).
+model Notification {
+  id            String    @id @default(cuid())
+  clinicId      String
+  userId        String
+  /// e.g. APPOINTMENT_STARTING
+  kind          String
+  /// Short, PHI-free text: "Your 10:30 appointment starts in 10 minutes".
+  title         String
+  /// In-app path to open.
+  link          String?
+  appointmentId String?
+  startsAt      DateTime?
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, appointmentId])
+  @@index([clinicId])
+  @@index([userId, readAt])
+}
+
+/// A patient's checkout link for a cart built from the AI scribe (CTO-32).
+/// Only a hash of the token is stored. The link needs the patient to sign in
+/// as the cart's own patient; it expires after 72 hours.
+model CheckoutLinkToken {
+  id        String    @id @default(cuid())
+  clinicId  String
+  cartId    String
+  patientId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  /// First time the patient opened it.
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId])
+  @@index([cartId])
+}
+
+/// CTO-26: putting a clinic's free address live on Cloudflare Pages
+/// (<label>.medoflow.pages.dev) when it publishes its website. One row per
+/// clinic; the job retries, and the owner sees PENDING / LIVE / FAILED.
+model SiteLaunch {
+  id           String    @id @default(cuid())
+  clinicId     String    @unique
+  label        String
+  /// PENDING | LIVE | FAILED | REMOVED
+  status       String    @default("PENDING")
+  attempts     Int       @default(0)
+  /// A short, safe reason (no tokens, no response bodies).
+  lastError    String?
+  deploymentId String?
+  url          String?
+  liveAt       DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 }

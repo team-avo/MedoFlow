@@ -1,5 +1,5 @@
 /**
- * B3.3 — treatment plans, prescriptions and intake forms over HTTP against
+ * B3.3: treatment plans, prescriptions and intake forms over HTTP against
  * Postgres (enforce + RLS): malformed input is rejected by Zod (400, the
  * shared parity cases), every write is audited with before/after values, and
  * every write is clinic-scoped.

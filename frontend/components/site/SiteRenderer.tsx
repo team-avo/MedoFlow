@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Renders one clinic-site page from a render payload — the same component
+ * Renders one clinic-site page from a render payload, the same component
  * for the live site (SSR), draft previews, the template gallery and the
  * builder canvas. Only `mode`, `base` and `actions` differ between them.
  */
@@ -96,7 +96,7 @@ export function SiteRenderer({
               padding: '0.45rem',
             }}
           >
-            Draft preview — visitors don’t see these changes until you publish.
+            Draft preview: visitors don’t see these changes until you publish.
           </div>
         )}
         <SiteHeader />

@@ -2,11 +2,11 @@
  * Longitudinal record (FR-7, B2.8): each visit builds on the previous ones.
  *
  * Two uses, both built only from notes a provider already approved:
- *  - `buildPriorDigest` — a minimum-necessary digest (dates + assessment +
+ *  - `buildPriorDigest`, a minimum-necessary digest (dates + assessment +
  *    plan, truncated, no names) added to the scribe prompt so the draft can
  *    say what changed since the last visit. The provider reviews that text
  *    like any other part of the draft.
- *  - `getLongitudinalRecord` — the "record over time" panel on the review
+ *  - `getLongitudinalRecord`, the "record over time" panel on the review
  *    screen, straight from the database (no AI).
  * Same clinic only: another clinic's notes about the same patient never cross.
  */

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * CommerceSection — chapter 6.
+ * CommerceSection: chapter 6.
  *
  * Tells the revenue story. Three product surfaces visible side-by-side:
  * the package, the membership, the commission. Animated $$$ ticker
@@ -20,7 +20,7 @@ function RevenueTicker() {
         +$47,280
       </p>
       <p className="mt-3 text-[14px] text-white/60">
-        Per clinic — from packages, memberships, and recovered no-shows
+        Per clinic: from packages, memberships, and recovered no-shows
       </p>
     </div>
   )
@@ -32,14 +32,14 @@ const products = [
     title: 'Session packages',
     sub: 'Sell 10-session bundles upfront. Stripe collects. We track usage.',
     accent: '5 sessions left',
-    example: '"10-Visit PT Pack — $450"',
+    example: '"10-Visit PT Pack: $450"',
   },
   {
     icon: Repeat,
     title: 'Memberships',
     sub: 'Recurring billing on Stripe. Auto-discount on every visit.',
     accent: '$99/mo · 23 active',
-    example: '"Wellness Member — 20% off services"',
+    example: '"Wellness Member: 20% off services"',
   },
   {
     icon: TrendingUp,
@@ -69,8 +69,8 @@ export function CommerceSection() {
             MedoFlow <span className="text-teal-bright">generates it.</span>
           </h2>
           <p className="mx-auto mt-6 max-w-xl text-[16px] leading-relaxed text-white/60">
-            Packages, memberships, commerce, commissions — built in. No third-party plug-ins. No CSV
-            exports to your accountant.
+            Packages, memberships, commerce and commissions, built in. No third-party plug-ins. No
+            CSV exports to your accountant.
           </p>
         </div>
 

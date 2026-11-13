@@ -130,7 +130,7 @@ export default function TemplatesPage() {
     try {
       const next = await siteApi.installTemplate(installing.key, hasPages ? mode : 'replace')
       invalidate()
-      toast.success(`${installing.name} installed as a draft — publish when you’re ready`)
+      toast.success(`${installing.name} installed as a draft. Publish when you’re ready`)
       const home = next.pages.find((p) => p.kind === 'HOME')
       router.push(`/dashboard/site/editor${home ? `?page=${home.id}` : ''}`)
     } catch (e) {
@@ -145,7 +145,7 @@ export default function TemplatesPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-900">Templates</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Each template is a complete website — pages, copy, colours and fonts. Your services, team
+          Each template is a complete website: pages, copy, colours and fonts. Your services, team
           and products fill in automatically. Nothing goes live until you publish.
         </p>
       </div>

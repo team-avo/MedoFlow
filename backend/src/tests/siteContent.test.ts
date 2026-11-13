@@ -207,7 +207,7 @@ describe('legacy sections (first builder)', () => {
         blocks: [],
       },
       { type: 'faq', settings: { title: 'FAQ', items: ['Q one?|A one.', 'bad', ''] } },
-      { type: 'testimonials', settings: { title: 'T', quotes: ['"Great care." — Sam P.'] } },
+      { type: 'testimonials', settings: { title: 'T', quotes: ['"Great care." \u2014 Sam P.'] } },
       {
         type: 'booking-cta',
         settings: { headline: 'Go', ctaLabel: 'Now', ctaHref: 'javascript:x' },
@@ -226,5 +226,14 @@ describe('legacy sections (first builder)', () => {
     ])
     expect(out[2]!.settings.items).toEqual([{ quote: 'Great care.', author: 'Sam P.', detail: '' }])
     expect(JSON.stringify(out[3])).not.toContain('javascript')
+  })
+
+  it('splits a testimonial author on a hyphen too (seed copy after CTO-11)', () => {
+    const [section] = upgradeSections([
+      { type: 'testimonials', settings: { quotes: ['"Booking online is so easy." - Sarah M.'] } },
+    ])
+    expect(section!.settings.items).toEqual([
+      { quote: 'Booking online is so easy.', author: 'Sarah M.', detail: '' },
+    ])
   })
 })

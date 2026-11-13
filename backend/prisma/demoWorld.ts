@@ -83,7 +83,7 @@ export async function seedBookingWorld(
   clinicId: string,
   opts: BookingWorldOptions = {}
 ): Promise<BookingWorld> {
-  // Location — use a primary clinical facility so the front-end can default
+  // Location: use a primary clinical facility so the front-end can default
   // to it when creating slot holds / appointments.
   const location = opts.locationId
     ? await db.location.findFirstOrThrow({ where: { id: opts.locationId, clinicId } })
@@ -149,7 +149,7 @@ export async function seedBookingWorld(
     services.push({ id: svc.id, name: svc.name, duration: s.duration, price: s.price })
   }
 
-  // Providers — by default one linked to the doctor@medoflow.test user so the
+  // Providers: by default one linked to the doctor@medoflow.test user so the
   // provider has an authenticatable staff account, plus a second solo
   // provider so the "Any provider" flow has something to pick from.
   let providerDefs = opts.providers
@@ -219,7 +219,7 @@ export async function seedBookingWorld(
       create: { providerId: provider.id, locationId: location.id, isPrimary: true },
     })
 
-    // Availability — Monday–Friday, 9:00–17:00 local.
+    // Availability: Monday–Friday, 9:00–17:00 local.
     const existingAvail = await db.providerAvailability.findMany({
       where: { providerId: provider.id },
       select: { weekday: true },
@@ -338,7 +338,7 @@ export const DEMO_PRODUCTS: readonly DemoProductDef[] = [
   },
   {
     name: 'Immune Defense Stack',
-    desc: 'Quercetin, zinc picolinate, vitamin C, vitamin D3, and elderberry. Evidence-based daily immune support — especially through travel and seasonal transitions.',
+    desc: 'Quercetin, zinc picolinate, vitamin C, vitamin D3, and elderberry. Evidence-based daily immune support, especially through travel and seasonal transitions.',
     sku: 'IMM-013',
     price: 44,
     qty: 32,
@@ -359,7 +359,7 @@ export const DEMO_PRODUCTS: readonly DemoProductDef[] = [
   },
   {
     name: 'Whey Isolate Protein (Unflavored)',
-    desc: 'Cold-filtered grass-fed whey isolate — 27g protein per scoop, no added sugar, no artificial flavors. Clinically appropriate for sarcopenia prevention and post-rehab recomposition.',
+    desc: 'Cold-filtered grass-fed whey isolate: 27g protein per scoop, no added sugar, no artificial flavors. Clinically appropriate for sarcopenia prevention and post-rehab recomposition.',
     sku: 'FIT-016',
     price: 54,
     qty: 35,

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Suspense } from 'react'
+import { PasswordInput } from '@/components/ui-system/PasswordInput'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -120,9 +121,9 @@ function SetPasswordForm() {
             </div>
           )}
           <AppFormField label="Password" htmlFor="password" error={errors.password?.message}>
-            <AppInput
+            <PasswordInput
+              as={AppInput}
               id="password"
-              type="password"
               autoComplete="new-password"
               className="rounded-xl border-input"
               {...register('password')}
@@ -133,9 +134,9 @@ function SetPasswordForm() {
             htmlFor="confirmPassword"
             error={errors.confirmPassword?.message}
           >
-            <AppInput
+            <PasswordInput
+              as={AppInput}
               id="confirmPassword"
-              type="password"
               autoComplete="new-password"
               className="rounded-xl border-input"
               {...register('confirmPassword')}

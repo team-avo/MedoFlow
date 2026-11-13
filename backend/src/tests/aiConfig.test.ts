@@ -160,7 +160,7 @@ describe('presets resolve to a full endpoint', () => {
     assert.equal(mock.stt.kind, 'mock')
   })
 
-  it('the registry builds the adapter the config names — no code change to switch', () => {
+  it('the registry builds the adapter the config names, no code change to switch', () => {
     const a = buildScribeAi(
       loadScribeAiConfig(
         env({
@@ -247,7 +247,7 @@ describe('FR-13 production egress gate', () => {
     )
     assert.ok(
       problems.some((p) =>
-        /synthetic data only — AI_SCRIBE_LLM sends PHI to api\.openai\.com/.test(p.message)
+        /synthetic data only; AI_SCRIBE_LLM sends PHI to api\.openai\.com/.test(p.message)
       )
     )
     assert.deepEqual(

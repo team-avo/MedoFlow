@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS2 — live captions while a consultation is recorded,
+ * Demo feedback WS2: live captions while a consultation is recorded,
  * over HTTP against Postgres (enforce + RLS), with the in-process mock
  * speech-to-text provider.
  *
@@ -91,7 +91,7 @@ describe('the recording gate', () => {
     expect(mockScribeControl.calls.filter((c) => c.kind === 'stt')).toHaveLength(0)
   })
 
-  it('once recording, each segment comes back as text — and nothing is stored', async () => {
+  it('once recording, each segment comes back as text, and nothing is stored', async () => {
     await setState({ consentStatus: 'GRANTED', recordingStatus: 'NOT_STARTED', status: 'READY' })
     const rec = await api(server.url, `/consultations/${sessionId}/recording/start`, {
       token: t.provider,

@@ -1,3 +1,4 @@
+import { assignNewServiceToSoloProvider } from './ownerProviderService'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
@@ -10,6 +11,7 @@ export interface CreateServiceData {
   duration: number
   defaultPrice: number | string
   taxApplicable?: boolean
+  defaultMode?: 'IN_PERSON' | 'VIRTUAL'
   recommendedProductIds?: string[]
 }
 
@@ -52,6 +54,7 @@ export const createService = async (
       duration: data.duration,
       defaultPrice: data.defaultPrice,
       taxApplicable: data.taxApplicable ?? false,
+      defaultMode: data.defaultMode ?? 'IN_PERSON',
       recommendedProducts: {
         connect: data.recommendedProductIds?.map((id) => ({ id })) ?? [],
       },
@@ -61,6 +64,9 @@ export const createService = async (
       recommendedProducts: true,
     },
   })
+
+  // A solo practice (CTO-14): the one provider offers a new service at once.
+  await assignNewServiceToSoloProvider(service.id, clinicId)
 
   await auditService.logAudit({
     clinicId,
@@ -141,6 +147,7 @@ export const updateService = async (
       ...(data.duration !== undefined && { duration: data.duration }),
       ...(data.defaultPrice !== undefined && { defaultPrice: data.defaultPrice }),
       ...(data.taxApplicable !== undefined && { taxApplicable: data.taxApplicable }),
+      ...(data.defaultMode !== undefined && { defaultMode: data.defaultMode }),
       ...(data.disciplineId && { disciplineId: data.disciplineId }),
       ...(data.isActive !== undefined && { isActive: data.isActive }),
       ...(data.recommendedProductIds && {

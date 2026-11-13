@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * VoiceAgentCallLog — recent calls handled by the AI front desk.
+ * VoiceAgentCallLog: recent calls handled by the AI front desk.
  *
  * Table of calls on the left; click a row to open a detail panel on the
  * right with the full transcript and the tool calls made during the call.
@@ -45,7 +45,7 @@ const outcomeTone: Record<string, string> = {
 }
 
 function fmtDuration(sec: number) {
-  if (!sec) return '—'
+  if (!sec) return 'Not set'
   const m = Math.floor(sec / 60)
   const s = sec % 60
   return `${m}:${s.toString().padStart(2, '0')}`

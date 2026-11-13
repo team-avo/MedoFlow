@@ -15,7 +15,7 @@ export const getCart = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const clinicId = req.user!.clinicId
     const patientId = req.user!.id
-    // PLATFORM_ADMIN / SUPER_ADMIN accounts without a clinic have no cart —
+    // PLATFORM_ADMIN / SUPER_ADMIN accounts without a clinic have no cart,
     // hitting Prisma with clinicId=null triggers a validation error, so we
     // short-circuit with an empty cart shape the client already handles.
     if (!clinicId) {
@@ -100,7 +100,7 @@ export const demoCheckout = asyncHandler(
   }
 )
 
-/** PATCH /carts/items/:itemId/decision — accept or decline a prescribed item (F5.2). */
+/** PATCH /carts/items/:itemId/decision: accept or decline a prescribed item (F5.2). */
 export const setItemDecision = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const { decision } = req.body as { decision: 'ACCEPTED' | 'DECLINED' }
@@ -115,7 +115,7 @@ export const setItemDecision = asyncHandler(
   }
 )
 
-/** GET /carts/one-click — card and shipping address on file from booking (F5.3). */
+/** GET /carts/one-click: card and shipping address on file from booking (F5.3). */
 export const getOneClick = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const onFile = await patientCommerceService.getOnFile(req.user!.clinicId!, req.user!.id)
@@ -123,7 +123,7 @@ export const getOneClick = asyncHandler(
   }
 )
 
-/** POST /carts/one-click-checkout — pay with the card on file (B5.4). */
+/** POST /carts/one-click-checkout: pay with the card on file (B5.4). */
 export const oneClickCheckout = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const result = await patientCommerceService.oneClickCheckout(
@@ -135,7 +135,7 @@ export const oneClickCheckout = asyncHandler(
   }
 )
 
-/** PUT /carts/shipping-address — saved at booking for one-click orders. */
+/** PUT /carts/shipping-address: saved at booking for one-click orders. */
 export const saveShippingAddress = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const onFile = await patientCommerceService.saveShippingAddress(

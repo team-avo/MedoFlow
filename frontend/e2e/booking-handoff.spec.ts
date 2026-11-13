@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS1 — "a logged-in patient is still asked for details on the
+ * Demo feedback WS1: "a logged-in patient is still asked for details on the
  * clinic's own website". The clinic site runs on a different browser site
  * (here everwell.localhost vs the app on 127.0.0.1), so the app's refresh
  * cookie never reaches it; the mock models that per origin (mockApi

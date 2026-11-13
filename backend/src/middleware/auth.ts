@@ -50,7 +50,7 @@ async function authenticate(req: Request, token: string): Promise<AuthenticatedC
         customRoleId: true,
         hasSeenPatientTour: true,
         mfaEnabled: true,
-        // Pull tenant info in the same round-trip — this is the canonical
+        // Pull tenant info in the same round-trip, this is the canonical
         // source of req.tenantId. PLATFORM_ADMIN has clinicId=null so this
         // include just yields null.
         clinic: {
@@ -133,7 +133,7 @@ async function authenticate(req: Request, token: string): Promise<AuthenticatedC
     }
     req.clinicId = user.clinicId
     // Canonical tenantId from clinic.tenantId. Null for PLATFORM_ADMIN or
-    // any legacy user without a clinic — downstream code MUST handle null
+    // any legacy user without a clinic, downstream code MUST handle null
     // explicitly (or use requireClinicScope/requireTenantScope middleware).
     req.tenantId = user.clinic?.tenantId ?? null
     req.tenantContext = user.clinic?.tenant ?? null
@@ -239,7 +239,7 @@ const onlyPatientRoles = (roles: Role[]): boolean =>
   roles.length > 0 && roles.every((r) => r === 'PATIENT')
 
 /**
- * Granular permission check — works with custom roles.
+ * Granular permission check: works with custom roles.
  * SUPER_ADMIN bypasses all checks.
  * Staff users are checked against their custom role permissions.
  */
@@ -273,8 +273,37 @@ export const requirePermission = (...requiredKeys: string[]) => {
 }
 
 /**
+ * A fixed set of system roles, or a custom-role (STAFF) user who holds the
+ * permission. SUPER_ADMIN and PLATFORM_ADMIN always pass. Used where a route
+ * serves legacy roles and custom roles alike, e.g. booking an appointment
+ * (CTO-24): owner, front desk, or any custom role with `appointments.create`.
+ */
+export const authorizeRolesOrPermission = (roles: Role[], permissionKey: string) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      const err = new Error('Authentication required') as ApiError
+      err.statusCode = 401
+      next(err)
+      return
+    }
+    const role = req.user.role
+    if (role === 'PLATFORM_ADMIN' || role === 'SUPER_ADMIN' || roles.includes(role)) {
+      next()
+      return
+    }
+    if (role === 'STAFF' && hasPermission(req.user.permissions ?? [], permissionKey)) {
+      next()
+      return
+    }
+    const err = new Error('You do not have permission to perform this action') as ApiError
+    err.statusCode = 403
+    next(err)
+  }
+}
+
+/**
  * Hard guard for routes that operate on clinic-scoped data. Returns 400 if
- * the authenticated user has no clinicId — which happens for PLATFORM_ADMIN
+ * the authenticated user has no clinicId, which happens for PLATFORM_ADMIN
  * and for SUPER_ADMIN whose clinic setup isn't finished. Use this on
  * controllers that index into `clinicId` without a defensive check.
  *

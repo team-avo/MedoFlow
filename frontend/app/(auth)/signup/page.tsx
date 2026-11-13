@@ -1,5 +1,5 @@
 /**
- * Legacy /signup entrypoint — the full-page signup was replaced by the
+ * Legacy /signup entrypoint: the full-page signup was replaced by the
  * <AuthModal> flow on the landing page. This page server-redirects to
  * `/?auth=signup` so the modal opens.
  */

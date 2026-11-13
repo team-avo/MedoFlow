@@ -10,6 +10,7 @@
  *     onboarding wizard (app/(onboarding)) → the dashboard.
  */
 import React, { useEffect, useState } from 'react'
+import { PasswordInput } from '@/components/ui-system/PasswordInput'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
@@ -165,7 +166,7 @@ function GetStartedInner() {
         </h1>
         <p className="mt-3 text-slate-600">
           {catalog?.billingMode === 'demo'
-            ? 'Create a clinic on the demo — everything is unlocked.'
+            ? 'Create a clinic on the demo; everything is unlocked.'
             : `Start your ${catalog?.trialDays ?? 14}-day free trial. No credit card required.`}
         </p>
       </div>
@@ -233,7 +234,7 @@ function GetStartedInner() {
                     </span>
                   )}
                   {availability === 'idle' && 'Your clinic’s site, booking and patient portal'}
-                  {availability === 'error' && 'Could not check right now — you can still continue'}
+                  {availability === 'error' && 'Could not check right now. You can still continue'}
                 </span>
               }
             >
@@ -284,9 +285,8 @@ function GetStartedInner() {
               error={errors.password?.message}
               hint="At least 8 characters"
             >
-              <input
+              <PasswordInput
                 id="password"
-                type="password"
                 autoComplete="new-password"
                 className={inputCls}
                 {...register('password')}

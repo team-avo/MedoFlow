@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * FinalCTA — the close: headline and CTA over a static teal bloom.
+ * FinalCTA: the close: headline and CTA over a static teal bloom.
  */
 
 import React from 'react'

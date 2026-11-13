@@ -1,13 +1,13 @@
 'use client'
 
 /**
- * AppTable — tabular data with optional mobile card rendering.
+ * AppTable: tabular data with optional mobile card rendering.
  *
  * Two modes:
- *  • Default (`mobileCardMode` omitted) — renders a <table> with horizontal
+ *  • Default (`mobileCardMode` omitted): renders a <table> with horizontal
  *    scroll on narrow viewports. Matches every current caller's expectation,
  *    so this is 100% backward-compatible.
- *  • `mobileCardMode` — on <md screens, rows render as stacked cards with
+ *  • `mobileCardMode`, on <md screens, rows render as stacked cards with
  *    label/value pairs. Optionally mark one column as `mobilePrimary` to
  *    show it as the card's title. Use this for data-dense admin tables
  *    (audit, invoices, patients, commissions) so they stay legible on phones.

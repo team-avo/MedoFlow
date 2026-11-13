@@ -1,6 +1,6 @@
 /**
  * The public renderer's single data source (B8.5): one call turns
- * (site host | clinic slug) + path into everything the page needs — the
+ * (site host | clinic slug) + path into everything the page needs, the
  * published theme and menus, the matched route, the page or entity, and only
  * the live data its sections use. Every routing decision for clinic sites
  * (canonical host, redirects, drafts never public, 404) is made here.
@@ -29,7 +29,7 @@ import { pagePath } from './pageService'
 
 export interface RenderRequest {
   host?: string
-  /** Clinic slug or id — the app-host fallback /s/<slug>. */
+  /** Clinic slug or id: the app-host fallback /s/<slug>. */
   clinic?: string
   path: string
   previewToken?: string
@@ -367,7 +367,7 @@ const defaultSections: Partial<Record<SitePageKind, Section[]>> = {
         heading: 'Contact us',
         intro: '',
         submitLabel: 'Send message',
-        successMessage: 'Thanks — we will be in touch shortly.',
+        successMessage: 'Thanks, we will be in touch shortly.',
         askPhone: true,
         consentText: 'Please don’t include detailed medical information in this form.',
       },
@@ -461,7 +461,7 @@ export async function render(req: RenderRequest): Promise<RenderResult> {
   if (match.type === 'redirect') return { type: 'redirect', to: match.to, code: 301 }
 
   // The path fallback (/s/<slug>) 301s to the canonical domain once the
-  // clinic has one — except draft previews, which work anywhere.
+  // clinic has one: except draft previews, which work anywhere.
   const isPreview = match.type === 'route' && match.key === 'preview'
   if (!where.viaHost && !isPreview && site.canonicalKind === 'domain') {
     const suffix = match.type === 'route' ? match.path : req.path
@@ -790,7 +790,7 @@ export async function sitemap(req: { host?: string; clinic?: string }) {
   return { canonicalBase: base, entries }
 }
 
-/** Legacy GET /public/clinics/:id/pages/:slug — published page, id-or-slug clinic. */
+/** Legacy GET /public/clinics/:id/pages/:slug: published page, id-or-slug clinic. */
 export async function publishedPageForClinic(idOrSlug: string, slug: string) {
   const clinic = await prisma.clinic.findFirst({
     where: { ...liveClinicWhere, OR: [{ slug: idOrSlug }, { id: idOrSlug }] },
@@ -815,7 +815,7 @@ export async function publishedPageForClinic(idOrSlug: string, slug: string) {
 /**
  * Builder canvas data (authenticated): everything a section can show, the
  * clinic's pages for link pickers, and its images. Same public shapes as
- * the renderer — the builder never sees more than the site would.
+ * the renderer: the builder never sees more than the site would.
  */
 export async function editorData(clinicId: string) {
   const everySection: Section[] = (

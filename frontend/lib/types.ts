@@ -20,6 +20,8 @@ export interface UserTenantSummary {
   submittedForReviewAt?: string | null
   /** The reviewer's note when changes were requested or the clinic was rejected. */
   reviewNotes?: string | null
+  /** Clinic brand colours; the staff console uses the primary as its accent (CTO-28). */
+  brand?: { primaryColor: string | null; secondaryColor: string | null } | null
 }
 
 export interface UserClinicSummary {
@@ -51,6 +53,8 @@ export interface User {
   hasSeenPatientTour?: boolean
   /** Two-step verification (TOTP) is on for this account (B0.2.2 / F0.2.2). */
   mfaEnabled?: boolean
+  /** The user's own Provider record, when they see patients (CTO-14). */
+  provider?: { id: string; isActive: boolean } | null
 }
 
 export interface ApiResponse<T> {

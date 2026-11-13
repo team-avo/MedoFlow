@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   AlertCircle,
-  Bell,
   ChevronDown,
   ChevronRight,
   HelpCircle,
@@ -15,6 +14,7 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { NotificationBell } from '@/components/layout/NotificationBell'
 import { UserAvatar } from '@/components/common/UserAvatar'
 import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
@@ -28,7 +28,7 @@ interface TopBarProps {
 /**
  * Prisma-style CUIDs (our default id format) always start with a lowercase `c`
  * and are ~24 chars of lowercase alphanumerics. UUIDs are the dashed 36-char
- * variant. We drop both from breadcrumbs — they're visual noise.
+ * variant. We drop both from breadcrumbs, they're visual noise.
  */
 function isOpaqueId(seg: string): boolean {
   return (
@@ -140,7 +140,7 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
 
       {/* Right: actions */}
       <div className="flex shrink-0 items-center gap-1">
-        {/* Alert indicator — SUPER_ADMIN / STAFF only */}
+        {/* Alert indicator: SUPER_ADMIN / STAFF only */}
         {isAdminRole && (
           <div className="relative" ref={alertMenuRef}>
             <button
@@ -228,14 +228,7 @@ export function TopBar({ onOpenMobileNav, onRestartTour }: TopBarProps) {
           </div>
         )}
 
-        <button
-          type="button"
-          className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-          aria-label="Notifications (coming soon)"
-          disabled
-        >
-          <Bell className="h-5 w-5" />
-        </button>
+        {user?.clinicId && user.role !== 'PATIENT' && <NotificationBell />}
 
         <div className="relative ml-1" ref={menuRef}>
           <button

@@ -49,8 +49,14 @@ export async function sendAppointmentConfirmation(params: {
   serviceName: string
   providerName: string
   locationName: string
+  /** CTO-31: a video visit's join link. */
+  joinUrl?: string | null
 }): Promise<void> {
   const { to, patientName, appointmentDate, serviceName, providerName, locationName } = params
+  const joinHtml = params.joinUrl
+    ? `<p><strong>Join your video visit:</strong> <a href="${params.joinUrl}">${params.joinUrl}</a></p>`
+    : ''
+  const joinText = params.joinUrl ? `\nJoin your video visit: ${params.joinUrl}` : ''
   const subject = `Confirmed: Your appointment on ${appointmentDate}`
   const html = `
     <div style="font-family: sans-serif; line-height: 1.5; color: #333;">
@@ -62,6 +68,7 @@ export async function sendAppointmentConfirmation(params: {
         <p><strong>Provider:</strong> ${providerName}</p>
         <p><strong>Date & Time:</strong> ${appointmentDate}</p>
         <p><strong>Location:</strong> ${locationName}</p>
+        ${joinHtml}
       </div>
       <p>We look forward to seeing you!</p>
       <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
@@ -71,7 +78,7 @@ export async function sendAppointmentConfirmation(params: {
   const text = `
 Appointment Confirmed
 Hi ${patientName},
-Your appointment for ${serviceName} with ${providerName} on ${appointmentDate} at ${locationName} is confirmed.
+Your appointment for ${serviceName} with ${providerName} on ${appointmentDate} at ${locationName} is confirmed.${joinText}
   `.trim()
 
   await sendEmail({ to, subject, html, text })
@@ -220,7 +227,7 @@ export async function sendClinicAgreementConfirmation(params: {
 }): Promise<void> {
   const { to, clinicName, acceptedByName, acceptedAt, termsVersion, plan, acknowledgements } =
     params
-  const subject = `Agreement countersigned — Welcome to Medoflow, ${clinicName}`
+  const subject = `Agreement countersigned: Welcome to Medoflow, ${clinicName}`
   const acceptedAtStr = acceptedAt.toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
   const ackList = acknowledgements.map((a) => `<li style="margin: 4px 0;">${a}</li>`).join('')
   const ackText = acknowledgements.map((a) => `  • ${a}`).join('\n')
@@ -295,7 +302,7 @@ If you didn't expect this invite, you can safely ignore this email.
 
 /**
  * New contact-form enquiry on a clinic website (B8.5). The email carries no
- * enquiry content — contact-form messages are PHI and are read only inside
+ * enquiry content: contact-form messages are PHI and are read only inside
  * the dashboard, where every read is audited.
  */
 export async function sendSiteLeadNotification(params: {
@@ -341,13 +348,13 @@ export async function sendClinicApplicationReceived(params: {
   const html = emailShell(
     'Application received',
     `<p>Hi ${name},</p>
-      <p>Thanks — we have the application for <strong>${clinic}</strong>. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.</p>
+      <p>Thanks, we have the application for <strong>${clinic}</strong>. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.</p>
       <p>You can keep setting up services, team and website in the meantime. Your public website and online booking switch on as soon as the clinic is approved.</p>
       <p><a href="${params.dashboardUrl}">Continue setup</a></p>`
   )
   const text = `Hi ${params.name},
 
-Thanks — we have the application for ${params.clinicName}. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.
+Thanks, we have the application for ${params.clinicName}. Our team verifies your NPI and licensing details; most applications are reviewed within one business day.
 
 You can keep setting up services, team and website in the meantime. Your public website and online booking switch on as soon as the clinic is approved.
 
@@ -394,7 +401,7 @@ export async function sendClinicReviewDecision(params: {
     : ''
   const copy = {
     APPROVED: {
-      subject: `${params.clinicName} is approved — you're live`,
+      subject: `${params.clinicName} is approved: you're live`,
       title: 'Your clinic is approved',
       body: `<p><strong>${clinic}</strong> has been approved. Your public website and online booking are now switched on.</p>`,
       text: `${params.clinicName} has been approved. Your public website and online booking are now switched on.`,
@@ -426,4 +433,88 @@ ${params.notes ? `\n${params.notes}\n` : ''}
 Open your dashboard: ${params.dashboardUrl}`
 
   await sendEmail({ to: params.to, subject: copy.subject, html, text })
+}
+
+/**
+ * A clinic added this patient at the desk (CTO-24: walk-in / phone booking).
+ * Optional: the booking never depends on it, and staff can copy the link
+ * instead when SMTP isn't set up. Carries no clinical detail.
+ */
+export async function sendPatientInviteEmail(params: {
+  to: string
+  name: string
+  clinicName: string
+  setupLink: string
+}): Promise<void> {
+  const name = escapeHtml(params.name)
+  const clinic = escapeHtml(params.clinicName)
+  const subject = `Set up your ${params.clinicName} patient account`
+  const html = `
+    <p>Hi ${name},</p>
+    <p>${clinic} has created a patient account for you on MedoFlow.</p>
+    <p>Set your password to see your appointments, forms and orders:</p>
+    <p><a href="${params.setupLink}">${params.setupLink}</a></p>
+    <p>This link expires in 24 hours. If you weren't expecting it, you can ignore this email.</p>
+  `
+  const text = `Hi ${params.name},
+
+${params.clinicName} has created a patient account for you on MedoFlow.
+
+Set your password here: ${params.setupLink}
+
+This link expires in 24 hours. If you weren't expecting it, you can ignore this email.`
+  await sendEmail({ to: params.to, subject, html, text })
+}
+
+/**
+ * A provider's appointment starts in 10 minutes (CTO-30). Deliberately
+ * PHI-free: the time and a link, never the patient's name or the reason.
+ */
+export async function sendProviderStartingSoonEmail(params: {
+  to: string
+  title: string
+  link: string
+}): Promise<void> {
+  const title = escapeHtml(params.title)
+  await sendEmail({
+    to: params.to,
+    subject: params.title,
+    html: `<p>${title}.</p><p><a href="${params.link}">Open the appointment and start AI Scribe</a></p>`,
+    text: `${params.title}.\n\nOpen the appointment and start AI Scribe: ${params.link}`,
+  })
+}
+
+/**
+ * The patient's order is ready to check out (CTO-32). No product names or
+ * clinical detail: those are behind the sign-in on the checkout page.
+ */
+export async function sendCartReadyEmail(params: {
+  to: string
+  name: string
+  clinicName: string
+  link: string
+}): Promise<void> {
+  const name = escapeHtml(params.name)
+  const clinic = escapeHtml(params.clinicName)
+  await sendEmail({
+    to: params.to,
+    subject: `Your order from ${params.clinicName} is ready`,
+    html: `<p>Hi ${name},</p><p>${clinic} has prepared your order. Review it and check out here:</p><p><a href="${params.link}">${params.link}</a></p><p>The link works for 72 hours. You'll sign in to see the details.</p>`,
+    text: `Hi ${params.name},\n\n${params.clinicName} has prepared your order. Review it and check out here: ${params.link}\n\nThe link works for 72 hours. You'll sign in to see the details.`,
+  })
+}
+
+/** CTO-26: a clinic address failed to go live after its retries (platform team). */
+export async function sendSiteLaunchFailedEmail(params: {
+  to: string
+  clinicName: string
+  label: string
+  reason: string
+}): Promise<void> {
+  await sendEmail({
+    to: params.to,
+    subject: `Clinic address did not go live: ${params.label}`,
+    html: `<p><strong>${escapeHtml(params.clinicName)}</strong> published its website, but <code>${escapeHtml(params.label)}</code> could not be deployed to Cloudflare Pages.</p><p>Reason: ${escapeHtml(params.reason)}</p><p>The owner can press Retry on the Website page, or run the front-door workflow by hand.</p>`,
+    text: `${params.clinicName} published its website, but ${params.label} could not be deployed to Cloudflare Pages.\nReason: ${params.reason}\nThe owner can press Retry on the Website page, or run the front-door workflow by hand.`,
+  })
 }

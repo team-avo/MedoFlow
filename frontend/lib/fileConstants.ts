@@ -1,5 +1,5 @@
 /**
- * Patient-file upload policy — mirrors backend/src/config/fileConstants.ts
+ * Patient-file upload policy: mirrors backend/src/config/fileConstants.ts
  * (B3.1). Checked in the browser before a presigned URL is even requested;
  * the API re-checks everything, including the file's actual bytes.
  */

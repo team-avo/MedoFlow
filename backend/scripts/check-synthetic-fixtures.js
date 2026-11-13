@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * B0.5.5 — fail CI if any seed / fixture / test file contains data that looks
+ * B0.5.5: fail CI if any seed / fixture / test file contains data that looks
  * like real PII. Synthetic data rules (docs/PHI_GATE.md):
  *   - emails on reserved/test domains only (example.com/.test, medoflow.test, *.demo …)
  *   - phone numbers in the 555 range

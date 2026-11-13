@@ -6,8 +6,8 @@
  *    status or soft-deletes (PatientFile.isDeleted). The Prisma extension
  *    enforces this (`assertDeletePolicy` in config/prisma.ts).
  *  - Hard deletion happens only here, inside a `lifecycle:` bypass scope:
- *      exportTenantData  — complete JSON export of a customer's data
- *      offboardTenant    — destroys every clinic-scoped row and stored object,
+ *      exportTenantData: complete JSON export of a customer's data
+ *      offboardTenant: destroys every clinic-scoped row and stored object,
  *                          anonymises user accounts, tombstones the clinic/tenant.
  *  - AuditLog rows are retained (6-year HIPAA window, enforced by a DB
  *    trigger). The users and clinic they reference are anonymised, not
@@ -20,6 +20,7 @@
  * The model list and deletion order are derived from the Prisma schema, so a
  * new clinic-scoped model is covered automatically (a test asserts it).
  */
+import { removeLaunch } from '../site/services/siteLaunchService'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
@@ -254,6 +255,9 @@ export const offboardTenant = (
       err.statusCode = 400
       throw err
     }
+
+    // CTO-26: take each clinic's address off Cloudflare Pages (best effort).
+    for (const id of clinicIds) await removeLaunch(id)
 
     // Object storage first (references are lost once the rows go).
     const [files, scribe, consults, voice] = await Promise.all([

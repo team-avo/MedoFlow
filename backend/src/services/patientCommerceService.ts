@@ -11,7 +11,7 @@
  *
  * Only Stripe ids and the card summary are stored, so the card data stays in
  * Stripe's PCI scope (SAQ-A). The shipping address is sealed by field-level
- * encryption. Stripe receives the clinic and patient ids only — no name or
+ * encryption. Stripe receives the clinic and patient ids only, no name or
  * email (minimum necessary).
  */
 import type Stripe from 'stripe'

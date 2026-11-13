@@ -1,8 +1,8 @@
 /**
- * B3.2 — field-level encryption against Postgres. Transcripts, SOAP notes
+ * B3.2: field-level encryption against Postgres. Transcripts, SOAP notes
  * (and versions) and intake answers are ciphertext at rest (read with the
  * owner connection, which bypasses the app), plaintext through the API, and
- * existing plaintext rows are migrated by the backfill — which also rotates.
+ * existing plaintext rows are migrated by the backfill, which also rotates.
  */
 import crypto from 'crypto'
 import { Prisma } from '@prisma/client'
@@ -84,7 +84,7 @@ describe('B3.2 SOAP notes and their versions', () => {
     expect(versions.length).toBe(2)
     expect(versions.every((v) => isSealed(v.subjective) && isSealed(v.plan))).toBe(true)
 
-    // Create + edit are audited by section name / version id — never the text.
+    // Create + edit are audited by section name / version id, never the text.
     const audit = await adminDb.auditLog.findMany({
       where: { entityId: id, action: { in: ['VISIT_RECORD_CREATED', 'VISIT_RECORD_UPDATED'] } },
       orderBy: { createdAt: 'asc' },
@@ -139,6 +139,62 @@ describe('B3.2 intake answers', () => {
     expect(list.status).toBe(200)
     expect(list.body.data.responses.find((r: { id: string }) => r.id === raw.id).responses).toEqual(
       answers
+    )
+  })
+})
+
+describe('CTO-21 intake follow-up: "Which conditions?" when the answer is Yes', () => {
+  it('the default intake form asks which conditions on Yes; the answer is sealed at rest', async () => {
+    const admin = (await login(server.url, C.users.admin.email)).accessToken
+    const added = await api(server.url, '/forms/templates/default', { token: admin, body: {} })
+    expect([200, 201]).toContain(added.status)
+    // Idempotent: a second call returns the same template.
+    const again = await api(server.url, '/forms/templates/default', { token: admin, body: {} })
+    expect(again.status).toBe(200)
+    expect(again.body.data.template.id).toBe(added.body.data.template.id)
+    const templateId = added.body.data.template.id as string
+
+    const send = (responses: Record<string, unknown>) =>
+      api(server.url, '/forms/respond', { token: patient, body: { templateId, responses } })
+
+    // Yes without saying which is refused; a choice not offered is refused.
+    expect((await send({ reason: 'Synthetic: check-up', existingConditions: 'yes' })).status).toBe(
+      400
+    )
+    expect(
+      (
+        await send({
+          reason: 'Synthetic: check-up',
+          existingConditions: 'yes',
+          existingConditions__followUp: { selected: ['made-up'] },
+        })
+      ).status
+    ).toBe(400)
+
+    const answers = {
+      reason: 'Synthetic: check-up',
+      existingConditions: 'yes',
+      existingConditions__followUp: { selected: ['diabetes', 'thyroid'], other: 'Synthetic gout' },
+    }
+    const res = await send(answers)
+    expect(res.status, JSON.stringify(res.body)).toBe(201)
+    const raw = await adminDb.formResponse.findUniqueOrThrow({
+      where: { id: res.body.data.response.id },
+    })
+    expect(isSealed(raw.responses)).toBe(true)
+    expect(JSON.stringify(raw.responses)).not.toMatch(/diabetes|gout/i)
+
+    // Staff see the selected conditions.
+    const list = await api(server.url, `/forms/patient/${C.users.patient.id}`, { token: admin })
+    expect(list.status, JSON.stringify(list.body).slice(0, 300)).toBe(200)
+    expect(
+      list.body.data.responses.find((r: { id: string }) => r.id === raw.id).responses
+        .existingConditions__followUp
+    ).toEqual({ selected: ['diabetes', 'thyroid'], other: 'Synthetic gout' })
+
+    // No: nothing more is asked.
+    expect((await send({ reason: 'Synthetic: check-up', existingConditions: 'no' })).status).toBe(
+      201
     )
   })
 })
@@ -211,7 +267,7 @@ describe('B3.2 scribe transcripts, AI drafts and voice transcripts', () => {
 
 describe('B3.2 migration of existing rows (ops:encrypt-phi)', () => {
   it('seals legacy plaintext, is idempotent, and rotates to a new key', async () => {
-    // The fixture wrote a plaintext SOAP note through the owner connection —
+    // The fixture wrote a plaintext SOAP note through the owner connection,
     // exactly what rows written before B3.2 look like.
     const before = await adminDb.visitRecord.findUniqueOrThrow({ where: { id: C.visitRecordId } })
     expect(before.subjective).toBe('Synthetic note: no real patient data.')

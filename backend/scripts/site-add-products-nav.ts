@@ -59,7 +59,7 @@ async function main() {
     })
   }
   process.stdout.write(
-    `${sites.length} site(s) checked, ${changed} ${apply ? 'updated (drafts — publish to go live)' : 'would change (run with --apply)'}\n`
+    `${sites.length} site(s) checked, ${changed} ${apply ? 'updated (drafts: publish to go live)' : 'would change (run with --apply)'}\n`
   )
 }
 

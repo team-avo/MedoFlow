@@ -224,7 +224,7 @@ export const listClinic = asyncHandler(
   }
 )
 
-/** GET /visits/me/summaries — the patient's published care summaries (F2.6). */
+/** GET /visits/me/summaries: the patient's published care summaries (F2.6). */
 export const listMySummaries = asyncHandler(
   async (req: Request, res: Response, _next: NextFunction): Promise<void> => {
     const summaries = await aiScribeService.listPublishedSummariesForPatient(req.user!.id)

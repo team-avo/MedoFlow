@@ -1,0 +1,172 @@
+{
+  "$comment": "Clinic onboarding lists and rules (CTO-06, CTO-16, CTO-18, CTO-22). backend/src/utils/practiceIds.ts and frontend/lib/practiceIds.ts must both match these lists exactly and pass every case; both test suites load this file, so the two lists can't drift apart. Synthetic values only.",
+  "practiceTypes": [
+    ["MEDICAL_PRACTICE", "Medical practice"],
+    ["FUNCTIONAL_MEDICINE", "Functional / integrative medicine"],
+    ["NATUROPATHIC", "Naturopathic"],
+    ["CHIROPRACTIC", "Chiropractic"],
+    ["MED_SPA", "Med spa / aesthetics"],
+    ["PHYSICAL_THERAPY", "Physical therapy"],
+    ["WELLNESS_CENTER", "Wellness center"],
+    ["PHARMACY", "Pharmacy"],
+    ["LONGEVITY_MEDICAL", "Longevity medical practice"],
+    ["OTHER", "Other"]
+  ],
+  "practitionerTitles": [
+    "Founder",
+    "CEO",
+    "Medical Director",
+    "Physician",
+    "Nurse Practitioner",
+    "Practice Manager",
+    "Other"
+  ],
+  "usStates": [
+    "AL",
+    "AK",
+    "AZ",
+    "AR",
+    "CA",
+    "CO",
+    "CT",
+    "DE",
+    "DC",
+    "FL",
+    "GA",
+    "HI",
+    "ID",
+    "IL",
+    "IN",
+    "IA",
+    "KS",
+    "KY",
+    "LA",
+    "ME",
+    "MD",
+    "MA",
+    "MI",
+    "MN",
+    "MS",
+    "MO",
+    "MT",
+    "NE",
+    "NV",
+    "NH",
+    "NJ",
+    "NM",
+    "NY",
+    "NC",
+    "ND",
+    "OH",
+    "OK",
+    "OR",
+    "PA",
+    "RI",
+    "SC",
+    "SD",
+    "TN",
+    "TX",
+    "UT",
+    "VT",
+    "VA",
+    "WA",
+    "WV",
+    "WI",
+    "WY",
+    "PR",
+    "GU",
+    "VI",
+    "AS",
+    "MP"
+  ],
+  "practiceTypeOther": {
+    "valid": [
+      "Peptide clinic",
+      "IV",
+      "Integrative psychiatry",
+      " Sleep medicine ",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ],
+    "invalid": [
+      "",
+      "a",
+      "   ",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ]
+  },
+  "closestPracticeType": [
+    {
+      "typed": "longevitty",
+      "expected": "LONGEVITY_MEDICAL"
+    },
+    {
+      "typed": "Longevity",
+      "expected": "LONGEVITY_MEDICAL"
+    },
+    {
+      "typed": "LONGEVITY MEDICAL PRACTICE",
+      "expected": "LONGEVITY_MEDICAL"
+    },
+    {
+      "typed": "chiropractc",
+      "expected": "CHIROPRACTIC"
+    },
+    {
+      "typed": "naturopathy",
+      "expected": "NATUROPATHIC"
+    },
+    {
+      "typed": "physical therapy",
+      "expected": "PHYSICAL_THERAPY"
+    },
+    {
+      "typed": "Peptide clinic",
+      "expected": null
+    },
+    {
+      "typed": "Veterinary",
+      "expected": null
+    }
+  ],
+  "usZip": {
+    "valid": ["75001", "10001", "00601", "75001-1234"],
+    "invalid": ["", "7500", "750011", "75001-12", "ABCDE", "75001 1234"]
+  },
+  "zipStateMismatch": [
+    {
+      "zip": "75001",
+      "state": "TX",
+      "mismatch": false
+    },
+    {
+      "zip": "10001",
+      "state": "NY",
+      "mismatch": false
+    },
+    {
+      "zip": "75001",
+      "state": "NY",
+      "mismatch": true
+    },
+    {
+      "zip": "90210",
+      "state": "CA",
+      "mismatch": false
+    },
+    {
+      "zip": "90210",
+      "state": "FL",
+      "mismatch": true
+    },
+    {
+      "zip": "00601",
+      "state": "PR",
+      "mismatch": false
+    },
+    {
+      "zip": "bad",
+      "state": "TX",
+      "mismatch": false
+    }
+  ]
+}

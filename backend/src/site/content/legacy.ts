@@ -44,7 +44,7 @@ function convertSettings(type: string, s: Record<string, unknown>): Record<strin
         items: quotes.slice(0, 12).flatMap((q) => {
           const text = str(q, 600)
           if (!text.trim()) return []
-          const m = /^\s*"?(.+?)"?\s*[—–-]\s*([^—–-]{1,80})$/.exec(text)
+          const m = /^\s*"?(.+?)"?\s*[\u2014\u2013-]\s*([^\u2014\u2013-]{1,80})$/.exec(text)
           return [
             m
               ? { quote: m[1]!.slice(0, 500), author: m[2]!.trim(), detail: '' }

@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS2 — "video call is shadowed by the manual recording
+ * Demo feedback WS2: "video call is shadowed by the manual recording
  * button": in every state both controls are rendered, the recording one
  * works during a call, and when it can't be used it says why.
  */
@@ -56,7 +56,7 @@ describe('ConsultControls: both controls, every state', () => {
   it('starts and ends the call, and records during it', () => {
     const before = setup()
     fireEvent.click(videoButton())
-    expect(before.video.onStart).toHaveBeenCalledOnce()
+    expect(before.video!.onStart).toHaveBeenCalledOnce()
     fireEvent.click(screen.getByRole('button', { name: /start recording/i }))
     expect(before.recording.onStart).toHaveBeenCalledOnce()
   })
@@ -67,7 +67,7 @@ describe('ConsultControls: both controls, every state', () => {
     fireEvent.click(screen.getByRole('button', { name: /stop recording/i }))
     fireEvent.click(videoButton())
     expect(p.recording.onStop).toHaveBeenCalledOnce()
-    expect(p.video.onEnd).toHaveBeenCalledOnce()
+    expect(p.video!.onEnd).toHaveBeenCalledOnce()
   })
 
   it('a blocked recording stays visible, disabled, with its reason', () => {
@@ -120,5 +120,22 @@ describe('LiveTranscriptPanel', () => {
     expect(strip).not.toHaveTextContent('How have you been')
     expect(strip).toHaveTextContent('Better, thanks.')
     expect(strip).toHaveTextContent('Any trouble sleeping?')
+  })
+})
+
+describe('in person (CTO-31)', () => {
+  it('shows audio recording only, with no video controls', () => {
+    const recording = {
+      state: 'idle' as const,
+      duration: 0,
+      blockedReason: null,
+      onStart: vi.fn(),
+      onStop: vi.fn(),
+      onUpload: vi.fn(),
+    }
+    render(<ConsultControls recording={recording} />)
+    expect(screen.queryByRole('button', { name: /video call/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /start recording/i }))
+    expect(recording.onStart).toHaveBeenCalledOnce()
   })
 })

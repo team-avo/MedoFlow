@@ -228,7 +228,7 @@ export default function ProviderAvailabilityPage() {
           <ChevronLeft className="h-4 w-4" /> Back to Providers
         </Link>
         <AppPageHeader
-          title={`Availability — ${provider.firstName} ${provider.lastName}`}
+          title={`Availability: ${provider.firstName} ${provider.lastName}`}
           description={
             provider.disciplines?.length
               ? provider.disciplines.map((pd) => pd.discipline.name).join(' · ')

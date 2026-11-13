@@ -1,6 +1,6 @@
 /**
  * SEO for clinic-site pages: <title>, description, canonical URL, OpenGraph,
- * robots, favicon and schema.org JSON-LD — all derived from the render
+ * robots, favicon and schema.org JSON-LD, all derived from the render
  * payload, so every route kind gets them the same way.
  */
 import type { Metadata } from 'next'
@@ -37,7 +37,7 @@ export function pageDescription(p: RenderPayload): string {
     return p.entity.product.description.slice(0, 160)
   if (p.entity?.type === 'service') {
     const s = p.entity.service
-    return `${s.name} at ${p.site.name} — ${s.durationMinutes} minutes. Book online.`
+    return `${s.name} at ${p.site.name}: ${s.durationMinutes} minutes. Book online.`
   }
   const firstText = p.page?.sections
     .map((s) =>
@@ -51,7 +51,7 @@ export function pageDescription(p: RenderPayload): string {
   return (
     p.site.settings.seo.description ||
     firstText ||
-    `${p.site.name} — book an appointment online.`
+    `${p.site.name}: book an appointment online.`
   ).slice(0, 300)
 }
 

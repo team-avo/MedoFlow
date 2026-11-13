@@ -269,7 +269,7 @@ function computeProviderDaySlots(
 
 /**
  * Every blocker for the given providers that overlaps [from, to): live
- * appointments, active holds and unavailability days — three queries no
+ * appointments, active holds and unavailability days, three queries no
  * matter how many providers or days are asked about.
  */
 async function loadBlockers(
@@ -422,11 +422,28 @@ export const createAvailability = async (
     err.statusCode = 404
     throw err
   }
-  const onlineLocationId = await ensureOnlineLocation(data.providerId, clinicId)
+  // CTO-34: hours for a specific location the provider works at use that
+  // location (and its timezone); otherwise the online location, as before.
+  const assigned = data.locationId
+    ? await prisma.providerLocationAssignment.findFirst({
+        where: {
+          providerId: data.providerId,
+          locationId: data.locationId,
+          location: { clinicId, isActive: true },
+        },
+        select: { locationId: true },
+      })
+    : null
+  if (data.locationId && !assigned) {
+    const err = new Error('The provider does not work at that location') as ApiError
+    err.statusCode = 400
+    throw err
+  }
+  const locationId = assigned?.locationId ?? (await ensureOnlineLocation(data.providerId, clinicId))
   const created = await prisma.providerAvailability.create({
     data: {
       providerId: data.providerId,
-      locationId: onlineLocationId,
+      locationId,
       weekday: data.weekday,
       startTime: data.startTime,
       endTime: data.endTime,
@@ -578,7 +595,7 @@ export const createUnavailability = async (
  * free slot for the service. Set-based (B1.3): one query each for the
  * service and the providers (with schedules + locations), then the three
  * blocker tables once over the whole window, then a pure per-day/per-provider
- * pass in memory — a bounded number of queries instead of a round of queries
+ * pass in memory: a bounded number of queries instead of a round of queries
  * per day per provider. Results are identical to calling getAvailableSlots
  * for every day/provider (tested against that reference).
  */

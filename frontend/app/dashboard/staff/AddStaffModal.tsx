@@ -241,7 +241,7 @@ export function AddStaffModal({
             {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
           </div>
 
-          {/* Name fields — type-specific */}
+          {/* Name fields: type-specific */}
           {createType !== 'provider' ? (
             <>
               <div className="space-y-1">

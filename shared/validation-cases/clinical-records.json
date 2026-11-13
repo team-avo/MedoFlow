@@ -158,8 +158,16 @@
   },
   "treatmentPlanUpdate": {
     "valid": [
-      { "case": "empty update", "payload": {} },
-      { "case": "progress", "payload": { "sessionsCompleted": 3 } },
+      {
+        "case": "empty update",
+        "payload": {}
+      },
+      {
+        "case": "progress",
+        "payload": {
+          "sessionsCompleted": 3
+        }
+      },
       {
         "case": "edit",
         "payload": {
@@ -174,15 +182,30 @@
       }
     ],
     "invalid": [
-      { "case": "negative progress", "payload": { "sessionsCompleted": -1 } },
-      { "case": "blank name", "payload": { "name": "" } },
+      {
+        "case": "negative progress",
+        "payload": {
+          "sessionsCompleted": -1
+        }
+      },
+      {
+        "case": "blank name",
+        "payload": {
+          "name": ""
+        }
+      },
       {
         "case": "status cannot be set directly",
-        "payload": { "status": "COMPLETED" }
+        "payload": {
+          "status": "COMPLETED"
+        }
       },
       {
         "case": "end before start",
-        "payload": { "startDate": "2026-10-10", "endDate": "2026-10-01" }
+        "payload": {
+          "startDate": "2026-10-10",
+          "endDate": "2026-10-01"
+        }
       }
     ]
   },
@@ -207,16 +230,30 @@
     "invalid": [
       {
         "case": "empty notes",
-        "payload": { "appointmentId": "apt_1", "notes": "" }
+        "payload": {
+          "appointmentId": "apt_1",
+          "notes": ""
+        }
       },
       {
         "case": "whitespace notes",
-        "payload": { "appointmentId": "apt_1", "notes": "   " }
+        "payload": {
+          "appointmentId": "apt_1",
+          "notes": "   "
+        }
       },
-      { "case": "missing appointment", "payload": { "notes": "Rest" } },
+      {
+        "case": "missing appointment",
+        "payload": {
+          "notes": "Rest"
+        }
+      },
       {
         "case": "notes too long",
-        "payload": { "appointmentId": "apt_1", "notes": "@@LONG_5001@@" }
+        "payload": {
+          "appointmentId": "apt_1",
+          "notes": "@@LONG_5001@@"
+        }
       }
     ]
   },
@@ -239,8 +276,14 @@
               "type": "select",
               "label": "Pain level",
               "options": [
-                { "value": "low", "label": "Low" },
-                { "value": "high", "label": "High" }
+                {
+                  "value": "low",
+                  "label": "Low"
+                },
+                {
+                  "value": "high",
+                  "label": "High"
+                }
               ]
             },
             {
@@ -259,21 +302,75 @@
           "description": "Before your first visit",
           "scope": "DISCIPLINE",
           "disciplineId": "disc_1",
-          "fields": [{ "id": "a", "type": "number", "label": "Age" }]
+          "fields": [
+            {
+              "id": "a",
+              "type": "number",
+              "label": "Age"
+            }
+          ]
+        }
+      },
+      {
+        "case": "CTO-21: yes/no select with a follow-up",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [
+            {
+              "id": "conditions",
+              "type": "select",
+              "label": "Do you have any existing medical conditions?",
+              "options": [
+                {
+                  "value": "yes",
+                  "label": "Yes"
+                },
+                {
+                  "value": "no",
+                  "label": "No"
+                }
+              ],
+              "followUp": {
+                "label": "Which conditions?",
+                "options": [
+                  {
+                    "value": "diabetes",
+                    "label": "Diabetes"
+                  },
+                  {
+                    "value": "hypertension",
+                    "label": "High blood pressure"
+                  }
+                ],
+                "allowOther": true
+              }
+            }
+          ]
         }
       }
     ],
     "invalid": [
       {
         "case": "no fields",
-        "payload": { "name": "Intake", "scope": "CLINIC", "fields": [] }
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": []
+        }
       },
       {
         "case": "blank label",
         "payload": {
           "name": "Intake",
           "scope": "CLINIC",
-          "fields": [{ "id": "a", "type": "text", "label": "" }]
+          "fields": [
+            {
+              "id": "a",
+              "type": "text",
+              "label": ""
+            }
+          ]
         }
       },
       {
@@ -281,7 +378,13 @@
         "payload": {
           "name": "Intake",
           "scope": "CLINIC",
-          "fields": [{ "id": "a", "type": "select", "label": "Pick" }]
+          "fields": [
+            {
+              "id": "a",
+              "type": "select",
+              "label": "Pick"
+            }
+          ]
         }
       },
       {
@@ -290,8 +393,16 @@
           "name": "Intake",
           "scope": "CLINIC",
           "fields": [
-            { "id": "a", "type": "text", "label": "One" },
-            { "id": "a", "type": "text", "label": "Two" }
+            {
+              "id": "a",
+              "type": "text",
+              "label": "One"
+            },
+            {
+              "id": "a",
+              "type": "text",
+              "label": "Two"
+            }
           ]
         }
       },
@@ -300,7 +411,13 @@
         "payload": {
           "name": "Intake",
           "scope": "CLINIC",
-          "fields": [{ "id": "a", "type": "file", "label": "Upload" }]
+          "fields": [
+            {
+              "id": "a",
+              "type": "file",
+              "label": "Upload"
+            }
+          ]
         }
       },
       {
@@ -308,7 +425,13 @@
         "payload": {
           "name": "Intake",
           "scope": "DISCIPLINE",
-          "fields": [{ "id": "a", "type": "text", "label": "One" }]
+          "fields": [
+            {
+              "id": "a",
+              "type": "text",
+              "label": "One"
+            }
+          ]
         }
       },
       {
@@ -317,7 +440,54 @@
           "name": "Intake",
           "scope": "CLINIC",
           "serviceId": "svc_1",
-          "fields": [{ "id": "a", "type": "text", "label": "One" }]
+          "fields": [
+            {
+              "id": "a",
+              "type": "text",
+              "label": "One"
+            }
+          ]
+        }
+      },
+      {
+        "case": "CTO-21: follow-up on a text field",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [
+            {
+              "id": "t",
+              "type": "text",
+              "label": "Text",
+              "followUp": {
+                "label": "Which?",
+                "options": [
+                  {
+                    "value": "a",
+                    "label": "A"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "case": "CTO-21: follow-up with no options",
+        "payload": {
+          "name": "Intake",
+          "scope": "CLINIC",
+          "fields": [
+            {
+              "id": "c",
+              "type": "checkbox",
+              "label": "Any?",
+              "followUp": {
+                "label": "Which?",
+                "options": []
+              }
+            }
+          ]
         }
       }
     ]
@@ -330,16 +500,31 @@
         "label": "Reason for visit",
         "required": true
       },
-      { "id": "history", "type": "textarea", "label": "History" },
-      { "id": "age", "type": "number", "label": "Age", "required": true },
+      {
+        "id": "history",
+        "type": "textarea",
+        "label": "History"
+      },
+      {
+        "id": "age",
+        "type": "number",
+        "label": "Age",
+        "required": true
+      },
       {
         "id": "pain",
         "type": "select",
         "label": "Pain level",
         "required": true,
         "options": [
-          { "value": "low", "label": "Low" },
-          { "value": "high", "label": "High" }
+          {
+            "value": "low",
+            "label": "Low"
+          },
+          {
+            "value": "high",
+            "label": "High"
+          }
         ]
       },
       {
@@ -348,7 +533,40 @@
         "label": "I consent",
         "required": true
       },
-      { "id": "newsletter", "type": "checkbox", "label": "Newsletter" }
+      {
+        "id": "newsletter",
+        "type": "checkbox",
+        "label": "Newsletter"
+      },
+      {
+        "id": "conditions",
+        "type": "select",
+        "label": "Do you have any existing medical conditions?",
+        "options": [
+          {
+            "value": "yes",
+            "label": "Yes"
+          },
+          {
+            "value": "no",
+            "label": "No"
+          }
+        ],
+        "followUp": {
+          "label": "Which conditions?",
+          "options": [
+            {
+              "value": "diabetes",
+              "label": "Diabetes"
+            },
+            {
+              "value": "hypertension",
+              "label": "High blood pressure"
+            }
+          ],
+          "allowOther": true
+        }
+      }
     ],
     "valid": [
       {
@@ -370,16 +588,62 @@
           "consent": true,
           "newsletter": false
         }
+      },
+      {
+        "case": "CTO-21: conditions Yes with a listed choice",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "yes",
+          "conditions__followUp": {
+            "selected": ["diabetes"]
+          }
+        }
+      },
+      {
+        "case": "CTO-21: conditions Yes with Other text only",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "yes",
+          "conditions__followUp": {
+            "selected": [],
+            "other": "Gout"
+          }
+        }
+      },
+      {
+        "case": "CTO-21: conditions No, no follow-up",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "no"
+        }
       }
     ],
     "invalid": [
       {
         "case": "missing required text",
-        "answers": { "age": 40, "pain": "low", "consent": true }
+        "answers": {
+          "age": 40,
+          "pain": "low",
+          "consent": true
+        }
       },
       {
         "case": "blank required text",
-        "answers": { "reason": "  ", "age": 40, "pain": "low", "consent": true }
+        "answers": {
+          "reason": "  ",
+          "age": 40,
+          "pain": "low",
+          "consent": true
+        }
       },
       {
         "case": "number as text",
@@ -401,7 +665,62 @@
       },
       {
         "case": "required checkbox unticked",
-        "answers": { "reason": "x", "age": 40, "pain": "low", "consent": false }
+        "answers": {
+          "reason": "x",
+          "age": 40,
+          "pain": "low",
+          "consent": false
+        }
+      },
+      {
+        "case": "CTO-21: Yes without saying which",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "yes"
+        }
+      },
+      {
+        "case": "CTO-21: Yes with an empty follow-up",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "yes",
+          "conditions__followUp": {
+            "selected": [],
+            "other": "  "
+          }
+        }
+      },
+      {
+        "case": "CTO-21: follow-up choice not offered",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "yes",
+          "conditions__followUp": {
+            "selected": ["asthma"]
+          }
+        }
+      },
+      {
+        "case": "CTO-21: follow-up given when the answer is No",
+        "answers": {
+          "reason": "Knee pain",
+          "age": 40,
+          "pain": "low",
+          "consent": true,
+          "conditions": "no",
+          "conditions__followUp": {
+            "selected": ["diabetes"]
+          }
+        }
       }
     ]
   }

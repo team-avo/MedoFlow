@@ -7,7 +7,7 @@ import * as membershipService from './membershipService'
 
 /**
  * Minimum-necessary patient fields on invoice responses (F0.3.4). Never
- * `patient: true`: that returns the whole User row — password hash, MFA
+ * `patient: true`: that returns the whole User row, password hash, MFA
  * secret and recovery codes included.
  */
 export const PATIENT_SUMMARY_SELECT = { id: true, name: true, email: true } as const

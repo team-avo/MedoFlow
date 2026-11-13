@@ -1,13 +1,13 @@
 'use client'
 
 /**
- * ProductDetailModal — hero + details + "you might also like".
+ * ProductDetailModal: hero + details + "you might also like".
  *
  * Shape:
- *   • Left panel  — gradient visual (category-themed) + price badge.
- *   • Right panel — name, category chip, description, benefit bullets,
+ *   • Left panel: gradient visual (category-themed) + price badge.
+ *   • Right panel: name, category chip, description, benefit bullets,
  *                   quantity stepper, Add to cart CTA, trust chips.
- *   • Bottom ribbon — up to 4 related products in the same category,
+ *   • Bottom ribbon: up to 4 related products in the same category,
  *     clicking a card swaps the modal content without closing/reopening.
  *
  * The provider exposes an `open(product, allProducts)` signature so any
@@ -235,9 +235,9 @@ function ProductDetailDialog({
                         {inStock === null
                           ? 'Ships in 1–2 business days'
                           : inStock > 10
-                            ? `In stock — ${inStock} available`
+                            ? `In stock: ${inStock} available`
                             : inStock > 0
-                              ? `Low stock — only ${inStock} left`
+                              ? `Low stock: only ${inStock} left`
                               : 'Currently out of stock'}
                       </p>
                     </div>

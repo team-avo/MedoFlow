@@ -66,7 +66,7 @@ export const createStaff = asyncHandler(
       const provider = await createProvider(validatedData, req.clinicId!, req.user!.id)
       successResponse(res, 201, 'Provider invited', { provider })
     } else {
-      // All non-provider staff — works with both legacy roles and custom roles
+      // All non-provider staff: works with both legacy roles and custom roles
       const validatedData = frontDeskProvisionSchema.body.parse(req.body)
       const user = await staffService.provisionFrontDeskUser(
         { ...validatedData, role, permissions, customRoleId },

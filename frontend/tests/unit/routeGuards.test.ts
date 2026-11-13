@@ -1,4 +1,4 @@
-/** F0.4.2 (b) — each role's route guard. */
+/** F0.4.2 (b): each role's route guard. */
 import { describe, expect, it } from 'vitest'
 import {
   accountRedirect,
@@ -43,7 +43,7 @@ describe('dashboard guard', () => {
     ['FRONT_DESK', '/dashboard/front-desk', null],
     ['FRONT_DESK', '/dashboard/services', '/dashboard'],
     ['ACCOUNTING', '/dashboard/front-desk', '/dashboard'],
-    // Component 8 — website builder
+    // Component 8: website builder
     ['SUPER_ADMIN', '/dashboard/site/editor', null],
     ['MARKETING', '/dashboard/site/editor', null],
     ['MARKETING', '/dashboard/site/domains', '/dashboard'],
@@ -152,32 +152,32 @@ describe('onboarding guard', () => {
       '/agreement',
       null,
     ],
-    ['signed: setup open', signed, '/services', null],
-    ['signed: application closed', signed, '/agreement', '/welcome'],
-    ['signed: application closed (practice)', signed, '/practice', '/welcome'],
+    // CTO-25: signing finishes onboarding; the whole area is closed.
+    ['signed: application closed', signed, '/agreement', '/dashboard'],
+    ['signed: application closed (practice)', signed, '/practice', '/dashboard'],
+    ['signed: old wizard steps closed', signed, '/brand', '/dashboard'],
+    [
+      'unsigned: an unknown onboarding path goes to the next step',
+      owner(null),
+      '/brand',
+      '/practice',
+    ],
   ])('%s', (_name, user, path, expected) => {
     expect(onboardingRedirect(user, path)).toBe(expected)
   })
 
-  it('resumes the setup wizard at the saved step', () => {
+  it('resumes the application, then goes straight to the dashboard', () => {
     expect(onboardingResumePath(owner(null))).toBe('/practice')
-    expect(onboardingResumePath(signed)).toBe('/welcome')
-    expect(
-      onboardingResumePath(
-        owner(
-          { practiceCompletedAt: done, practitionersCompletedAt: done },
-          { termsAcceptedAt: done, onboardingStep: 4 }
-        )
-      )
-    ).toBe('/services')
-    expect(
-      onboardingResumePath(
-        owner(
-          { practiceCompletedAt: done, practitionersCompletedAt: done },
-          { termsAcceptedAt: done, onboardingStep: 99 }
-        )
-      )
-    ).toBe('/done')
+    expect(onboardingResumePath(signed)).toBe('/dashboard')
+    // A signed clinic is never sent to onboarding again, whatever its old step.
+    expect(dashboardRedirect(signed, '/dashboard')).toBeNull()
+    // Existing clinics left mid-wizard (signed, onboardingCompletedAt unset).
+    const midWizard = owner(
+      { practiceCompletedAt: done, practitionersCompletedAt: done },
+      { termsAcceptedAt: done, onboardingStep: 4, onboardingCompletedAt: null }
+    )
+    expect(dashboardRedirect(midWizard, '/dashboard/admin')).toBeNull()
+    expect(onboardingRedirect(midWizard, '/services')).toBe('/dashboard')
     expect(dashboardRedirect(owner({ practiceCompletedAt: done }), '/dashboard')).toBe(
       '/practitioners'
     )

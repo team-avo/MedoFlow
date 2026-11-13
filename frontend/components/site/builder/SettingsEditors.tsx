@@ -98,7 +98,7 @@ export function ThemeEditor({ settings, onChange }: { settings: SiteSettings; on
             className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800"
           >
             <div className="mb-1 flex items-center gap-1 font-semibold">
-              <AlertTriangle className="h-3.5 w-3.5" /> Low contrast — some visitors may struggle to
+              <AlertTriangle className="h-3.5 w-3.5" /> Low contrast: some visitors may struggle to
               read this
             </div>
             <ul className="list-disc pl-4">

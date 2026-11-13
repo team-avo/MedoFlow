@@ -133,7 +133,7 @@ export function TourOverlay() {
     }
   }
 
-  // Spotlight clip-path — rect with padding
+  // Spotlight clip-path: rect with padding
   const spotlightStyle: React.CSSProperties = rect
     ? {
         clipPath: `polygon(

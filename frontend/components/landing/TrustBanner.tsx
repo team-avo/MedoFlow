@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * MetricsBar (TrustBanner) — headline numbers on plain tiles and a wrapping
+ * MetricsBar (TrustBanner): headline numbers on plain tiles and a wrapping
  * row of specialties. Static: no counters, tilt or marquee.
  */
 
@@ -59,7 +59,7 @@ function MetricTile({ metric }: { metric: Metric }) {
 export function TrustBanner() {
   return (
     <section className="relative bg-canvas border-y border-hairline overflow-hidden">
-      {/* Top accent line — bleeds teal from hero */}
+      {/* Top accent line: bleeds teal from hero */}
       <div
         className="absolute left-0 right-0 top-0 h-[1px]"
         style={{
@@ -80,7 +80,7 @@ export function TrustBanner() {
         </div>
       </div>
 
-      {/* Specialties — a static, wrapping row */}
+      {/* Specialties: a static, wrapping row */}
       <div className="border-t border-hairline px-6 py-7">
         <ul className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-x-8 gap-y-3">
           {specialties.map((name) => (

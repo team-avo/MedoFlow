@@ -4,8 +4,8 @@
  *  - The owner of a just-created clinic is held in the application until it
  *    is submitted: practice details (with NPI / EIN check-digit feedback) →
  *    practitioners → agreement + typed signature → "under review".
- *  - The setup wizard's Locations step saves the existing location (PATCH).
- *  - The dashboard shows the review banner and the setup checklist.
+ *  - Signing goes straight to the dashboard (CTO-25): the review banner and
+ *    the Quick setup checklist, with the website optional (CTO-23).
  *  - A platform admin works the review queue: opens the application, requests
  *    changes, then approves.
  */
@@ -96,7 +96,13 @@ async function mockOnboarding(page: Page, live: MockOnboarding) {
           return fail(route, 400, 'validation_error', 'Confirmation name does not match')
         app.progress.agreement = true
         app.verification = { ...app.verification, submittedAt: now }
-        live.tenant = { ...live.tenant, termsAcceptedAt: now, submittedForReviewAt: now }
+        // CTO-25: signing finishes onboarding.
+        live.tenant = {
+          ...live.tenant,
+          termsAcceptedAt: now,
+          submittedForReviewAt: now,
+          onboardingCompletedAt: now,
+        }
         return ok(route, {
           acceptedAt: now,
           version: 'v2-2026-11',
@@ -168,7 +174,19 @@ test('a new clinic owner completes the application, then sets up while under rev
 
   // ── Step 1: practice details ──
   await page.locator('#legalName').fill('Sunrise Wellness Partners LLC')
-  await page.locator('#practiceType').selectOption('FUNCTIONAL_MEDICINE')
+  // CTO-04: no Sales rep field. CTO-17: primary + optional secondary contact only.
+  await expect(page.locator('#salesRep')).toHaveCount(0)
+  await expect(page.locator('#officeManagerName')).toHaveCount(0)
+  await expect(page.locator('#accountsPayableName')).toHaveCount(0)
+  await expect(page.locator('#secondaryContactName')).toBeVisible()
+  // CTO-18: "Other" takes a typed name; a near-miss of a listed type is offered.
+  await page.locator('#practiceType').selectOption('OTHER')
+  await page.locator('#practiceTypeOther').fill('longevitty')
+  const suggestion = page.getByTestId('practice-type-suggestion')
+  await expect(suggestion).toContainText('Longevity medical practice')
+  await suggestion.getByRole('button', { name: 'Use it' }).click()
+  // CTO-06: the CTO's core market is a listed type.
+  await expect(page.locator('#practiceType')).toHaveValue('LONGEVITY_MEDICAL')
   await page.locator('#locationCount').fill('2')
   await page.locator('#addressLine1').fill('100 Example Street')
   await page.locator('#city').fill('Testville')
@@ -180,14 +198,30 @@ test('a new clinic owner completes the application, then sets up while under rev
   await page.locator('#groupNpi').fill('1234567893')
   await expect(page.getByTestId('idcheck-NPI')).toHaveText(/check digit look right/)
   await page.locator('#federalTaxId').fill('12-3456789')
-  await page.locator('#estimatedSeats').fill('5')
+  // CTO-22: a ZIP outside the state is a warning only.
+  await page.locator('#postalCode').fill('10001')
+  await expect(page.getByTestId('zip-warning')).toBeVisible()
+  await page.locator('#postalCode').fill('75001')
+  await expect(page.getByTestId('zip-warning')).toHaveCount(0)
+  // CTO-09: a team of one. Typing replaces the pre-filled 1 instead of making "11".
+  await page.locator('#estimatedSeats').click()
+  await page.keyboard.type('1')
+  await expect(page.locator('#estimatedSeats')).toHaveValue('1')
+  await page.locator('#secondaryContactName').fill('Sam Second')
+  await page.locator('#secondaryContactEmail').fill('sam@example.test')
   await page.getByRole('button', { name: 'Save & continue' }).click()
 
   await expect(page).toHaveURL(/\/practitioners$/)
   const practice = calls.find((c) => c.key === 'PUT /onboarding/application/practice')!
+  expect(practice.body).not.toHaveProperty('salesRep')
+  expect(practice.body).not.toHaveProperty('officeManagerName')
   expect(practice.body).toMatchObject({
     legalName: 'Sunrise Wellness Partners LLC',
-    practiceType: 'FUNCTIONAL_MEDICINE',
+    practiceType: 'LONGEVITY_MEDICAL',
+    practiceTypeOther: null,
+    estimatedSeats: 1,
+    secondaryContactName: 'Sam Second',
+    secondaryContactEmail: 'sam@example.test',
     state: 'TX',
     timezone: 'America/Chicago',
     groupNpi: '1234567893',
@@ -196,8 +230,11 @@ test('a new clinic owner completes the application, then sets up while under rev
     dbaName: null,
   })
 
-  // ── Step 2: practitioners (the owner is pre-filled as "this is me") ──
+  // ── Step 2: practitioners (CTO-14: the owner is row 0, pre-filled, no "This is me") ──
   await expect(page.locator('#p0-name')).not.toHaveValue('')
+  await expect(page.getByLabel('This is me')).toHaveCount(0)
+  await expect(page.getByLabel('I see patients')).toBeChecked()
+  await page.locator('#p0-title').selectOption('Medical Director')
   await page.getByRole('button', { name: 'Save & continue' }).click()
   await expect(page.getByText('NPI is required')).toBeVisible()
   await page.locator('#p0-npi').fill('1234567893')
@@ -211,19 +248,29 @@ test('a new clinic owner completes the application, then sets up while under rev
   await expect(page).toHaveURL(/\/agreement$/)
   const practitioners = calls.find((c) => c.key === 'PUT /onboarding/application/practitioners')!
   expect(practitioners.body.practitioners).toEqual([
-    expect.objectContaining({ npi: '1234567893', credentials: 'MD', isOwner: true, isSelf: true }),
+    expect.objectContaining({
+      npi: '1234567893',
+      credentials: 'MD',
+      title: 'Medical Director',
+      isOwner: true,
+      isSelf: true,
+      seesPatients: true,
+    }),
     expect.objectContaining({ name: 'Nate Naturopath', isOwner: false, isSelf: false }),
   ])
 
-  // ── Step 3: agreement — summary, acknowledgements, typed signature ──
+  // ── Step 3: agreement: summary, acknowledgements, typed signature ──
   const summary = page.getByRole('region', { name: 'Application summary' })
   await expect(summary).toContainText('Sunrise Wellness Partners LLC')
   await expect(summary).toContainText('•••••6789')
   await expect(summary).not.toContainText('12-3456789')
   const submit = page.getByRole('button', { name: /Sign & submit application/ })
   await expect(submit).toBeDisabled()
-  for (const box of await page.getByRole('checkbox').all()) await box.check()
-  await page.locator('#signerTitle').fill('Medical Director')
+  // CTO-08: one click on "select all" ticks every acknowledgement.
+  await page.getByLabel('I agree to all of the above').check()
+  await page.getByLabel(/read and agree to the authorization/).check()
+  // CTO-16: the signer's title is pre-filled from their practitioner row.
+  await expect(page.locator('#signerTitle')).toHaveValue('Medical Director')
   const printed = await page.locator('#signerName').inputValue()
   await page.locator('#signature').fill('Someone Else')
   await expect(page.getByText('Type your name exactly as printed')).toBeVisible()
@@ -234,8 +281,9 @@ test('a new clinic owner completes the application, then sets up while under rev
   await dialog.getByLabel('Clinic name').fill(CLINIC_NAME)
   await dialog.getByRole('button', { name: 'Confirm & submit' }).click()
 
-  await expect(page).toHaveURL(/\/welcome$/)
-  await expect(page.getByRole('status')).toContainText('under review')
+  // CTO-25: straight to the dashboard, in review, with Quick setup there.
+  await expect(page).toHaveURL(/\/dashboard/)
+  await expect(page.getByTestId('verification-banner')).toContainText('Your clinic is under review')
   const agreement = calls.find((c) => c.key === 'POST /onboarding/agreement')!
   expect(agreement.body).toMatchObject({
     communications: true,
@@ -249,28 +297,33 @@ test('a new clinic owner completes the application, then sets up while under rev
       authorizedSignatory: true,
     },
   })
-  // The application is closed once signed.
+  // No setup wizard: no step was saved and onboarding was never "completed" by hand.
+  expect(calls.some((c) => c.key === 'PATCH /onboarding/step')).toBe(false)
+  expect(calls.some((c) => c.key === 'POST /onboarding/complete')).toBe(false)
+  // The application and the old wizard are closed once signed.
   await page.goto('/practice')
-  await expect(page).toHaveURL(/\/welcome$/)
-
-  // ── Setup wizard: the Locations step saves the existing location ──
-  await page.goto('/locations')
-  await page.getByRole('button', { name: 'Save & continue' }).click()
-  await expect(page).toHaveURL(/\/disciplines$/)
-  const patch = calls.find((c) => c.key === 'PATCH /locations/loc-1')!
-  expect(patch.body).toMatchObject({
-    name: 'Main Location',
-    city: 'Testville',
-    timezone: 'America/Chicago',
-  })
-
-  // ── Skip the rest → dashboard with the review banner and checklist ──
-  await page.getByRole('button', { name: /Skip setup for now/ }).click()
   await expect(page).toHaveURL(/\/dashboard/)
-  await expect(page.getByTestId('verification-banner')).toContainText('Your clinic is under review')
+  await page.goto('/brand')
+  await expect(page).toHaveURL(/\/dashboard/)
+
+  // ── Command Center: Quick setup, the website optional ──
   await page.goto('/dashboard/admin')
-  await expect(page.getByTestId('setup-checklist')).toContainText('Finish setting up your clinic')
-  await expect(page.getByTestId('setup-checklist')).toContainText('Clinic approved by MedoFlow')
+  const checklist = page.getByTestId('setup-checklist')
+  await expect(checklist).toContainText('Quick setup')
+  await expect(checklist).toContainText('Clinic approved by MedoFlow')
+  await expect(checklist.getByRole('link', { name: /Publish your website/ })).toContainText(
+    'Optional'
+  )
+  await expect(checklist.getByRole('link', { name: /Add bookable services/ })).toHaveAttribute(
+    'href',
+    '/dashboard/services'
+  )
+  // CTO-19: on a laptop screen, Quick setup leaves the day in view: the KPIs
+  // and today's appointments are visible without scrolling, and no dialog.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByText('Total Revenue')).toBeInViewport()
+  await expect(page.getByTestId('today-appointments')).toBeInViewport()
 })
 
 test('changes requested: the owner sees the note and resubmits from the clinic profile', async ({
@@ -381,9 +434,9 @@ test('platform admin: review queue → application → request changes → appro
         primaryContactName: 'Ada Stone',
         primaryContactEmail: 'ada@example.test',
         primaryContactPhone: null,
-        officeManagerName: null,
-        accountsPayableName: null,
-        accountsPayableEmail: null,
+        secondaryContactName: null,
+        secondaryContactEmail: null,
+        secondaryContactPhone: null,
         mailingSameAsPrimary: true,
         mailingAddressLine1: null,
         mailingCity: null,
@@ -397,7 +450,6 @@ test('platform admin: review queue → application → request changes → appro
         deaNumber: 'AB1234564',
         estimatedSeats: 3,
         referralSource: null,
-        salesRep: null,
         practitioners: [
           {
             name: 'Ada Stone',
@@ -480,9 +532,81 @@ test('platform admin: review queue → application → request changes → appro
   await requestChanges.click()
   await expect(page.getByText('Changes requested').first()).toBeVisible()
   await review.getByRole('button', { name: 'Approve' }).click()
-  await expect(page.getByText('Approved — live')).toBeVisible()
+  await expect(page.getByText('Approved (live)')).toBeVisible()
   expect(decisions).toEqual([
     { decision: 'REQUEST_CHANGES', notes: 'The DEA number does not verify.' },
     { decision: 'APPROVE' },
   ])
+})
+
+// CTO-05: the "Your account" fields line up on desktop and stack on a phone.
+for (const [name, width, height] of [
+  ['desktop', 1280, 900],
+  ['mobile', 375, 800],
+] as const) {
+  test(`"Your account" layout (${name})`, async ({ page }) => {
+    await page.setViewportSize({ width, height })
+    const live: MockOnboarding = {
+      tenant: {
+        onboardingCompletedAt: null,
+        termsAcceptedAt: null,
+        verificationStatus: 'PENDING_REVIEW',
+      },
+      clinicProfile: null,
+    }
+    await installMockApi(page, {
+      role: 'SUPER_ADMIN',
+      newClinic: true,
+      signedIn: true,
+      onboarding: live,
+    })
+    await mockOnboarding(page, live)
+    await page.goto('/practice')
+    const seats = page.locator('#estimatedSeats')
+    const referral = page.locator('#referralSource')
+    await seats.scrollIntoViewIfNeeded()
+    const a = (await seats.boundingBox())!
+    const b = (await referral.boundingBox())!
+    if (name === 'desktop') {
+      // Same row, same top edge: label and input share a baseline.
+      expect(Math.abs(a.y - b.y)).toBeLessThanOrEqual(1)
+      expect(b.x).toBeGreaterThan(a.x)
+    } else {
+      expect(b.y).toBeGreaterThan(a.y + a.height) // stacked
+    }
+    await page
+      .getByRole('heading', { name: 'Your account' })
+      .locator('xpath=ancestor::section[1]')
+      .screenshot({ path: `test-results/cto-05-your-account-${name}.png` })
+  })
+}
+
+// CTO-13: what was typed survives a refresh; the tax ID is never kept locally.
+test('an unsent practice form survives a refresh, without the tax ID', async ({ page }) => {
+  const live: MockOnboarding = {
+    tenant: {
+      onboardingCompletedAt: null,
+      termsAcceptedAt: null,
+      verificationStatus: 'PENDING_REVIEW',
+    },
+    clinicProfile: null,
+  }
+  await installMockApi(page, {
+    role: 'SUPER_ADMIN',
+    newClinic: true,
+    signedIn: true,
+    onboarding: live,
+  })
+  await mockOnboarding(page, live)
+  await page.goto('/practice')
+  await page.locator('#legalName').fill('Draft Wellness LLC')
+  await page.locator('#city').fill('Austin')
+  await page.locator('#federalTaxId').fill('12-3456789')
+  await page.reload()
+  await expect(page.getByTestId('draft-restored')).toBeVisible()
+  await expect(page.locator('#legalName')).toHaveValue('Draft Wellness LLC')
+  await expect(page.locator('#city')).toHaveValue('Austin')
+  await expect(page.locator('#federalTaxId')).toHaveValue('')
+  const stored = await page.evaluate(() => JSON.stringify(Object.entries(localStorage)))
+  expect(stored).not.toContain('3456789')
 })

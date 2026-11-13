@@ -3,7 +3,7 @@
  * (draftSectionsJson, draftTitle, draftSeo*); publish copies them to the
  * live columns the public site reads, bumps the version and keeps a
  * revision. URL structure fields (slug, nav placement, noindex) take effect
- * immediately — a slug change on a published page leaves a 301 behind.
+ * immediately: a slug change on a published page leaves a 301 behind.
  */
 import type { Prisma, SitePageKind } from '@prisma/client'
 import prisma from '../../config/prisma'

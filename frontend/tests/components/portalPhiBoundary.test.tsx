@@ -1,7 +1,7 @@
 /**
- * F0.4.2 (c) / F9.4 — PHI boundary in the patient portal: only the published
+ * F0.4.2 (c) / F9.4: PHI boundary in the patient portal: only the published
  * patient summary is shown. Internal SOAP sections, provider notes and the
- * consultation transcript never render — even if an API response were to
+ * consultation transcript never render: even if an API response were to
  * carry them (defence in depth on top of the backend sanitiser).
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -95,7 +95,7 @@ describe('patient portal PHI boundary', () => {
     expectNoInternalText()
   })
 
-  it('with no published summary the portal shows a placeholder — never the draft or the note', async () => {
+  it('with no published summary the portal shows a placeholder, never the draft or the note', async () => {
     visit = { visitRecord: { id: 'v1', status: 'DRAFT', isFinalized: false, ...INTERNAL } }
     renderPage()
     expect(await screen.findByText('Clinical documentation in progress')).toBeInTheDocument()

@@ -1,5 +1,5 @@
 /**
- * Server-side fetch of a clinic-site page (used by app/clinic-site — runs in the
+ * Server-side fetch of a clinic-site page (used by app/clinic-site: runs in the
  * Worker / Node server, never in the browser). One request per page view,
  * never served from Next's data cache, so a publish is live on the next
  * request. HTTP caching belongs in front of the API (ETag + s-maxage=60 are

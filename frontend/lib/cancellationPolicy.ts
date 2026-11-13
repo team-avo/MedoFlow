@@ -57,7 +57,7 @@ export function describeCancellationPolicy(
 ): string {
   if (terms.free || !terms.freeUntil) return 'Free cancellation at any time.'
   if (terms.lateNow) {
-    return `This visit is inside the cancellation window — cancelling now incurs a ${terms.feeText} fee.`
+    return `This visit is inside the cancellation window. Cancelling now incurs a ${terms.feeText} fee.`
   }
   return `Free cancellation until ${formatDate(terms.freeUntil)}. After that, a ${terms.feeText} fee applies.`
 }

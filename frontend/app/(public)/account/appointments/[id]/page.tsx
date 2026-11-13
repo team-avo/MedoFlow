@@ -94,7 +94,7 @@ export default function PatientAppointmentDetailPage() {
 
   return (
     <div>
-      {/* Header — inside the account layout, so a card in the flow, not a
+      {/* Header: inside the account layout, so a card in the flow, not a
           full-bleed sticky bar (that slid under the fixed public nav). */}
       <div className="rounded-2xl border border-slate-200 bg-white px-4 py-5 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -251,7 +251,7 @@ export default function PatientAppointmentDetailPage() {
           </div>
 
           <div className="lg:col-span-1 space-y-8">
-            {/* Reschedule / cancel (F1.3) — upcoming, live visits only */}
+            {/* Reschedule / cancel (F1.3): upcoming, live visits only */}
             <PatientAppointmentActions appointment={appointment} />
 
             {/* Sidebar Summary */}

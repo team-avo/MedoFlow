@@ -1,5 +1,5 @@
 /**
- * Component 2 — AI Scribe / EMR over HTTP against Postgres (enforce + RLS),
+ * Component 2: AI Scribe / EMR over HTTP against Postgres (enforce + RLS),
  * with the deterministic in-process AI (AI_SCRIBE_*_PROVIDER=mock).
  *
  *  FR-1  consent before recording (booking / patient / provider-attested; decline blocks)
@@ -53,7 +53,7 @@ const sessionsCreated: string[] = []
 let hours = 0
 /**
  * A fresh appointment + open visit record for patient A. Each one is later
- * than the last (all in the past, never overlapping — B1.1), like real visits.
+ * than the last (all in the past, never overlapping, B1.1), like real visits.
  */
 async function newVisit(opts: { bookingConsent?: boolean } = {}) {
   hours += 1
@@ -222,7 +222,7 @@ describe('FR-1 consent before recording', () => {
     ).toBe('BOOKING')
   })
 
-  it('the provider can attest verbal consent (audited) — but never over a patient decline', async () => {
+  it('the provider can attest verbal consent (audited): but never over a patient decline', async () => {
     const visit = await newVisit()
     const session = await start(visit.visitRecordId)
     const ok = await attest(session.id)
@@ -817,5 +817,34 @@ describe('B2.8 longitudinal record', () => {
       buildPriorDigest(A.users.patient.id, B.clinicId, 'none')
     )
     expect(digest).toBeNull()
+  })
+})
+
+describe('CTO-12: AI Scribe is in every plan, never gated by the plan or a website', () => {
+  const savedMode = process.env.BILLING_MODE
+  afterEach(() => {
+    if (savedMode === undefined) delete process.env.BILLING_MODE
+    else process.env.BILLING_MODE = savedMode
+  })
+
+  it.each(
+    (['FREE', 'STARTER', 'GROWTH', 'ENTERPRISE'] as const).flatMap((plan) =>
+      (['trial', 'demo'] as const).map((mode) => [plan, mode] as const)
+    )
+  )('%s plan, BILLING_MODE=%s: start, process and approve', async (plan, mode) => {
+    process.env.BILLING_MODE = mode
+    await adminDb.tenant.update({ where: { id: A.tenantId }, data: { plan } })
+    // A clinic with no website at all (CTO-23).
+    expect(
+      await adminDb.site.count({ where: { clinicId: A.clinicId, publishedAt: { not: null } } })
+    ).toBe(0)
+    const { sessionId } = await draftedSession()
+    expect((await getSession(sessionId)).status).toBe('DRAFT_GENERATED')
+    const approved = await api(server.url, `/ai-scribe/session/${sessionId}/approve`, {
+      token: aProvider,
+      body: {},
+    })
+    expect(approved.status, JSON.stringify(approved.body)).toBe(200)
+    expect((await getSession(sessionId)).status).toBe('APPROVED')
   })
 })

@@ -13,12 +13,12 @@ const router = Router()
 
 // Public storefront routes: these resolve the target clinic from the URL
 // parameter and only expose data flagged as publicly visible. The tenant
-// guard is bypassed here because there's no authenticated user — route
+// guard is bypassed here because there's no authenticated user: route
 // handlers must scope queries explicitly by params.id.
 router.use(withPublicScope('public_routes'))
 
 // Clinic websites (Component 8): render, resolve, sitemap, contact form.
-// Their own limiter — the frontend Worker calls render for every visitor.
+// Their own limiter: the frontend Worker calls render for every visitor.
 router.use('/sites', sitePublicRouter)
 
 // Everything else here is called straight from browsers.

@@ -1,7 +1,7 @@
 /**
  * The section library as the builder sees it: each type's label, layout
  * variants, editable fields and defaults. Validation is derived from the
- * same field definitions and matches backend/src/site/content/sections.ts —
+ * same field definitions and matches backend/src/site/content/sections.ts,
  * both run shared/validation-cases/site-sections.json.
  *
  * Adding a section type = one entry here + one in the backend schema + one
@@ -364,7 +364,7 @@ export const SECTION_DEFS: readonly SectionDef[] = [
         key: 'successMessage',
         label: 'Thank-you message',
         max: 300,
-        default: 'Thanks — we will be in touch shortly.',
+        default: 'Thanks, we will be in touch shortly.',
       },
       { kind: 'boolean', key: 'askPhone', label: 'Ask for a phone number', default: true },
       { kind: 'textarea', key: 'consentText', label: 'Note under the form', max: 400 },

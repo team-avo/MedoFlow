@@ -23,7 +23,7 @@ export const rxConfirmationSchema = z
   .strict()
 
 /**
- * POST /ai-scribe/session/:id/approve — "Approve & send". The body is optional.
+ * POST /ai-scribe/session/:id/approve: "Approve & send". The body is optional.
  * `sendToPatient: true` publishes the reviewed patient summary in the same
  * transaction (B2.4); `draft` / `patientSummary` carry the provider's final
  * on-screen text so it is saved atomically with the approval.
@@ -39,7 +39,7 @@ export const approveSessionSchema = z
   .strict()
   .optional()
 
-/** PUT /rx-cart/proposals/:id/lines — edit before confirming. */
+/** PUT /rx-cart/proposals/:id/lines: edit before confirming. */
 export const updateProposalLinesSchema = z
   .object({
     lines: z
@@ -62,13 +62,13 @@ export const updateProposalLinesSchema = z
   })
   .strict()
 
-/** POST /rx-cart/proposals/:id/confirm — send products after the note was approved. */
+/** POST /rx-cart/proposals/:id/confirm: send products after the note was approved. */
 export const confirmProposalSchema = rxConfirmationSchema.omit({ proposalId: true })
 
-/** PATCH /carts/items/:itemId/decision — patient accepts or declines a prescribed item. */
+/** PATCH /carts/items/:itemId/decision: patient accepts or declines a prescribed item. */
 export const itemDecisionSchema = z.object({ decision: z.enum(['ACCEPTED', 'DECLINED']) }).strict()
 
-/** PUT /carts/shipping-address — saved at booking for one-click checkout (B5.4). */
+/** PUT /carts/shipping-address: saved at booking for one-click checkout (B5.4). */
 export const shippingAddressSchema = z
   .object({
     name: z.string().trim().min(1, 'Name is required').max(100),
@@ -100,7 +100,7 @@ const fulfillmentClass = z.enum([
 ])
 const aliases = z.array(z.string().trim().min(1).max(100)).max(20)
 
-/** POST /products — catalog fields, including the Rx→Cart classification. */
+/** POST /products: catalog fields, including the Rx→Cart classification. */
 export const createProductSchema = z
   .object({
     name: z.string().trim().min(1).max(200),
@@ -117,4 +117,16 @@ export const createProductSchema = z
 export const updateProductSchema = createProductSchema
   .partial()
   .extend({ isActive: z.boolean().optional() })
+  .strict()
+
+/** PUT /inventory/:productId/adjust: the stock count and its details (CTO-23). */
+export const adjustInventorySchema = z
+  .object({
+    quantityInStock: z.number().int().min(0).max(1_000_000).optional(),
+    reorderThreshold: z.number().int().min(0).max(1_000_000).optional(),
+    supplier: z.string().trim().max(200).optional(),
+    batchNumber: z.string().trim().max(100).optional(),
+    expiryDate: z.coerce.date().optional(),
+    storageLocation: z.string().trim().max(200).optional(),
+  })
   .strict()

@@ -1,5 +1,5 @@
 /**
- * Component 8 — the clinic-site renderer (live, preview and builder modes):
+ * Component 8: the clinic-site renderer (live, preview and builder modes):
  * every section type has a component, links honour the site base, hidden
  * sections stay hidden, the builder canvas never navigates, and the
  * contact form posts a lead with its spam guards.
@@ -139,7 +139,7 @@ describe('live site', () => {
     ),
     sec('s_faq00001', 'faq', {
       heading: 'FAQ',
-      items: [{ question: 'Do you take new patients?', answer: 'Yes — see [contact](/contact).' }],
+      items: [{ question: 'Do you take new patients?', answer: 'Yes: see [contact](/contact).' }],
     }),
   ]
 
@@ -152,7 +152,7 @@ describe('live site', () => {
       '/s/everwell/services'
     )
     // A menu link that leads nowhere (a deleted page, or Products with no
-    // products yet) is left out of the live menu — no broken link, no dead label.
+    // products yet) is left out of the live menu, no broken link, no dead label.
     expect(screen.queryByRole('link', { name: 'Deleted page', hidden: true })).toBeNull()
     expect(screen.queryByText('Deleted page')).toBeNull()
     expect(screen.getByRole('link', { name: 'Book a visit' })).toHaveAttribute(
@@ -353,7 +353,7 @@ describe('commerce and booking actions', () => {
       'MEMBERSHIP'
     )
     expect(screen.getByRole('button', { name: 'Out of stock' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Open cart — 2 items' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Open cart, 2 items' })).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByRole('link', { name: 'Visit the store →' })).toHaveAttribute(
         'href',
@@ -363,7 +363,7 @@ describe('commerce and booking actions', () => {
   })
 })
 
-describe('WS3 — Products, Medicine store and menus', () => {
+describe('WS3: Products, Medicine store and menus', () => {
   const product = (id: string, name: string, medicine: boolean) => ({
     id,
     slug: id,

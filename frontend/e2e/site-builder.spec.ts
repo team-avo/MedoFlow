@@ -1,5 +1,5 @@
 /**
- * F8.1–F8.6 — the website builder end to end in the browser (API mocked by
+ * F8.1–F8.6: the website builder end to end in the browser (API mocked by
  * e2e/siteMock.ts, which uses the real template catalog):
  *  - template gallery → preview → install → editor
  *  - edit → autosave → draft is NOT public → publish → public on both
@@ -96,7 +96,7 @@ test('install → edit → autosave: the draft stays private until publish, then
   expect((await crawl(page, '/s/everwell')).status()).toBe(404)
 
   await page.getByTestId('publish-page').click()
-  await expect(page.getByText('Published — your changes are live')).toBeVisible()
+  await expect(page.getByText('Published. Your changes are live')).toBeVisible()
 
   // Live on the path fallback and on the clinic's own host.
   expect((await crawl(page, '/s/everwell')).status()).toBe(200)
@@ -116,12 +116,12 @@ test('install → edit → autosave: the draft stays private until publish, then
 
   // A further draft edit is not public until republished.
   const home = state.pages.find((p) => p.kind === 'HOME')!
-  home.draft[0]!.settings.headline = 'Second draft — private'
+  home.draft[0]!.settings.headline = 'Second draft: private'
   await page.reload()
   await expect(
     page.getByRole('heading', { level: 1, name: 'Synthetic draft headline' })
   ).toBeVisible()
-  await expect(page.getByText('Second draft — private')).toHaveCount(0)
+  await expect(page.getByText('Second draft: private')).toHaveCount(0)
 })
 
 test('the page dropdown switches the page being edited, saving edits first', async ({ page }) => {
@@ -192,7 +192,7 @@ test('SEO: title, canonical, JSON-LD and the sitemap on the clinic host', async 
   await asAdmin(page)
   await installClarity(page)
   await page.getByTestId('publish-page').click()
-  await expect(page.getByText('Published — your changes are live')).toBeVisible()
+  await expect(page.getByText('Published. Your changes are live')).toBeVisible()
   await page.goto('/dashboard/site')
   await page.getByTestId('publish-site').click()
   await expect(page.getByText('Your website is live')).toBeVisible()
@@ -246,7 +246,7 @@ test('contact form on the live site → the enquiries inbox', async ({ page }) =
   await page.getByLabel('Message').fill('Synthetic enquiry about appointments.')
   await page.getByRole('button', { name: 'Send message' }).click()
   await expect(
-    page.getByText('Thank you — a member of our team will reply within one business day.')
+    page.getByText('Thank you. A member of our team will reply within one business day.')
   ).toBeVisible()
   expect(state.leads[0]!.body).toMatchObject({
     host: 'everwell.localhost:4310',

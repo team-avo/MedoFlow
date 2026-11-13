@@ -1,5 +1,5 @@
 /**
- * Component 8 — clinic website builder, end to end against Postgres
+ * Component 8: clinic website builder, end to end against Postgres
  * (tenant guard enforcing + RLS). Covers B8.1 (CRUD tenant-scoped + audited,
  * drafts never public), B8.3 (templates), B8.4 (sections), B8.5 (render,
  * redirects, assets, leads, minimum-necessary public data) and B8.6
@@ -88,7 +88,7 @@ describe('B8.3 templates', () => {
     expect((await api(server.url, '/site/templates/nope', { token: t.aAdmin })).status).toBe(404)
   })
 
-  it('install (replace) creates the template pages as drafts — nothing goes live', async () => {
+  it('install (replace) creates the template pages as drafts, nothing goes live', async () => {
     const res = await api(server.url, '/site/templates/clarity/install', {
       token: t.aAdmin,
       body: { mode: 'replace' },
@@ -275,7 +275,7 @@ describe('B8.1 drafts are never public', () => {
     const legacy = await api(server.url, `/public/clinics/${slugA}/pages/home`)
     expect(legacy.status).toBe(200)
 
-    // Edit again — content, title and SEO — without publishing.
+    // Edit again: content, title and SEO, without publishing.
     hero.settings.headline = 'Secret draft headline'
     await api(server.url, `/site/pages/${home.id}`, {
       token: t.aAdmin,

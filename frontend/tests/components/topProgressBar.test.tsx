@@ -1,5 +1,5 @@
 /**
- * Frontend smoothness pass — the loading indicator never blocks the screen.
+ * Frontend smoothness pass: the loading indicator never blocks the screen.
  * TopProgressBar replaces the full-screen "Medoflow Syncing" overlay: a thin
  * bar for navigations, first loads and saves; background refetches of data
  * already on screen stay silent.

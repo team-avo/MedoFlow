@@ -142,7 +142,7 @@ export function resetFieldKeysForTests(): void {
 
 /**
  * Boot-time configuration problem for envValidation (null when fine).
- * Static checks only — the KMS unwrap itself happens in initFieldEncryption.
+ * Static checks only: the KMS unwrap itself happens in initFieldEncryption.
  */
 export function fieldEncryptionConfigProblem(env: NodeJS.ProcessEnv = process.env): string | null {
   try {
@@ -157,7 +157,7 @@ export function fieldEncryptionConfigProblem(env: NodeJS.ProcessEnv = process.en
     }
     return loadEnvKeyring(env)
       ? null
-      : 'FIELD_ENCRYPTION_KEYS is not set — transcripts, SOAP notes and intake answers would be stored unencrypted'
+      : 'FIELD_ENCRYPTION_KEYS is not set: transcripts, SOAP notes and intake answers would be stored unencrypted'
   } catch (e) {
     return (e as Error).message
   }

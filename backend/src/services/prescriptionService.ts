@@ -39,7 +39,7 @@ export const createPrescription = async (
   const { appointmentId, patientId, notes } = data
 
   const appointment = await validateAppointmentForPrescription(appointmentId, providerId, clinicId)
-  // B3.3: a prescription belongs to the appointment's patient — never to a
+  // B3.3: a prescription belongs to the appointment's patient: never to a
   // different patient named in the request body.
   if (patientId && patientId !== appointment.patientId) {
     const err = new Error('patientId does not match the appointment') as ApiError

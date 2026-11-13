@@ -55,8 +55,8 @@ export interface UploadIntent {
 
 /**
  * Step 1 of an upload (B3.1): validate the request and issue a presigned PUT
- * straight to object storage. The row stays PENDING — invisible to every
- * listing and download — until completeUpload() has verified the object.
+ * straight to object storage. The row stays PENDING, invisible to every
+ * listing and download: until completeUpload() has verified the object.
  */
 export const createUploadIntent = async (params: {
   clinicId: string

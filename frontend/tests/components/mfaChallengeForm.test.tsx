@@ -1,4 +1,4 @@
-/** F0.2.2 — the MFA challenge screen: valid / invalid code, recovery code, keyboard only. */
+/** F0.2.2: the MFA challenge screen: valid / invalid code, recovery code, keyboard only. */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'

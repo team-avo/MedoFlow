@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { GoogleCalendarConnectCard } from '@/components/calendar/GoogleCalendarConnectCard'
 import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react'
 import api from '@/lib/api'
 import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
@@ -141,6 +142,8 @@ export default function ProviderProfilePage() {
           What appears on the clinic site, the visit summary, and how AI Scribe writes your notes.
         </p>
       </header>
+
+      <GoogleCalendarConnectCard />
 
       {/* Public profile */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6">

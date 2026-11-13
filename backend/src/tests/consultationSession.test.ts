@@ -6,7 +6,7 @@ import {
 } from '../services/consultationService'
 
 // ---------------------------------------------------------------------------
-// State machine — session transitions
+// State machine: session transitions
 // ---------------------------------------------------------------------------
 
 test('session: NOT_STARTED → READY is valid', () => {
@@ -62,7 +62,7 @@ test('session: READY → ENDED is INVALID (skip)', () => {
 })
 
 // ---------------------------------------------------------------------------
-// State machine — recording transitions
+// State machine: recording transitions
 // ---------------------------------------------------------------------------
 
 test('recording: NOT_STARTED → RECORDING is valid', () => {
@@ -102,10 +102,10 @@ test('recording: RECORDING → STORED is INVALID (must go through STOPPED → UP
 })
 
 // ---------------------------------------------------------------------------
-// Consent gate — recording requires consent
+// Consent gate: recording requires consent
 // ---------------------------------------------------------------------------
 
-test('recording cannot start without consent — consent PENDING should block', () => {
+test('recording cannot start without consent, consent PENDING should block', () => {
   // This tests the logical rule: consent must be GRANTED before recording starts
   // The actual service enforces this, but we test the rule via state machine:
   // If consent is PENDING, session should be in READY state,
@@ -125,7 +125,7 @@ test('consent DECLINED should block recording', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Patient serializer — SOAP/transcript fields are stripped
+// Patient serializer: SOAP/transcript fields are stripped
 // ---------------------------------------------------------------------------
 
 test('sanitizeForPatient removes transcript and internal fields', () => {

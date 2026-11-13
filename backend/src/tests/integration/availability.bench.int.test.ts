@@ -1,7 +1,7 @@
 /**
  * B1.3 benchmark: p50/p95 latency of getAvailableDatesInRange before (the
  * pre-B1.3 N×M reference) and after (set-based), on a clinic with several
- * providers and a busy calendar. Opt-in — CI skips it:
+ * providers and a busy calendar. Opt-in, CI skips it:
  *
  *   SCHEDULING_BENCH=1 pnpm exec vitest run --config vitest.integration.config.ts \
  *     src/tests/integration/availability.bench.int.test.ts
@@ -23,7 +23,7 @@ const RUNS = 25
 const percentile = (sorted: number[], p: number) =>
   sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)]!
 
-describe.skipIf(!process.env.SCHEDULING_BENCH)('B1.3 benchmark — getAvailableDatesInRange', () => {
+describe.skipIf(!process.env.SCHEDULING_BENCH)('B1.3 benchmark: getAvailableDatesInRange', () => {
   let C: ClinicFixture
 
   beforeAll(async () => {

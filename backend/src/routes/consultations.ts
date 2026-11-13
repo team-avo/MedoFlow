@@ -33,6 +33,14 @@ router.post('/:id/consent', authorize(Role.PATIENT), consultationController.gran
 
 router.post('/:id/consent/decline', authorize(Role.PATIENT), consultationController.declineConsent)
 
+// In person (CTO-30/31): the provider records the patient's spoken consent.
+router.post(
+  '/:id/consent/attest',
+  authorize(Role.PROVIDER),
+  requireClinic,
+  consultationController.attestConsent
+)
+
 // --- Provider recording controls ---
 router.post(
   '/:id/recording/start',
@@ -104,6 +112,13 @@ router.get(
 )
 
 // --- Get session by ID (provider or patient) ---
+// CTO-35: an idle call ended itself (audited, ids only).
+router.post(
+  '/:id/video/auto-ended',
+  authorize(Role.PROVIDER, Role.PATIENT),
+  consultationController.videoAutoEnded
+)
+
 router.get('/:id', authorize(Role.PROVIDER, Role.PATIENT), consultationController.getSession)
 
 export default router

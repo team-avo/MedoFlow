@@ -44,7 +44,7 @@ export function CancelSeriesDialog({
       toast.success(
         n === 0
           ? 'No upcoming visits left in this series'
-          : `Series cancelled — ${n} upcoming visit${n === 1 ? '' : 's'} cancelled`
+          : `Series cancelled: ${n} upcoming visit${n === 1 ? '' : 's'} cancelled`
       )
       onOpenChange(false)
       onCancelled()

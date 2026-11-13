@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * ChaosToClaritySection — chapter 3.
+ * ChaosToClaritySection: chapter 3.
  *
  * Split-screen: the real pain on the left (8 disconnected tools, daily-life
  * micro-frustrations) versus the calm single MedoFlow surface on the right.
@@ -39,7 +39,7 @@ const dailyPains = [
   { icon: FileText, label: '12 charts still open from Monday', tone: 'red' as const },
   { icon: Receipt, label: '$8,420 in unpaid invoices', tone: 'amber' as const },
   { icon: Phone, label: '6 voicemails, none returned', tone: 'red' as const },
-  { icon: AlertCircle, label: 'Insurance denial — 3rd this week', tone: 'red' as const },
+  { icon: AlertCircle, label: 'Insurance denial: 3rd this week', tone: 'red' as const },
 ]
 
 function PainCard() {
@@ -194,7 +194,7 @@ export function ChaosToClaritySection() {
               <span className="text-ink-muted">to manage software.</span>
             </>
           }
-          description="Most clinics juggle 6 to 10 disconnected tools. The cost isn't just the bills — it's the 2 hours every night reconciling them."
+          description="Most clinics juggle 6 to 10 disconnected tools. The cost isn't just the bills: it's the 2 hours every night reconciling them."
         />
 
         <div className="relative mx-auto mt-16 grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 md:gap-10">

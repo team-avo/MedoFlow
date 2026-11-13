@@ -16,6 +16,9 @@ import {
   type PractitionerInput,
 } from '../validation/onboardingSchemas'
 import type { ApiError } from '../types/errors'
+import { lookupNpi, verdictFor, VERDICT_MESSAGE } from '../services/npiRegistryService'
+import { isValidNpi, normalizeNpi } from '../utils/practiceIds'
+import { npiLookupRateLimit } from '../middleware/rateLimit'
 
 const router = Router()
 
@@ -47,7 +50,7 @@ const brandSchema = {
       .regex(/^#[0-9a-fA-F]{6}$/)
       .nullable()
       .optional(),
-    // Accept any string — data URLs (data:image/png;base64,…) fail z.string().url(),
+    // Accept any string: data URLs (data:image/png;base64,…) fail z.string().url(),
     // so we validate format loosely (client is trusted for self-served tenants in Phase 2).
     logoUrl: z.string().min(1).max(5_000_000).nullable().optional(),
   }),
@@ -125,6 +128,32 @@ router.get(
     const clinicId = requireClinic(req.user?.clinicId)
     const application = await clinicApplicationService.getApplication(clinicId)
     successResponse(res, 200, 'Application', application)
+  })
+)
+
+// CTO-29: look an NPI up in NPPES as it is typed (server-side, rate-limited).
+router.get(
+  '/npi/:npi',
+  protect,
+  ownerOnly,
+  npiLookupRateLimit,
+  asyncHandler(async (req, res) => {
+    const npi = normalizeNpi(String(req.params['npi'] ?? ''))
+    if (!isValidNpi(npi)) {
+      const err = new Error('Enter a valid 10-digit NPI') as ApiError
+      err.statusCode = 400
+      err.code = 'validation_error'
+      throw err
+    }
+    const expect = req.query['expect'] === '2' ? 2 : 1
+    const lookup = await lookupNpi(npi)
+    const verdict = verdictFor(lookup, expect)
+    successResponse(res, 200, 'NPI lookup', {
+      lookup,
+      verdict,
+      message:
+        verdict === 'OK' || verdict === 'UNVERIFIED' ? null : VERDICT_MESSAGE[verdict](expect),
+    })
   })
 )
 

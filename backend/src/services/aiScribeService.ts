@@ -4,10 +4,11 @@
  *
  * Human in the loop (B2.3): the AI only ever writes to the session's draft
  * fields. Nothing reaches the visit record (VisitRecord / VisitNoteVersion)
- * or the patient until the provider approves — and approval itself makes no
+ * or the patient until the provider approves, and approval itself makes no
  * AI call: it records exactly what the provider reviewed.
  */
 
+import * as checkoutLinkService from './checkoutLinkService'
 import prisma from '../config/prisma'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
@@ -390,7 +391,7 @@ export const updateDraft = async (
     entityType: 'AIScribeSession',
     entityId: sessionId,
     action: 'AI_DRAFT_EDITED',
-    // Which fields changed — never their content.
+    // Which fields changed: never their content.
     newValue: { fields },
     performedById,
   })
@@ -559,7 +560,24 @@ export const approveDraft = async (
     )
   }
 
-  return updated && { ...updated, rxCart: rxResult?.built ?? null }
+  // CTO-32/33: the patient gets the checkout link for what went into the cart.
+  const cartLink = rxResult
+    ? await checkoutLinkService
+        .sendCartLink({
+          clinicId,
+          cartId: rxResult.built.cartId,
+          cartItemCount: rxResult.built.cartItemIds.length,
+          patientId: session.visitRecord.patientId,
+        })
+        .catch(() => null)
+    : null
+
+  return (
+    updated && {
+      ...updated,
+      rxCart: rxResult?.built ? { ...rxResult.built, checkoutLink: cartLink } : null,
+    }
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -594,7 +612,7 @@ export interface PublishedSummaryItem {
 
 /**
  * The patient's portal list (F2.6): published summaries only, nothing else
- * from the visit — no note, no transcript, no draft (B2.4).
+ * from the visit: no note, no transcript, no draft (B2.4).
  */
 export const listPublishedSummariesForPatient = async (
   patientId: string

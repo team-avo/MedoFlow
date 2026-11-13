@@ -1,15 +1,25 @@
 /**
- * Client-side validation for the clinic application forms — the mirror of
+ * Client-side validation for the clinic application forms: the mirror of
  * backend/src/validation/onboardingSchemas.ts. The NPI / EIN / DEA checks are
  * the same functions on both sides (lib/practiceIds.ts, shared test cases in
  * shared/validation-cases/practice-ids.json); the API re-validates everything.
  */
 import { z } from 'zod'
-import { isValidDea, isValidEin, isValidNpi, US_STATE_CODES } from '@/lib/practiceIds'
+import {
+  isValidDea,
+  isValidEin,
+  isValidNpi,
+  isValidPracticeTypeOther,
+  PRACTITIONER_TITLES,
+  US_STATE_CODES,
+  US_ZIP,
+} from '@/lib/practiceIds'
 import type { Application, PracticeDetailsPayload, Practitioner } from '@/lib/onboardingApi'
 
 const PHONE = /^[+()\d\s.-]{7,25}$/
-const ZIP = /^\d{5}(-\d{4})?$/
+// CTO-22: same ZIP rule as the backend (shared/validation-cases/practice-lists.json).
+const ZIP = US_ZIP
+const ZIP_MESSAGE = 'Enter a 5-digit ZIP or ZIP+4'
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const text = z.string().trim()
@@ -31,6 +41,8 @@ export const practiceFormSchema = z
     sameAsLegal: z.boolean(),
     dbaName: optional(200),
     practiceType: text.min(1, 'Choose a practice type'),
+    /** CTO-18: required (2 to 80 characters) when practiceType is OTHER. */
+    practiceTypeOther: optional(80),
     locationCount: z
       .number({ message: 'Enter a number' })
       .int('Enter a whole number')
@@ -41,7 +53,7 @@ export const practiceFormSchema = z
     addressLine2: optional(200),
     city: required('City', 100),
     state,
-    postalCode: text.regex(ZIP, 'Enter a 5-digit ZIP code'),
+    postalCode: text.regex(ZIP, ZIP_MESSAGE),
     timezone: text.min(1, 'Choose a timezone'),
     officePhone: optionalPhone,
     fax: optionalPhone,
@@ -50,20 +62,22 @@ export const practiceFormSchema = z
     primaryContactName: required('Primary contact name'),
     primaryContactEmail: text.regex(EMAIL, 'Enter a valid email'),
     primaryContactPhone: optionalPhone,
-    officeManagerName: optional(200),
-    officeManagerEmail: optionalEmail,
-    accountsPayableName: optional(200),
-    accountsPayableEmail: optionalEmail,
+    // CTO-17: one optional secondary contact.
+    secondaryContactName: optional(200),
+    secondaryContactEmail: optionalEmail,
+    secondaryContactPhone: optionalPhone,
 
     mailingSameAsPrimary: z.boolean(),
     mailingAddressLine1: optional(200),
     mailingAddressLine2: optional(200),
     mailingCity: optional(100),
     mailingState: optionalState,
-    mailingPostalCode: text.refine((v) => !v || ZIP.test(v), 'Enter a 5-digit ZIP code'),
+    mailingPostalCode: text.refine((v) => !v || ZIP.test(v), ZIP_MESSAGE),
 
     noNpi: z.boolean(),
     groupNpi: optionalNpi,
+    /** CTO-29: why an NPPES mismatch is fine. */
+    groupNpiOverrideReason: optional(300),
     /** Blank on an edit = keep the number on file. */
     federalTaxId: text.refine((v) => !v || isValidEin(v), 'Enter a valid EIN (NN-NNNNNNN)'),
     hasTaxIdOnFile: z.boolean(),
@@ -83,9 +97,15 @@ export const practiceFormSchema = z
       .min(1, 'At least 1')
       .max(1000, 'Up to 1000'),
     referralSource: optional(200),
-    salesRep: optional(100),
   })
   .superRefine((v, ctx) => {
+    if (v.practiceType === 'OTHER' && !isValidPracticeTypeOther(v.practiceTypeOther)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['practiceTypeOther'],
+        message: 'Type your practice type (2 to 80 characters)',
+      })
+    }
     if (!v.noNpi && !v.groupNpi) {
       ctx.addIssue({
         code: 'custom',
@@ -131,6 +151,7 @@ export function practiceFormDefaults(
     sameAsLegal: !p?.dbaName,
     dbaName: p?.dbaName ?? '',
     practiceType: p?.practiceType ?? '',
+    practiceTypeOther: p?.practiceTypeOther ?? '',
     locationCount: p?.locationCount ?? 1,
     addressLine1: l?.addressLine1 ?? '',
     addressLine2: l?.addressLine2 ?? '',
@@ -144,10 +165,9 @@ export function practiceFormDefaults(
     primaryContactName: p?.primaryContactName ?? owner.name ?? '',
     primaryContactEmail: p?.primaryContactEmail ?? owner.email ?? '',
     primaryContactPhone: p?.primaryContactPhone ?? '',
-    officeManagerName: p?.officeManagerName ?? '',
-    officeManagerEmail: p?.officeManagerEmail ?? '',
-    accountsPayableName: p?.accountsPayableName ?? '',
-    accountsPayableEmail: p?.accountsPayableEmail ?? '',
+    secondaryContactName: p?.secondaryContactName ?? '',
+    secondaryContactEmail: p?.secondaryContactEmail ?? '',
+    secondaryContactPhone: p?.secondaryContactPhone ?? '',
     mailingSameAsPrimary: p?.mailingSameAsPrimary ?? true,
     mailingAddressLine1: p?.mailingAddressLine1 ?? '',
     mailingAddressLine2: p?.mailingAddressLine2 ?? '',
@@ -156,6 +176,7 @@ export function practiceFormDefaults(
     mailingPostalCode: p?.mailingPostalCode ?? '',
     noNpi: p?.noNpi ?? false,
     groupNpi: p?.groupNpi ?? '',
+    groupNpiOverrideReason: p?.npiVerification?.group?.overrideReason ?? '',
     federalTaxId: '',
     hasTaxIdOnFile: Boolean(p?.federalTaxIdMasked),
     licenseNumber: p?.licenseNumber ?? '',
@@ -165,7 +186,6 @@ export function practiceFormDefaults(
     removeDea: false,
     estimatedSeats: p?.estimatedSeats ?? 1,
     referralSource: p?.referralSource ?? '',
-    salesRep: p?.salesRep ?? '',
   }
 }
 
@@ -176,6 +196,7 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     legalName: s(v.legalName),
     dbaName: v.sameAsLegal ? null : orNull(v.dbaName),
     practiceType: s(v.practiceType),
+    practiceTypeOther: s(v.practiceType) === 'OTHER' ? orNull(v.practiceTypeOther) : null,
     locationCount: Number(v.locationCount),
     addressLine1: s(v.addressLine1),
     addressLine2: orNull(v.addressLine2),
@@ -189,10 +210,9 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     primaryContactName: s(v.primaryContactName),
     primaryContactEmail: s(v.primaryContactEmail),
     primaryContactPhone: orNull(v.primaryContactPhone),
-    officeManagerName: orNull(v.officeManagerName),
-    officeManagerEmail: orNull(v.officeManagerEmail),
-    accountsPayableName: orNull(v.accountsPayableName),
-    accountsPayableEmail: orNull(v.accountsPayableEmail),
+    secondaryContactName: orNull(v.secondaryContactName),
+    secondaryContactEmail: orNull(v.secondaryContactEmail),
+    secondaryContactPhone: orNull(v.secondaryContactPhone),
     mailingSameAsPrimary: v.mailingSameAsPrimary,
     mailingAddressLine1: v.mailingSameAsPrimary ? null : orNull(v.mailingAddressLine1),
     mailingAddressLine2: v.mailingSameAsPrimary ? null : orNull(v.mailingAddressLine2),
@@ -201,13 +221,13 @@ export function toPracticePayload(v: PracticeFormValues): PracticeDetailsPayload
     mailingPostalCode: v.mailingSameAsPrimary ? null : orNull(v.mailingPostalCode),
     noNpi: v.noNpi,
     groupNpi: v.noNpi ? null : orNull(v.groupNpi),
+    groupNpiOverrideReason: v.noNpi ? null : orNull(v.groupNpiOverrideReason),
     ...(s(v.federalTaxId) ? { federalTaxId: s(v.federalTaxId) } : {}),
     licenseNumber: orNull(v.licenseNumber),
     licenseState: orNull(v.licenseState)?.toUpperCase() ?? null,
     ...(v.removeDea ? { deaNumber: null } : s(v.deaNumber) ? { deaNumber: s(v.deaNumber) } : {}),
     estimatedSeats: Number(v.estimatedSeats),
     referralSource: orNull(v.referralSource),
-    salesRep: orNull(v.salesRep),
   }
 }
 
@@ -221,8 +241,16 @@ export interface PractitionerDraft {
   licenseNumber: string
   licenseState: string
   npi: string
+  /** CTO-29: why an NPPES mismatch on this NPI is fine. */
+  npiOverrideReason: string
+  /** A PRACTITIONER_TITLES value; '' = not given. */
+  title: string
+  /** Free text when title is 'Other'. */
+  titleOther: string
   isOwner: boolean
   isSelf: boolean
+  /** The owner's own row: they see patients (gets a provider profile). */
+  seesPatients: boolean
 }
 
 export const emptyPractitioner = (): PractitionerDraft => ({
@@ -233,9 +261,32 @@ export const emptyPractitioner = (): PractitionerDraft => ({
   licenseNumber: '',
   licenseState: '',
   npi: '',
+  npiOverrideReason: '',
+  title: '',
+  titleOther: '',
   isOwner: false,
   isSelf: false,
+  seesPatients: true,
 })
+
+/** Splits a stored title into the select value and the "Other" text. */
+export function splitTitle(title: string | null | undefined): {
+  title: string
+  titleOther: string
+} {
+  const t = (title ?? '').trim()
+  if (!t) return { title: '', titleOther: '' }
+  if ((PRACTITIONER_TITLES as readonly string[]).includes(t) && t !== 'Other')
+    return { title: t, titleOther: '' }
+  return { title: 'Other', titleOther: t === 'Other' ? '' : t }
+}
+
+/** The title to store: the select value, or the typed text for "Other". */
+export function joinTitle(title: string, titleOther: string): string | null {
+  if (!title) return null
+  if (title === 'Other') return titleOther.trim() || null
+  return title
+}
 
 export type PractitionerErrors = Partial<Record<keyof PractitionerDraft, string>>
 
@@ -260,13 +311,15 @@ export function validatePractitioners(
     if (p.licenseState && !US_STATE_CODES.includes(p.licenseState.toUpperCase()))
       e.licenseState = 'Choose a state'
     if (p.npi.trim() && !isValidNpi(p.npi)) e.npi = 'Enter a valid 10-digit NPI'
-    else if (npiRequired && !p.npi.trim()) e.npi = 'NPI is required'
+    else if (npiRequired && !p.npi.trim() && (!p.isSelf || p.seesPatients))
+      e.npi = 'NPI is required'
+    if (p.title === 'Other' && !p.titleOther.trim()) e.titleOther = 'Type your title'
     return e
   })
   let listError: string | null = null
   if (list.length === 0) listError = 'Add at least one practitioner'
   else if (list.filter((p) => p.isOwner).length !== 1)
-    listError = 'Mark exactly one practitioner as the owner on record'
+    listError = 'Mark exactly one practitioner as the primary account holder'
   else if (list.filter((p) => p.isSelf).length > 1) listError = 'Only one practitioner can be you'
   return { rows, list: listError }
 }
@@ -282,8 +335,11 @@ export const toPractitionerDraft = (p: Practitioner): PractitionerDraft => ({
   licenseNumber: p.licenseNumber ?? '',
   licenseState: p.licenseState ?? '',
   npi: p.npi ?? '',
+  npiOverrideReason: p.npiOverrideReason ?? '',
+  ...splitTitle(p.title),
   isOwner: p.isOwner,
   isSelf: p.isSelf,
+  seesPatients: p.seesPatients !== false,
 })
 
 export const toPractitionerPayload = (p: PractitionerDraft): Practitioner => ({
@@ -294,8 +350,11 @@ export const toPractitionerPayload = (p: PractitionerDraft): Practitioner => ({
   licenseNumber: orNull(p.licenseNumber),
   licenseState: orNull(p.licenseState)?.toUpperCase() ?? null,
   npi: orNull(p.npi)?.replace(/[\s-]/g, '') ?? null,
+  title: joinTitle(p.title, p.titleOther),
+  npiOverrideReason: orNull(p.npiOverrideReason),
   isOwner: p.isOwner,
   isSelf: p.isSelf,
+  ...(p.isSelf ? { seesPatients: p.seesPatients } : {}),
 })
 
 // ─── Agreement ──────────────────────────────────────────────────────────────

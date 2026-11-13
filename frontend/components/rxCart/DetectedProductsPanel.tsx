@@ -1,13 +1,13 @@
 'use client'
 
 /**
- * F5.1 — the products the AI scribe detected in this visit, as removable
+ * F5.1: the products the AI scribe detected in this visit, as removable
  * chips the provider confirms before "Approve & send".
  *
  *  - matched items are chips: name × quantity, a route badge ("Cart" or
  *    "e-Prescribe") and a remove / restore button;
  *  - items the catalog could not match are listed separately and can be
- *    mapped to a product — they are never hidden;
+ *    mapped to a product: they are never hidden;
  *  - nothing is sent until the provider ticks the confirmation.
  *
  * The parent owns the approve button; this panel reports what would be sent
@@ -18,9 +18,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Pill, ShoppingCart, X, RotateCcw, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import {
   getCatalog,
+  getKeyChanges,
   getProposal,
+  lastSendKey,
   updateProposalLines,
   apiErrorOf,
+  type KeyChange,
+  type RxCartResult,
   type RxLine,
 } from '@/lib/rxCartApi'
 import { cn } from '@/lib/utils'
@@ -53,6 +57,21 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
   const [error, setError] = React.useState<string | null>(null)
 
   const lines = React.useMemo(() => proposal?.lines ?? [], [proposal])
+  // CTO-33: key changes against this patient's earlier approved orders.
+  const { data: keyChanges = [] } = useQuery({
+    queryKey: ['rx-cart', 'key-changes', sessionId, proposal?.id],
+    queryFn: () => getKeyChanges(sessionId),
+    enabled: !!proposal && proposal.status === 'PENDING',
+  })
+  // A "stop" order is never sent to the cart unless the provider says so.
+  const stopsApplied = React.useRef(false)
+  React.useEffect(() => {
+    if (stopsApplied.current || keyChanges.length === 0) return
+    stopsApplied.current = true
+    const stops = keyChanges.filter((c) => c.kind === 'STOP').map((c) => c.lineId)
+    if (stops.length) setRemoved((prev) => new Set([...prev, ...stops]))
+  }, [keyChanges])
+  const lastSend = queryClient.getQueryData<RxCartResult>(lastSendKey(sessionId))
   const chips = lines.filter((l) => l.route !== 'MANUAL' && l.matchedProduct)
   const unmapped = lines.filter((l) => l.route === 'MANUAL' || !l.matchedProduct)
   const pending = proposal?.status === 'PENDING'
@@ -104,8 +123,9 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
     return (
       <section
         aria-label="Products sent"
-        className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5"
+        className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5"
       >
+        {lastSend && <SendResult result={lastSend} />}
         <p className="flex items-center gap-2 text-sm font-semibold text-emerald-900">
           <CheckCircle2 className="h-4 w-4" />
           {sent.length === 0
@@ -129,10 +149,27 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
       <div>
         <h3 className="text-sm font-bold text-slate-900">Detected products</h3>
         <p className="text-xs text-slate-500">
-          From this conversation. Remove anything you did not prescribe — only what is left is sent
+          From this conversation. Remove anything you did not prescribe. Only what is left is sent
           when you approve.
         </p>
       </div>
+
+      {keyChanges.length > 0 && (
+        <KeyChanges
+          changes={keyChanges}
+          removed={removed}
+          disabled={disabled}
+          onDecide={(lineId, approve) => {
+            setAcknowledged(false)
+            setRemoved((prev) => {
+              const next = new Set(prev)
+              if (approve) next.delete(lineId)
+              else next.add(lineId)
+              return next
+            })
+          }}
+        />
+      )}
 
       {chips.length > 0 && (
         <ul className="flex flex-wrap gap-2" aria-label="Products to send">
@@ -152,7 +189,7 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
         <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
             <AlertTriangle className="h-3.5 w-3.5" />
-            Not matched to your catalog — map it to a product, or it will not be sent
+            Not matched to your catalog. Map it to a product, or it will not be sent
           </p>
           <ul className="space-y-2">
             {unmapped.map((line) => (
@@ -179,7 +216,7 @@ export function DetectedProductsPanel({ sessionId, disabled, onSelectionChange }
                   <option value="">Choose a product…</option>
                   {catalog.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {money(p.price)}
+                      {p.name}: {money(p.price)}
                     </option>
                   ))}
                 </select>
@@ -279,4 +316,158 @@ export function rxApproval(selection: RxSelection | null):
       acknowledged: true,
     },
   }
+}
+
+const KIND_LABEL: Record<KeyChange['kind'], string> = {
+  START: 'Start',
+  STOP: 'Stop',
+  DOSE_CHANGE: 'Dose change',
+  NEW_PRODUCT: 'New product',
+}
+
+const STOCK_LABEL: Record<KeyChange['stock'], string> = {
+  IN_STOCK: 'In stock',
+  NOT_STOCKED: 'Not stocked',
+  UNMAPPED: 'Not in catalog',
+  EPRESCRIBE: 'Via e-prescribe',
+}
+
+/**
+ * CTO-33: "Key changes to approve": medication starts and stops, dose
+ * changes and new products, each tied to its order line. Approving or
+ * rejecting a change includes or leaves out that line.
+ */
+function KeyChanges({
+  changes,
+  removed,
+  disabled,
+  onDecide,
+}: {
+  changes: KeyChange[]
+  removed: Set<string>
+  disabled?: boolean
+  onDecide: (lineId: string, approve: boolean) => void
+}) {
+  return (
+    <div
+      className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3"
+      data-testid="key-changes"
+    >
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+        Key changes to approve
+      </p>
+      <ul className="space-y-2">
+        {changes.map((c) => {
+          const approved = !removed.has(c.lineId)
+          return (
+            <li
+              key={c.lineId}
+              className="flex flex-wrap items-center gap-2 text-sm"
+              data-testid={`key-change-${c.lineId}`}
+            >
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
+                {KIND_LABEL[c.kind]}
+              </span>
+              <span className="font-medium text-slate-900">{c.label}</span>
+              {c.kind === 'DOSE_CHANGE' ? (
+                <span className="text-xs text-slate-600">
+                  {c.from ?? 'no dose'} → {c.to}
+                </span>
+              ) : (
+                c.to && <span className="text-xs text-slate-600">{c.to}</span>
+              )}
+              <span
+                className={cn(
+                  'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                  c.stock === 'IN_STOCK' || c.stock === 'EPRESCRIBE'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-amber-50 text-amber-800'
+                )}
+              >
+                {STOCK_LABEL[c.stock]}
+              </span>
+              <span className="ml-auto flex gap-1">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-pressed={approved}
+                  onClick={() => onDecide(c.lineId, true)}
+                  className={cn(
+                    'rounded-lg px-2 py-1 text-xs font-semibold',
+                    approved
+                      ? 'bg-emerald-700 text-white'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200'
+                  )}
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-pressed={!approved}
+                  onClick={() => onDecide(c.lineId, false)}
+                  className={cn(
+                    'rounded-lg px-2 py-1 text-xs font-semibold',
+                    !approved
+                      ? 'bg-rose-700 text-white'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200'
+                  )}
+                >
+                  Reject
+                </button>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+/** After "Approve & send": what was not stocked, and the patient's link (CTO-32/33). */
+function SendResult({ result }: { result: RxCartResult }) {
+  const [copied, setCopied] = React.useState(false)
+  return (
+    <div className="space-y-2" data-testid="send-result">
+      {(result.notStocked ?? []).length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs font-semibold text-amber-900">
+            Not stocked: alternative or external
+          </p>
+          <ul className="mt-1 list-disc pl-5 text-sm text-amber-900">
+            {result.notStocked!.map((n) => (
+              <li key={n.lineId}>
+                {n.label}
+                {n.reason === 'UNMAPPED' ? ' (not in your catalog)' : ' (out of stock)'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {result.checkoutLink && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-emerald-900">
+          <span>
+            Checkout link{' '}
+            {result.checkoutLink.emailed ? 'e-mailed to the patient' : 'for the patient'}:
+          </span>
+          <code
+            className="max-w-full truncate rounded bg-white px-2 py-0.5 text-xs"
+            data-testid="checkout-link"
+          >
+            {result.checkoutLink.url}
+          </code>
+          <button
+            type="button"
+            className="rounded-lg bg-white px-2 py-1 text-xs font-semibold ring-1 ring-emerald-200"
+            onClick={() => {
+              void navigator.clipboard?.writeText(result.checkoutLink!.url)
+              setCopied(true)
+            }}
+          >
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }

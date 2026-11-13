@@ -211,7 +211,7 @@ export default function StaffPage() {
                 header: 'Clinical Profile',
                 render: (m) => {
                   if (!m.provider) {
-                    return <span className="text-[11px] font-medium text-slate-400">—</span>
+                    return <span className="text-[11px] font-medium text-slate-400">Not set</span>
                   }
 
                   const disciplines = m.provider.disciplines?.map((d) => d.discipline.name) || []

@@ -1,9 +1,9 @@
 /**
- * B0.1.5 — cross-tenant negative suite. A clinic-A actor (every role) asks
+ * B0.1.5: cross-tenant negative suite. A clinic-A actor (every role) asks
  * for clinic-B's invoice, appointment, patient, visit record and file; every
  * request must be refused (403/404) and nothing of clinic B may come back.
  *
- * B0.1.3 — Postgres RLS is live for the app's connection role.
+ * B0.1.3: Postgres RLS is live for the app's connection role.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PrismaClient } from '@prisma/client'
@@ -51,7 +51,7 @@ describe('clinic A actors cannot reach clinic B records', () => {
       for (const [name, path] of staffTargets()) {
         const res = await api(server.url, path, { token: tokens[role] })
         const leaked = JSON.stringify(res.body ?? '').includes(B.clinicId)
-        // List endpoints may legitimately answer 200 with an empty list — but
+        // List endpoints may legitimately answer 200 with an empty list, but
         // never with clinic-B rows.
         const ok = REFUSED.includes(res.status) || (res.status === 200 && !leaked)
         expect(

@@ -1,6 +1,6 @@
 /**
  * B5.1 mapping layer + B5.5 routing: scribe orders → clinic SKUs.
- * Pure functions — no database.
+ * Pure functions: no database.
  */
 import assert from 'node:assert/strict'
 import {
@@ -109,7 +109,7 @@ describe('mapOrders (B5.1)', () => {
     assert.equal(lines[2]!.quantity, 2)
   })
 
-  it('reports a tie as AMBIGUOUS and routes it to MANUAL — it never guesses', () => {
+  it('reports a tie as AMBIGUOUS and routes it to MANUAL, it never guesses', () => {
     const [line] = mapOrders([{ name: 'Omega 3', quantity: 1 }], catalog)
     assert.equal(line!.matchStatus, 'AMBIGUOUS')
     assert.equal(line!.route, 'MANUAL')

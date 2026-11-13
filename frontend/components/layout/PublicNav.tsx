@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * PublicNav — marketing header for the public shell.
+ * PublicNav: marketing header for the public shell.
  *
  * Behavior:
  *  - Transparent over the navy hero, solid white once scrolled past it.
@@ -170,7 +170,7 @@ export function PublicNav() {
             </>
           )}
 
-          {/* Hamburger — only meaningful for logged-in patients on phones.
+          {/* Hamburger: only meaningful for logged-in patients on phones.
               Guests already have the "Log in" button in the nav, so a drawer
               that just repeats it adds noise. Non-patient authenticated users
               have their own dashboard and don't surface through this shell. */}
@@ -318,7 +318,7 @@ const AvatarMenu = React.forwardRef<HTMLDivElement, AvatarMenuProps>(function Av
     <>
       <CartButton translucent={translucent} cartCount={cartCount} />
 
-      {/* Avatar dropdown only on desktop — on mobile the hamburger drawer
+      {/* Avatar dropdown only on desktop, on mobile the hamburger drawer
           carries the identical menu, so showing both creates duplication. */}
       <div className="relative hidden lg:block" ref={ref}>
         <button
@@ -414,7 +414,7 @@ function CartButton({ translucent, cartCount }: { translucent: boolean; cartCoun
       className={`relative p-2 transition-colors ${
         translucent ? 'text-white/80 hover:text-white' : 'text-ink-muted hover:text-ink'
       }`}
-      aria-label={cartCount > 0 ? `Cart — ${cartCount} items` : 'Cart'}
+      aria-label={cartCount > 0 ? `Cart: ${cartCount} items` : 'Cart'}
     >
       <ShoppingCart className="h-5 w-5" />
       {cartCount > 0 && (

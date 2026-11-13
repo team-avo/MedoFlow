@@ -1,8 +1,8 @@
 # Cloudflare Pages front door for many clinics at once (ADR 0005).
-# Run by hand: Actions › "Front door (Pages) — many clinics" › Run workflow,
+# Run by hand: Actions › "Front door (Pages), many clinics" › Run workflow,
 # labels = everwell,brightsmile,…  Run "Front door (Pages)" with an empty label
 # first, so the Pages project exists.
-name: Front door (Pages) — many clinics
+name: Front door (Pages), many clinics
 
 on:
   workflow_dispatch:

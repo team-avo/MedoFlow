@@ -1,5 +1,5 @@
 /**
- * F3.2 — records forms block invalid input client-side (same rules as the
+ * F3.2: records forms block invalid input client-side (same rules as the
  * API) and submit valid input: prescription form, treatment-plan modal,
  * intake form renderer.
  */

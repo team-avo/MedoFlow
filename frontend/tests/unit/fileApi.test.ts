@@ -1,5 +1,5 @@
 /**
- * F3.1 / F3.3 — patient file I/O goes through backend-issued presigned URLs
+ * F3.1 / F3.3: patient file I/O goes through backend-issued presigned URLs
  * only: the API is asked for a URL, the bytes go straight to that URL with
  * no Authorization header or cookies, and the filename never appears in any
  * request URL.
@@ -77,7 +77,7 @@ describe('upload', () => {
       id: 'f1',
     })
 
-    // The API only sees metadata, in a JSON body — never in the URL.
+    // The API only sees metadata, in a JSON body, never in the URL.
     expect(apiCalls.map((c) => c.url)).toEqual(['/files/uploads', '/files/f1/complete'])
     expect(JSON.parse(apiCalls[0]!.data as string)).toEqual({
       patientId: 'p1',

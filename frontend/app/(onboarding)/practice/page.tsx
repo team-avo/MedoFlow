@@ -7,7 +7,7 @@ import { ApplicationShell } from '@/components/onboarding/ApplicationShell'
 import { PracticeDetailsForm } from '@/components/onboarding/PracticeDetailsForm'
 import { useApplication } from '@/components/onboarding/useApplication'
 
-/** Clinic application, step 1 — practice details, licensing and tax. */
+/** Clinic application, step 1, practice details, licensing and tax. */
 export default function PracticeStepPage() {
   const router = useRouter()
   const { user, refetchUser } = useAuth()
@@ -17,7 +17,7 @@ export default function PracticeStepPage() {
     <ApplicationShell
       stepKey="practice"
       title="Tell us about your practice"
-      subtitle="We verify your NPI and licensing before your website and online booking go live — most applications are reviewed within one business day. You can set everything else up in the meantime."
+      subtitle="We verify your NPI and licensing before your website and online booking go live. Most applications are reviewed within one business day. You can set everything else up in the meantime."
     >
       {isLoading ? (
         <LoadingSkeleton variant="card" count={2} />

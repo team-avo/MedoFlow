@@ -11,6 +11,7 @@
  * A cart is never built from a proposal that a provider has not confirmed:
  * buildCartFromProposal refuses anything but a CONFIRMED proposal.
  */
+import { sendCartLink } from './checkoutLinkService'
 import type { Prisma, RxOrderProposal } from '@prisma/client'
 import prisma, { type TxClient } from '../config/prisma'
 import type { ApiError } from '../types/errors'
@@ -277,6 +278,15 @@ export interface BuiltCart {
   cartId: string | null
   cartItemIds: string[]
   prescriptionIds: string[]
+  /**
+   * CTO-33: confirmed items that did not go into the cart because they are
+   * not stocked (inactive, or none on hand), plus items the catalog could not
+   * match. Shown to the provider as "Not stocked: alternative or external";
+   * never silently dropped.
+   */
+  notStocked?: Array<{ lineId: string; label: string; reason: 'NOT_STOCKED' | 'UNMAPPED' }>
+  /** CTO-32: the patient's checkout link, once sent. */
+  checkoutLink?: { url: string; kind: 'site' | 'medoflow'; emailed: boolean } | null
 }
 
 /**
@@ -294,7 +304,15 @@ export async function buildCartFromProposal(
       lines: {
         where: { decision: 'CONFIRMED' },
         include: {
-          matchedProduct: { select: { id: true, price: true, isActive: true, name: true } },
+          matchedProduct: {
+            select: {
+              id: true,
+              price: true,
+              isActive: true,
+              name: true,
+              inventoryItem: { select: { quantityInStock: true } },
+            },
+          },
           cartItem: { select: { id: true } },
           prescription: { select: { id: true } },
         },
@@ -307,9 +325,41 @@ export async function buildCartFromProposal(
     throw apiError(409, 'RX_NOT_CONFIRMED', 'A provider must confirm the products first')
   }
 
-  const cartLines = proposal.lines.filter((l) => l.route === 'CART' && l.matchedProduct)
+  // CTO-33: only stocked items go into the cart; the rest are listed.
+  const stocked = (l: (typeof proposal.lines)[number]) =>
+    !!l.matchedProduct &&
+    l.matchedProduct.isActive &&
+    // No inventory record = not tracked, so available.
+    (!l.matchedProduct.inventoryItem || l.matchedProduct.inventoryItem.quantityInStock > 0)
+  const cartLines = proposal.lines.filter(
+    (l) => l.route === 'CART' && l.matchedProduct && (stocked(l) || !!l.cartItem)
+  )
   const rxLines = proposal.lines.filter((l) => l.route === 'EPRESCRIBE' && l.matchedProduct)
-  const built: BuiltCart = { cartId: proposal.cartId, cartItemIds: [], prescriptionIds: [] }
+  const built: BuiltCart = {
+    cartId: proposal.cartId,
+    cartItemIds: [],
+    prescriptionIds: [],
+    notStocked: proposal.lines
+      .filter((l) => l.route === 'CART' && l.matchedProduct && !stocked(l) && !l.cartItem)
+      .map((l) => ({
+        lineId: l.id,
+        label: l.matchedProduct!.name,
+        reason: 'NOT_STOCKED' as const,
+      })),
+  }
+  // Items the catalog never matched (an alternative or external product).
+  const unmapped = await tx.rxOrderLine.findMany({
+    where: {
+      proposalId,
+      clinicId,
+      OR: [{ route: 'MANUAL' }, { matchedProductId: null }],
+    },
+    select: { id: true, rawText: true },
+    orderBy: { position: 'asc' },
+  })
+  for (const l of unmapped) {
+    built.notStocked!.push({ lineId: l.id, label: l.rawText, reason: 'UNMAPPED' })
+  }
 
   if (cartLines.length > 0) {
     let cart = await tx.cart.findFirst({
@@ -354,7 +404,7 @@ export async function buildCartFromProposal(
         appointmentId: proposal.appointmentId,
         providerId: proposal.providerId,
         patientId: proposal.patientId,
-        notes: `${line.matchedProduct!.name} × ${line.quantity} — routed to e-prescribe (Rx→Cart scope guard)`,
+        notes: `${line.matchedProduct!.name} × ${line.quantity}: routed to e-prescribe (Rx→Cart scope guard)`,
         status: 'PENDING_EPRESCRIBE',
         rxOrderLineId: line.id,
       },
@@ -372,7 +422,7 @@ export async function buildCartFromProposal(
   return built
 }
 
-/** Audit rows for a confirmed + built proposal. Ids and counts only — no product text. */
+/** Audit rows for a confirmed + built proposal. Ids and counts only, no product text. */
 export async function auditConfirmAndBuild(
   proposal: Pick<RxOrderProposal, 'id' | 'clinicId'>,
   performedById: string,
@@ -437,5 +487,12 @@ export async function confirmAndSend(
     return { counts, built }
   })
   await auditConfirmAndBuild(proposal, performedById, counts, built, meta)
-  return built
+  // CTO-32: the patient gets the checkout link for what went into the cart.
+  const checkoutLink = await sendCartLink({
+    clinicId,
+    cartId: built.cartId,
+    cartItemCount: built.cartItemIds.length,
+    patientId: proposal.patientId,
+  }).catch(() => null)
+  return { ...built, checkoutLink }
 }

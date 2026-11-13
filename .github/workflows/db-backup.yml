@@ -1,4 +1,4 @@
-# B0.6.4 — encrypted database backups + automated restore drill.
+# B0.6.4: encrypted database backups + automated restore drill.
 #
 #   daily  03:15 UTC  pg_dump → age-encrypt → private R2 bucket (backend/scripts/ops/backup-db.sh)
 #   weekly Sun 04:00  restore the latest backup into a throwaway Postgres and verify it
@@ -7,7 +7,7 @@
 # Runs only in team-avo/MedoFlow (scheduled runs use the copy on the default branch, `development`). Repository secrets:
 #   BACKUP_DATABASE_URL     Neon direct URL (owner or a read-only role)
 #   BACKUP_AGE_RECIPIENT    age public key  (age-keygen; keep the private key offline)
-#   BACKUP_AGE_IDENTITY     age private key (AGE-SECRET-KEY-…) — used only by the drill
+#   BACKUP_AGE_IDENTITY     age private key (AGE-SECRET-KEY-…): used only by the drill
 #   BACKUP_S3_ENDPOINT      https://<account>.r2.cloudflarestorage.com
 #   BACKUP_S3_ACCESS_KEY_ID / BACKUP_S3_SECRET_ACCESS_KEY   R2 token scoped to the backup bucket
 # Repository variable:

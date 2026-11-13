@@ -1,7 +1,7 @@
 /**
  * Text-to-speech for the AI Front Desk.
  *
- * Primary: Groq (Canopy Labs Orpheus) — same API key as the rest of the
+ * Primary: Groq (Canopy Labs Orpheus): same API key as the rest of the
  * voice agent (Whisper STT + Llama tool-calling), so the whole agent runs
  * on a single credential.
  *
@@ -11,7 +11,7 @@
  * dropped from the environment entirely and this path never runs.
  *
  * If both fail, `speak()` in voiceAgentService soft-fails and the browser
- * falls back to its built-in speech synthesis — the agent stays usable.
+ * falls back to its built-in speech synthesis, the agent stays usable.
  */
 
 import type { ApiError } from '../types/errors'
@@ -45,7 +45,7 @@ const personaToGeminiVoice: Record<VoicePersona, string> = {
 
 export interface SynthesisOptions {
   persona?: VoicePersona
-  /** Explicit voice override — wins over the persona mapping. */
+  /** Explicit voice override: wins over the persona mapping. */
   voiceName?: string
 }
 
@@ -118,7 +118,7 @@ const synthesizeWithGroq = async (
 
   if (!response.ok) {
     const body = await response.text().catch(() => '')
-    // Surface the terms gate explicitly — it's a one-click fix in the console,
+    // Surface the terms gate explicitly, it's a one-click fix in the console,
     // not a code problem, and the generic 400 is not self-explanatory.
     if (body.includes('model_terms_required')) {
       const err = new Error(
@@ -198,7 +198,7 @@ const synthesizeWithGemini = async (
     throw err
   }
 
-  // Gemini returns raw PCM — wrap it in a WAV header so browsers can play it.
+  // Gemini returns raw PCM: wrap it in a WAV header so browsers can play it.
   const pcm = Buffer.from(inline.data, 'base64')
   const wav = Buffer.concat([
     buildWavHeader(pcm.length, parseRateFromMime(inline.mimeType ?? '')),
@@ -217,7 +217,7 @@ const synthesizeWithGemini = async (
 
 /**
  * Synthesize speech. Tries Groq first; falls back to Gemini only if a
- * GEMINI_API_KEY is configured. Throws if no provider succeeds — callers
+ * GEMINI_API_KEY is configured. Throws if no provider succeeds, callers
  * are expected to soft-fail (the browser then uses its own speech synthesis).
  */
 export const synthesize = async (

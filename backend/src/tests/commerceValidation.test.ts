@@ -1,5 +1,5 @@
 /**
- * B5.4 — the API's shipping-address and Rx→Cart schemas. The shipping cases
+ * B5.4: the API's shipping-address and Rx→Cart schemas. The shipping cases
  * are shared with the frontend (shared/validation-cases/commerce.json,
  * frontend/tests/unit/commerceSchemas.test.ts).
  */

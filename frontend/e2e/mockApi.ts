@@ -1,7 +1,7 @@
 /**
  * Stateful stand-in for the MedoFlow API, installed with page.route(). It
- * implements the auth contract the app depends on — login (+ MFA challenge),
- * refresh cookie, /auth/me, logout, MFA setup/enable — and verifies real
+ * implements the auth contract the app depends on, login (+ MFA challenge),
+ * refresh cookie, /auth/me, logout, MFA setup/enable, and verifies real
  * RFC 6238 TOTP codes, so the browser flow is exercised exactly as against
  * the backend. Every other API call gets an empty success response.
  * Synthetic data only.
@@ -151,6 +151,10 @@ export async function installMockApi(
      * from its own /onboarding/** routes (tenant fields and clinicProfile).
      */
     onboarding?: MockOnboarding
+    /** The user's own Provider record (a provider, or the owner-doctor, CTO-14). */
+    provider?: { id: string; isActive: boolean } | null
+    /** The clinic's brand colours (CTO-28 console accent). */
+    brand?: { primaryColor: string | null; secondaryColor: string | null } | null
   } = {}
 ) {
   const state: MockState = {
@@ -177,6 +181,7 @@ export async function installMockApi(
     hasSeenPatientTour: true,
     tourCompletedAt: '2026-01-01T00:00:00.000Z',
     mfaEnabled: state.mfaEnabled,
+    provider: opts.provider ?? null,
     clinic: {
       id: 'clinic-e2e',
       name: opts.identity?.clinicName ?? 'Synthetic Clinic',
@@ -190,6 +195,7 @@ export async function installMockApi(
         verificationStatus: opts.newClinic ? 'PENDING_REVIEW' : 'APPROVED',
         submittedForReviewAt: null,
         reviewNotes: null,
+        brand: opts.brand ?? null,
         ...(opts.onboarding?.tenant ?? {}),
       },
       clinicProfile: opts.onboarding
@@ -230,7 +236,7 @@ export async function installMockApi(
         return issue(route)
       case 'POST /auth/mfa/verify':
         if (body.mfaToken !== 'mfa-challenge-e2e')
-          return fail(route, 401, 'mfa_challenge_invalid', 'MFA challenge expired — sign in again')
+          return fail(route, 401, 'mfa_challenge_invalid', 'MFA challenge expired: sign in again')
         if (!state.secret || body.code !== totp(state.secret)) {
           return fail(route, 401, 'mfa_invalid_code', 'Invalid verification code')
         }

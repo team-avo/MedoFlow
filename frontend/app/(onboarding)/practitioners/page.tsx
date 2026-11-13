@@ -9,7 +9,7 @@ import { ApplicationShell } from '@/components/onboarding/ApplicationShell'
 import { PractitionersForm } from '@/components/onboarding/PractitionersForm'
 import { useApplication } from '@/components/onboarding/useApplication'
 
-/** Clinic application, step 2 — the practice's licensed practitioners. */
+/** Clinic application, step 2: the practice's practitioners, starting with you. */
 export default function PractitionersStepPage() {
   const router = useRouter()
   const { user, refetchUser } = useAuth()
@@ -18,8 +18,8 @@ export default function PractitionersStepPage() {
   return (
     <ApplicationShell
       stepKey="practitioners"
-      title="Who practices here?"
-      subtitle="List the licensed practitioners at the practice and mark the owner on record. You'll invite them to MedoFlow later — nobody is emailed now."
+      title="Your practitioner details"
+      subtitle="As the clinic's doctor and admin, you're listed first. Add anyone else who treats patients here. Nobody is emailed now; you can invite them from the Team page later."
     >
       <Link
         href="/practice"

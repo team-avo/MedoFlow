@@ -42,6 +42,21 @@ const config: Config = {
           900: '#134e4a',
           950: '#042f2e',
         },
+        // The clinic's brand accent in the staff console (CTO-28). Set at
+        // runtime from the session (lib/consoleTheme.ts); defaults to MedoFlow
+        // teal. Always paired with brand-foreground, which passes AA on it.
+        brand: {
+          DEFAULT: 'rgb(var(--brand-rgb) / <alpha-value>)',
+          foreground: 'rgb(var(--brand-foreground-rgb) / <alpha-value>)',
+          strong: 'rgb(var(--brand-strong-rgb) / <alpha-value>)',
+          soft: 'rgb(var(--brand-soft-rgb) / <alpha-value>)',
+          'on-dark': 'rgb(var(--brand-on-dark-rgb) / <alpha-value>)',
+        },
+        // Primary buttons in the staff console (CTO-28).
+        console: {
+          DEFAULT: 'rgb(var(--console-primary-rgb) / <alpha-value>)',
+          foreground: 'rgb(var(--console-primary-foreground-rgb) / <alpha-value>)',
+        },
         success: {
           DEFAULT: 'hsl(var(--success))',
           foreground: 'hsl(var(--success-foreground))',
@@ -71,7 +86,7 @@ const config: Config = {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
         },
-        // MedoFlow semantic tokens — used by landing design system
+        // MedoFlow semantic tokens: used by landing design system
         navy: {
           DEFAULT: '#1E3A5F',
           soft: 'rgba(255, 255, 255, 0.72)',

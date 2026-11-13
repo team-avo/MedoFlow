@@ -82,7 +82,7 @@ describe('JaaS call token', () => {
     }
   })
 
-  it('carries an opaque id and a display name only — no email', () => {
+  it('carries an opaque id and a display name only, no email', () => {
     const c = verify(signJaasToken({ roomName: `${APP_ID}/r`, user: { id: 'u_9', name: 'Anika' } }))
     assert.deepEqual(Object.keys(c.context.user).sort(), ['id', 'moderator', 'name'])
     assert.equal(c.context.user.moderator, 'false')
@@ -173,7 +173,7 @@ describe('boot checks (videoConfigProblems)', () => {
     assert.deepEqual(fatal({ NODE_ENV: 'development', ...full }), [], 'only production asks')
   })
 
-  it('partial or broken config is named — never echoed', () => {
+  it('partial or broken config is named, never echoed', () => {
     const env = { NODE_ENV: 'production', VIDEO_PHI_POLICY: 'synthetic-data-only' }
     assert.deepEqual(fatal({ ...env, JAAS_APP_ID: APP_ID, JAAS_PRIVATE_KEY: ESCAPED_KEY }), [
       'JAAS_KID is not set',

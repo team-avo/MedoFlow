@@ -18,7 +18,7 @@ export function actorFrom(req: Request): SiteActor {
 }
 
 /**
- * One audit row per site change. Rows carry ids, slugs and counts only —
+ * One audit row per site change. Rows carry ids, slugs and counts only,
  * never page copy, and never lead contents (PHI).
  */
 export function auditSite(

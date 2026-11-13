@@ -1,14 +1,14 @@
 /**
- * F1.1 — deposit / slot-hold booking flow:
+ * F1.1: deposit / slot-hold booking flow:
  *  - pick → hold → prepay → confirm succeeds end to end;
  *  - a hold that expired (or a slot taken) at confirm time shows a clear
- *    "slot taken" recovery on the time picker — not an error — and the
+ *    "slot taken" recovery on the time picker, not an error, and the
  *    patient books another time;
  *  - a slot taken between listing and holding recovers the same way;
  *  - an expired prepay reservation offers "Pick a new time".
  * No URL carries patient details (F1.3 check runs on every flow).
  *
- * Demo feedback WS1 — the simplified flow:
+ * Demo feedback WS1: the simplified flow:
  *  - four steps (Select Provider → Choose Time → Review → Payment), no
  *    "Your Details" form and no password field anywhere;
  *  - Review shows the signed-in patient's name / email / phone from the
@@ -61,7 +61,7 @@ test('F1.1 / WS1 pick → hold → review (profile details) → pay inline → c
   // today is already inside the 24-hour window, so the fee is called out.
   await expect(page.getByRole('heading', { name: 'Review & Confirm' })).toBeVisible()
   await expect(page.getByTestId('booking-policy')).toContainText(
-    'inside the cancellation window — cancelling now incurs a $25.00 fee'
+    'inside the cancellation window. Cancelling now incurs a $25.00 fee'
   )
   // Your details come from the profile: nothing to type, no password.
   const details = page.getByTestId('your-details')
@@ -109,7 +109,7 @@ test('F1.1 an expired hold at confirm → "slot taken" recovery, then books anot
   api.failNextBooking = 'expired_hold'
   await page.getByRole('button', { name: /Confirm visit/ }).click()
 
-  // Back on the time picker with a calm notice — no error toast, no dead end.
+  // Back on the time picker with a calm notice, no error toast, no dead end.
   const notice = page.getByTestId('slot-taken-notice')
   await expect(notice).toBeVisible()
   await expect(notice).toHaveAttribute('role', 'status')

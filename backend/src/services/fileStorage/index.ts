@@ -28,7 +28,7 @@ const s3Driver = (bucket: string): S3FileStorage => {
 /**
  * The store new patient files are written to: object storage when
  * S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY are set, otherwise local disk
- * (development/CI only — production refuses to boot without object storage,
+ * (development/CI only: production refuses to boot without object storage,
  * see config/envValidation.ts).
  */
 export function getPatientFileStorage(): FileStorageDriver {

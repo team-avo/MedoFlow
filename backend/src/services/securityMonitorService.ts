@@ -5,13 +5,13 @@
  *  - failed-auth spike: failed logins / MFA challenges across the platform
  *    (and per client IP) within ALERT_WINDOW_MINUTES;
  *  - anomalous record access: distinct sensitive records (notes, transcripts,
- *    files) one user opens within the window — the "multi-record" pattern of
+ *    files) one user opens within the window, the "multi-record" pattern of
  *    a compromised or curious account.
  *
  * Alerts go to stderr ("[security-alert] …", picked up by the host's log
  * drain) and, when ALERT_WEBHOOK_URL is set, to a Slack-compatible webhook.
- * Payloads carry only ids, counts and the alert kind — never names, emails
- * or record contents — and are passed through scrubPhi before sending, so the
+ * Payloads carry only ids, counts and the alert kind, never names, emails
+ * or record contents: and are passed through scrubPhi before sending, so the
  * monitoring vendor never receives PHI (no BAA required for this channel).
  *
  * Counters are per instance. With more than one API instance each counts its
@@ -41,7 +41,7 @@ const recordAccessThreshold = () => num('ALERT_RECORD_ACCESS_THRESHOLD', 50)
 
 /** Timestamps (ms) per counter key, oldest first. */
 const events = new Map<string, number[]>()
-/** Last alert time per dedup key — one alert per key per window. */
+/** Last alert time per dedup key, one alert per key per window. */
 const lastAlert = new Map<string, number>()
 /** Distinct records per user: key → Map<recordKey, lastSeen>. */
 const recordAccess = new Map<string, Map<string, number>>()
@@ -80,7 +80,7 @@ async function postWebhook(alert: SecurityAlert): Promise<void> {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        text: `:rotating_light: MedoFlow security alert — ${alert.kind}: ${alert.summary}`,
+        text: `:rotating_light: MedoFlow security alert: ${alert.kind}: ${alert.summary}`,
         alert,
       }),
     })

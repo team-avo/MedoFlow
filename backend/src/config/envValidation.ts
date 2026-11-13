@@ -28,7 +28,7 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
     if (!env[name]) fatal(`${name} is required`)
   }
 
-  // B0.2.1 — signing-secret strength (current and, during rotation, previous).
+  // B0.2.1: signing-secret strength (current and, during rotation, previous).
   const weak = jwtSecretWeakness(env.JWT_SECRET)
   if (env.JWT_SECRET && weak) fatal(`JWT_SECRET ${weak}. Generate one with: openssl rand -hex 32`)
   if (env.JWT_SECRET_PREVIOUS) {
@@ -36,34 +36,34 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
     if (weakPrev) fatal(`JWT_SECRET_PREVIOUS ${weakPrev}`)
   }
 
-  // B0.1.1 — tenant isolation must be enforcing.
+  // B0.1.1: tenant isolation must be enforcing.
   if (getIsolationMode() !== 'enforce') {
     fatal(
       `TENANT_ISOLATION_MODE is "${env.TENANT_ISOLATION_MODE}"; it must be "enforce" (or unset, which defaults to enforce)`
     )
   }
 
-  // B0.1.3 — RLS must be applied by the app (the role check runs after connect).
+  // B0.1.3: RLS must be applied by the app (the role check runs after connect).
   if ((env.TENANT_RLS ?? 'on').toLowerCase() === 'off') {
     fatal('TENANT_RLS=off disables Postgres row-level security; remove it')
   }
 
-  // B0.3.6 — audit retention.
+  // B0.3.6: audit retention.
   const years = getAuditRetentionYears()
   if (!(years >= MIN_AUDIT_RETENTION_YEARS)) {
     fatal(`AUDIT_RETENTION_YEARS must be ≥ ${MIN_AUDIT_RETENTION_YEARS} (HIPAA §164.316(b)(2))`)
   }
 
-  // B0.2.2 — MFA needs its encryption key; without it MFA endpoints answer 503.
+  // B0.2.2: MFA needs its encryption key; without it MFA endpoints answer 503.
   if (!isSecretBoxConfigured()) {
-    warn('MFA_ENCRYPTION_KEY is not set (64 hex chars) — staff MFA enrolment is unavailable')
+    warn('MFA_ENCRYPTION_KEY is not set (64 hex chars): staff MFA enrolment is unavailable')
   }
 
-  // B3.1 — patient files live in object storage, reached only through
+  // B3.1: patient files live in object storage, reached only through
   // presigned URLs. Local disk is ephemeral on the host and unencrypted.
   if (!isS3Configured(env)) {
     fatal(
-      'S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY are not set — patient files would be written to local disk'
+      'S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY are not set: patient files would be written to local disk'
     )
   }
   try {
@@ -72,12 +72,12 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
     fatal((e as Error).message)
   }
 
-  // B3.2 — transcripts, SOAP notes and intake answers are sealed with
+  // B3.2: transcripts, SOAP notes and intake answers are sealed with
   // field-level encryption; production refuses to store them in the clear.
   const fieldKeyProblem = fieldEncryptionConfigProblem(env)
   if (fieldKeyProblem) fatal(fieldKeyProblem)
 
-  // B8.2 — public URLs must be https once the app is on real domains.
+  // B8.2: public URLs must be https once the app is on real domains.
   for (const name of ['FRONTEND_URL', 'BACKEND_URL', 'APP_URL']) {
     const v = env[name]
     if (v && !/^https:\/\//.test(v) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(v)) {
@@ -93,10 +93,10 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   }
   if (!env.SITE_PREVIEW_SECRET) {
     warn(
-      'SITE_PREVIEW_SECRET is not set — website preview links are signed with a key derived from JWT_SECRET'
+      'SITE_PREVIEW_SECRET is not set: website preview links are signed with a key derived from JWT_SECRET'
     )
   }
-  // B8.5 — website images are public; they must never share the PHI bucket.
+  // B8.5: website images are public; they must never share the PHI bucket.
   if (env.SITE_ASSETS_BUCKET && env.SITE_ASSETS_BUCKET === patientFilesBucket(env)) {
     fatal(
       'SITE_ASSETS_BUCKET must differ from the patient-files bucket (website images are public)'
@@ -104,11 +104,11 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   }
   if (isS3Configured(env) && (!env.SITE_ASSETS_BUCKET || !env.SITE_ASSETS_PUBLIC_BASE_URL)) {
     warn(
-      'SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL are not set — website image uploads are disabled'
+      'SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL are not set: website image uploads are disabled'
     )
   }
 
-  // B2.7 / FR-13 — the AI scribe may only send PHI to BAA-covered hosts.
+  // B2.7 / FR-13: the AI scribe may only send PHI to BAA-covered hosts.
   for (const p of scribeEgressProblems(env)) problems.push(p)
 
   // Video consultations (8x8 JaaS) carry PHI: complete config, and a BAA
@@ -116,16 +116,22 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   for (const p of videoConfigProblems(env)) problems.push(p)
 
   if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
-    warn('STRIPE_SECRET_KEY is not set — Stripe payment features will not function')
+    warn('STRIPE_SECRET_KEY is not set: Stripe payment features will not function')
   }
   if (!env.STRIPE_WEBHOOK_SECRET) {
     warn(
-      'STRIPE_WEBHOOK_SECRET is not set — Stripe webhook signature verification is DISABLED. ' +
+      'STRIPE_WEBHOOK_SECRET is not set: Stripe webhook signature verification is DISABLED. ' +
         'Any party can send spoofed webhook events. Set this before accepting live payments.'
     )
   }
+  // CTO-10: the retype-the-clinic-name step is demo-only. Off in production
+  // unless ONBOARDING_CONFIRM_NAME=on; any other value is a typo.
+  const confirmName = env.ONBOARDING_CONFIRM_NAME?.trim().toLowerCase()
+  if (confirmName && confirmName !== 'on' && confirmName !== 'off') {
+    warn('ONBOARDING_CONFIRM_NAME must be "on" or "off"; using the default for this environment')
+  }
   if (!env.ALERT_WEBHOOK_URL) {
-    warn('ALERT_WEBHOOK_URL is not set — security alerts go to the log stream only')
+    warn('ALERT_WEBHOOK_URL is not set: security alerts go to the log stream only')
   }
   return problems
 }
@@ -147,7 +153,7 @@ export const validateProductionEnv = (): void => {
 }
 
 /**
- * B0.1.3 — after the database connects: RLS only engages when the app role
+ * B0.1.3: after the database connects: RLS only engages when the app role
  * is neither superuser nor BYPASSRLS. Fatal in production.
  */
 export const validateDatabaseRole = (info: {
@@ -156,7 +162,7 @@ export const validateDatabaseRole = (info: {
   bypassRls: boolean
 }): void => {
   if (!info.superuser && !info.bypassRls) {
-    console.warn(`[db] connected as "${info.role}" — row-level security is enforced`)
+    console.warn(`[db] connected as "${info.role}"; row-level security is enforced`)
     return
   }
   const message =

@@ -1,5 +1,5 @@
 /**
- * Component 5 — LIVE front-end ↔ back-end check of Prescription → Cart (no
+ * Component 5: LIVE front-end ↔ back-end check of Prescription → Cart (no
  * mocks). Opt-in: runs only when E2E_LIVE_API is set, against a real backend
  * (Postgres with RLS + field encryption) and a frontend built with
  * NEXT_PUBLIC_API_URL pointing at it. Synthetic data from
@@ -66,7 +66,7 @@ test('provider: scribe detects products, provider maps + confirms, "Approve & se
   await expect(panel.getByText('Turmeric complex × 1')).toBeVisible()
 
   await panel.getByLabel('Map Turmeric complex to a product').selectOption({
-    label: 'Turmeric Curcumin — $18.00',
+    label: 'Turmeric Curcumin: $18.00',
   })
   await expect(panel.getByText('Turmeric Curcumin × 1')).toBeVisible()
 
@@ -90,8 +90,8 @@ test('patient: sees "Prescribed · Dr. X", accepts / declines, and (no card yet)
   await page.getByRole('button', { name: 'Accept Magnesium Glycinate' }).click()
   await page.getByRole('button', { name: 'Accept Turmeric Curcumin' }).click()
   await page.getByRole('button', { name: 'Decline Arnica Gel' }).click()
-  await expect(page.getByText('Declined — not charged')).toBeVisible()
-  // The scheduled Rx went to e-prescribe — it is not in the cart.
+  await expect(page.getByText('Declined, not charged')).toBeVisible()
+  // The scheduled Rx went to e-prescribe, it is not in the cart.
   await expect(page.getByText('Tramadol')).toHaveCount(0)
   // Magnesium 2 × $24 + turmeric $18 = $66; arnica declined.
   await expect(page.getByText('$66.00').first()).toBeVisible()

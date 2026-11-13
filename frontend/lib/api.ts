@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 /**
- * API client + token handling (F0.2.3 — see docs/FRONTEND_TOKEN_STORAGE.md).
+ * API client + token handling (F0.2.3: see docs/FRONTEND_TOKEN_STORAGE.md).
  *
  *  - The access token (15 min) lives in memory only: never localStorage /
  *    sessionStorage, so injected script cannot lift a long-lived copy.
@@ -10,7 +10,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
  *  - A 401 triggers ONE refresh for every request in flight (single-flight),
  *    then each failed request is replayed once. Across tabs, refreshes are
  *    serialised with the Web Locks API so two tabs never present the same
- *    (rotating) refresh token — the backend treats that as token theft.
+ *    (rotating) refresh token: the backend treats that as token theft.
  *  - Every request carries `X-MedoFlow-Client`; the API refuses refresh and
  *    logout without it (CSRF guard).
  */
@@ -24,7 +24,7 @@ if (typeof window !== 'undefined') {
   try {
     window.localStorage.removeItem(LEGACY_TOKEN_KEY)
   } catch {
-    // storage unavailable (private mode) — nothing to clean up
+    // storage unavailable (private mode): nothing to clean up
   }
 }
 

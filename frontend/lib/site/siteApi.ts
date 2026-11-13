@@ -198,7 +198,7 @@ export const siteApi = {
       body: file,
       credentials: 'omit',
     })
-    if (!put.ok) throw new Error('The upload did not complete — please try again')
+    if (!put.ok) throw new Error('The upload did not complete. Please try again')
     return data<SiteAsset>(api.post(`/site/assets/${intent.assetId}/complete`))
   },
   updateAssetAlt: (id: string, alt: string) =>

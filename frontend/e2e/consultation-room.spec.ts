@@ -1,5 +1,5 @@
 /**
- * Demo feedback WS2 — the provider's consultation room, in the browser:
+ * Demo feedback WS2: the provider's consultation room, in the browser:
  *  - the video and recording controls are both visible (side by side, not
  *    overlapping) before, during and after a call;
  *  - joining the call starts the recording when consent is granted, and the
@@ -41,6 +41,7 @@ window.JitsiMeetExternalAPI = function (domain, options) {
   this.executeCommand = function () {};
   this.dispose = function () { el.remove(); };
   window.__leaveCall = function () { handlers.readyToClose && handlers.readyToClose(); };
+  window.__fireCall = function (name, data) { handlers[name] && handlers[name](data); };
   setTimeout(function () { handlers.videoConferenceJoined && handlers.videoConferenceJoined({}); }, 50);
 };`
 
@@ -141,6 +142,10 @@ async function openRoom(page: Page, consentStatus: string): Promise<RoomState> {
       Object.assign(state, { aiScribeSessionId: SESSION_ID, status: 'PROCESSING' })
       return ok(route, { session: session(state), aiScribeSessionId: SESSION_ID })
     }
+    if (key === `POST /consultations/${CONSULT_ID}/video/auto-ended`) {
+      state.calls.push(key)
+      return ok(route, { sessionId: CONSULT_ID })
+    }
     if (key === `POST /consultations/${CONSULT_ID}/live-transcript`) {
       const seq = state.segments.length
       state.segments.push(req.postDataBuffer()?.length ?? 0)
@@ -236,4 +241,33 @@ test('ending the call from our controls hands the recording to the AI scribe', a
       `POST /consultations/${CONSULT_ID}/transcribe`,
     ])
   )
+})
+
+// CTO-35: left alone and silent, the call asks, then ends itself (audited)
+// and the recording is handed to the AI scribe like any other end of call.
+test('an idle call asks "Are you still there?", then ends and keeps the recording', async ({
+  page,
+}) => {
+  await page.clock.install()
+  const state = await openRoom(page, 'GRANTED')
+  await page.getByRole('button', { name: /start video call/i }).click()
+  await page.clock.runFor(1_000)
+  await expect(page.getByTestId('jitsi-stub')).toBeVisible()
+  await page.evaluate(() => {
+    const w = window as unknown as { __fireCall: (n: string, d?: unknown) => void }
+    w.__fireCall('participantJoined', { id: 'patient' })
+    w.__fireCall('participantLeft', { id: 'patient' })
+  })
+  await page.clock.runFor(61_000)
+  await expect(page.getByTestId('idle-call-prompt')).toContainText('Are you still there?')
+  await page.clock.runFor(31_000)
+  await expect(page.getByTestId('jitsi-stub')).toHaveCount(0)
+  await expect
+    .poll(() => state.calls)
+    .toEqual(
+      expect.arrayContaining([
+        `POST /consultations/${CONSULT_ID}/video/auto-ended`,
+        `POST /consultations/${CONSULT_ID}/recording/stop`,
+      ])
+    )
 })
