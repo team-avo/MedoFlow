@@ -84,8 +84,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * token, the user object and every cached query (no stale PHI is left for
    * the next person at this screen, F0.2.4). Then route to sign-in.
    */
+  // Why the current session is ending, set as soon as a sign-out starts. A
+  // sign-out makes in-flight or polling requests fail with 401; that failure
+  // is a consequence, so it must not replace the real reason (an idle
+  // sign-out would otherwise read "session expired"). Cleared by a new session.
+  const endingRef = useRef<SessionEndReason | null>(null)
+  useEffect(() => {
+    if (user) endingRef.current = null
+  }, [user])
+
   const endSessionLocally = useCallback(
     (reason: SessionEndReason, opts: { broadcast: boolean }) => {
+      if (reason === 'expired' && endingRef.current && endingRef.current !== 'expired') return
+      endingRef.current = reason
       setSessionEndReason(reason === 'user' ? null : reason)
       clearAccessToken()
       setUser(null)
@@ -189,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(
     async (reason: SessionEndReason = 'user') => {
+      endingRef.current = reason
       try {
         await api.post('/auth/logout')
       } catch {

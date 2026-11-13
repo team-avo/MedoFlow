@@ -166,6 +166,62 @@ describe('logout clears every cached query (F0.2.4)', () => {
       '/?auth=login&returnUrl=%2Fdashboard%2Fpatients&reason=idle'
     )
   })
+
+  // A poll (the notification bell) can 401 because the idle sign-out just
+  // ended the session; that must not turn "inactivity" into "expired".
+  const signedIn = async () => {
+    routes['POST /auth/refresh-token'] = () => ({
+      status: 200,
+      data: { data: { accessToken: 'r2' } },
+    })
+    renderProvider(new QueryClient())
+    await waitFor(() => expect(screen.getByTestId('who')).toHaveTextContent('staff@example.test'))
+    routes['POST /auth/refresh-token'] = () => ({ status: 401, data: { code: 'session_revoked' } })
+    routes['GET /notifications'] = () => ({ status: 401, data: { code: 'unauthorized' } })
+  }
+  const lastRedirect = () => replace.mock.calls.at(-1)?.[0] as string
+
+  it('idle sign-out keeps its reason when a poll 401s after it', async () => {
+    await signedIn()
+    await act(async () => {
+      await ctx.logout('idle')
+    })
+    await act(async () => {
+      await api.get('/notifications').catch(() => undefined)
+    })
+    expect(lastRedirect()).toBe('/?auth=login&returnUrl=%2Fdashboard%2Fpatients&reason=idle')
+  })
+
+  it('idle sign-out keeps its reason when a poll 401s while it is in flight', async () => {
+    await signedIn()
+    let releaseLogout!: () => void
+    routes['POST /auth/logout'] = () => ({ status: 200, data: {} })
+    const gate = new Promise<void>((r) => (releaseLogout = r))
+    const original = api.defaults.adapter as AxiosAdapter
+    api.defaults.adapter = async (c) => {
+      if (c.url?.endsWith('/auth/logout')) await gate
+      return original(c)
+    }
+    let pending!: Promise<void>
+    await act(async () => {
+      pending = ctx.logout('idle')
+      await api.get('/notifications').catch(() => undefined)
+    })
+    await act(async () => {
+      releaseLogout()
+      await pending
+    })
+    expect(lastRedirect()).toBe('/?auth=login&returnUrl=%2Fdashboard%2Fpatients&reason=idle')
+    expect(replace).not.toHaveBeenCalledWith(expect.stringContaining('reason=expired'))
+  })
+
+  it('a real expiry with no sign-out in progress still says expired', async () => {
+    await signedIn()
+    await act(async () => {
+      await api.get('/notifications').catch(() => undefined)
+    })
+    expect(lastRedirect()).toBe('/?auth=login&returnUrl=%2Fdashboard%2Fpatients&reason=expired')
+  })
 })
 
 describe('MFA sign-in (F0.2.2)', () => {
