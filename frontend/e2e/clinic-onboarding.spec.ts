@@ -318,6 +318,12 @@ test('a new clinic owner completes the application, then sets up while under rev
     'href',
     '/dashboard/services'
   )
+  // CTO-19: on a laptop screen, Quick setup leaves the day in view: the KPIs
+  // and today's appointments are visible without scrolling, and no dialog.
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByText('Total Revenue')).toBeInViewport()
+  await expect(page.getByTestId('today-appointments')).toBeInViewport()
 })
 
 test('changes requested: the owner sees the note and resubmits from the clinic profile', async ({
