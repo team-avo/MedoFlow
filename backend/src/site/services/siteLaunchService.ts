@@ -18,6 +18,7 @@ import { Queue, Worker, type Job } from 'bullmq'
 import prisma from '../../config/prisma'
 import { withTenantBypass } from '../../config/tenantContext'
 import { RESERVED_SITE_LABELS } from '../config'
+import { idleWorkerOptions, parseRedisUrl } from '../../queues/redisConnection'
 import { getPagesClient } from '../frontDoor/pagesClient'
 import * as auditService from '../../services/auditService'
 import { sendSiteLaunchFailedEmail } from '../../services/emailService'
@@ -52,15 +53,8 @@ let queue: Pick<Queue, 'add'> | null | undefined
 function getQueue(): Pick<Queue, 'add'> | null {
   if (queue !== undefined) return queue
   if (!process.env.REDIS_URL) return (queue = null)
-  const u = new URL(process.env.REDIS_URL)
   queue = new Queue(QUEUE_NAME, {
-    connection: {
-      host: u.hostname,
-      port: Number(u.port || 6379),
-      username: u.username || undefined,
-      password: u.password ? decodeURIComponent(u.password) : undefined,
-      ...(u.protocol === 'rediss:' ? { tls: { servername: u.hostname } } : {}),
-    },
+    connection: parseRedisUrl(process.env.REDIS_URL),
     defaultJobOptions: {
       attempts: SITE_LAUNCH_ATTEMPTS,
       backoff: { type: 'exponential', delay: 10_000 },
@@ -78,7 +72,6 @@ export function setSiteLaunchQueueForTests(q: Pick<Queue, 'add'> | null | undefi
 
 export function createSiteLaunchWorker() {
   if (!process.env.REDIS_URL) return null
-  const u = new URL(process.env.REDIS_URL)
   return new Worker(
     QUEUE_NAME,
     (job: Job<{ clinicId: string }>) =>
@@ -87,13 +80,9 @@ export function createSiteLaunchWorker() {
         final: job.attemptsMade + 1 >= SITE_LAUNCH_ATTEMPTS,
       }),
     {
-      connection: {
-        host: u.hostname,
-        port: Number(u.port || 6379),
-        username: u.username || undefined,
-        password: u.password ? decodeURIComponent(u.password) : undefined,
-        ...(u.protocol === 'rediss:' ? { tls: { servername: u.hostname } } : {}),
-      },
+      connection: parseRedisUrl(process.env.REDIS_URL),
+      // Idle polling is the whole Redis bill; see queues/redisConnection.ts.
+      ...idleWorkerOptions(),
     }
   )
 }

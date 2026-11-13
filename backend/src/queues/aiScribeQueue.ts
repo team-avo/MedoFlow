@@ -22,32 +22,7 @@ import { generateAnalysis, labelSpeakers, resolveBasePrompt } from '../services/
 import { getScribeAi, getScribeAiConfig, provenance } from '../services/ai/registry'
 import { isAiError, safeFailureMessage } from '../services/ai/errors'
 import { withTenantBypass } from '../config/tenantContext'
-
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379'
-
-const connection = {
-  host: process.env.REDIS_HOST || 'localhost',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-  password: process.env.REDIS_PASSWORD || undefined,
-}
-
-function parseRedisUrl(url: string) {
-  try {
-    const u = new URL(url)
-    return {
-      host: u.hostname,
-      port: parseInt(u.port || '6379', 10),
-      username: u.username || undefined,
-      password: u.password ? decodeURIComponent(u.password) : undefined,
-      // rediss:// → TLS in transit (B0.6.2)
-      ...(u.protocol === 'rediss:' ? { tls: { servername: u.hostname } } : {}),
-    }
-  } catch {
-    return connection
-  }
-}
-
-const redisConfig = process.env.REDIS_URL ? parseRedisUrl(REDIS_URL) : connection
+import { getRedisConnection, idleWorkerOptions } from './redisConnection'
 
 export const AI_SCRIBE_QUEUE_NAME = 'ai-scribe-processing'
 export const AI_SCRIBE_JOB_ATTEMPTS = 3
@@ -59,7 +34,7 @@ let _aiScribeQueue: Queue | null = null
 export function getAiScribeQueue(): Queue {
   if (!_aiScribeQueue) {
     _aiScribeQueue = new Queue(AI_SCRIBE_QUEUE_NAME, {
-      connection: redisConfig,
+      connection: getRedisConnection(),
       defaultJobOptions: {
         attempts: AI_SCRIBE_JOB_ATTEMPTS,
         backoff: { type: 'exponential', delay: 5000 },
@@ -314,8 +289,10 @@ export function createAiScribeWorker(): Worker<AiScribeJobData> {
     // still scoped by the job's sessionId + clinicId.
     async (job) => withTenantBypass('ai-scribe-worker', () => runScribeJob(job as Job & ScribeJob)),
     {
-      connection: redisConfig,
+      connection: getRedisConnection(),
       concurrency: 2,
+      // Idle polling is the whole Redis bill; see redisConnection.ts.
+      ...idleWorkerOptions(),
     }
   )
 

@@ -45,6 +45,10 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
     await aiScribeWorker.close()
     console.warn('AI Scribe worker closed.')
   }
+  if (siteLaunchWorker) {
+    await siteLaunchWorker.close()
+    console.warn('Site launch worker closed.')
+  }
   if (server) {
     server.close(() => {
       console.warn('HTTP server closed.')
@@ -78,6 +82,7 @@ process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'))
 process.on('SIGINT', () => void gracefulShutdown('SIGINT'))
 
 let aiScribeWorker: ReturnType<typeof createAiScribeWorker> | null = null
+let siteLaunchWorker: ReturnType<typeof createSiteLaunchWorker> = null
 
 const bootstrap = async (): Promise<void> => {
   // Every console.* line is PHI-scrubbed before it reaches the log drain (B0.3.5).
@@ -112,7 +117,8 @@ const bootstrap = async (): Promise<void> => {
   }
   // CTO-26: clinic addresses go live from a queue when Redis is there.
   try {
-    if (createSiteLaunchWorker()) console.warn('Site launch worker started')
+    siteLaunchWorker = createSiteLaunchWorker()
+    if (siteLaunchWorker) console.warn('Site launch worker started')
   } catch (err) {
     console.warn('Site launch worker not started:', err instanceof Error ? err.message : err)
   }
