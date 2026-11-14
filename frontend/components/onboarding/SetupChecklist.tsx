@@ -172,8 +172,9 @@ export function SetupChecklist({
         />
       </button>
 
-      {/* UI-12: a clear, always-visible "next step" affordance. */}
-      {next && (
+      {/* UI-12: when collapsed, still surface the single next step so a new clinic
+          knows what to do without expanding. Expanded, the list highlights it instead. */}
+      {collapsed && next && (
         <div className="border-t border-slate-100 px-3 py-2">
           <Link
             href={next.href}

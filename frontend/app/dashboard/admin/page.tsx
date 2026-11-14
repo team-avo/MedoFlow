@@ -131,7 +131,7 @@ function AdminDashboardContent() {
       {/* CTO-19 / UI-09: a compact Quick setup panel, collapsed by default so it
           never dominates the Command Center. It still shows the next step and
           expands on demand; the user's open/closed choice is remembered. */}
-      <SetupChecklist defaultCollapsed />
+      <SetupChecklist />
 
       <LaunchWebsiteModal
         open={generatorOpen}
