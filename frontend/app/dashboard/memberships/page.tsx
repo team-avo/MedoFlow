@@ -6,7 +6,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements } from '@stripe/react-stripe-js'
 import { Plus } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { AppButton } from '@/components/ui-system'
+import { AppButton, AppPageHeader, AppEmptyState, AppErrorState } from '@/components/ui-system'
 import { PageContainer } from '@/components/layout'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -37,7 +37,12 @@ export default function MembershipsPage() {
 
   const isPatient = user?.role === 'PATIENT'
 
-  const { data: memberships = [], isLoading } = useQuery({
+  const {
+    data: memberships = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['memberships'],
     queryFn: getMemberships,
   })
@@ -90,15 +95,18 @@ export default function MembershipsPage() {
 
   const renderAdminCatalog = () => (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Memberships</h1>
-        <AppButton
-          disabled
-          title="Membership catalog setup is managed by your account administrator."
-        >
-          <Plus className="mr-2 h-4 w-4" /> Add Membership
-        </AppButton>
-      </div>
+      <AppPageHeader
+        title="Memberships"
+        description="Live subscription activity. Membership catalog setup is managed by your account administrator."
+        actions={
+          <AppButton
+            disabled
+            title="Membership catalog setup is managed by your account administrator."
+          >
+            <Plus className="mr-2 h-4 w-4" /> Add Membership
+          </AppButton>
+        }
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -135,13 +143,13 @@ export default function MembershipsPage() {
         </Card>
       </div>
 
-      <div className="text-sm text-slate-600">
-        This view shows live subscription activity. Membership catalog setup is managed by your
-        account administrator.
-      </div>
-
       {isLoading ? (
         <LoadingSkeleton variant="card" count={4} />
+      ) : memberships.length === 0 ? (
+        <AppEmptyState
+          title="No memberships yet"
+          description="Membership catalog setup is managed by your account administrator."
+        />
       ) : (
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -164,11 +172,6 @@ export default function MembershipsPage() {
                 </CardContent>
               </Card>
             ))}
-            {memberships.length === 0 && (
-              <div className="col-span-full py-10 text-center text-muted-foreground">
-                No memberships found. Add one to get started.
-              </div>
-            )}
           </div>
 
           <Card>
@@ -205,13 +208,10 @@ export default function MembershipsPage() {
 
   const renderPatientMemberships = () => (
     <>
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Memberships</h1>
-        <p className="text-sm text-muted-foreground">
-          One active membership per clinic is supported. Membership discounts apply to service
-          bookings when no package session is used.
-        </p>
-      </div>
+      <AppPageHeader
+        title="Memberships"
+        description="One active membership per clinic is supported. Membership discounts apply to service bookings when no package session is used."
+      />
 
       {activeSubscription && (
         <Card className="border-primary/20 bg-primary/5">
@@ -311,6 +311,25 @@ export default function MembershipsPage() {
       </div>
     </>
   )
+
+  if (error) {
+    return (
+      <PageContainer className="space-y-8">
+        <AppPageHeader
+          title="Memberships"
+          description={
+            isPatient
+              ? 'One active membership per clinic is supported.'
+              : 'Live subscription activity.'
+          }
+        />
+        <AppErrorState
+          description="We couldn't load memberships. Please try again."
+          onRetry={() => void refetch()}
+        />
+      </PageContainer>
+    )
+  }
 
   return (
     <PageContainer className="space-y-8">

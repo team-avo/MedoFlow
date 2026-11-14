@@ -101,6 +101,20 @@ export function PractitionersForm({
     setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)))
   const setOwner = (i: number) =>
     setRows((prev) => prev.map((r, j) => ({ ...r, isOwner: j === i })))
+  // UI-11: reuse already-entered info when adding a practitioner. Prefill the
+  // fields a clinic's practitioners usually share (license state), from the
+  // most recently entered row, falling back to the practice's own license
+  // state. Personal fields (name, email, NPI) always stay blank.
+  const [reuseDetails, setReuseDetails] = React.useState(true)
+  const addPractitioner = (prefill: boolean) =>
+    setRows((prev) => {
+      if (!prefill) return [...prev, emptyPractitioner()]
+      const sharedLicenseState =
+        [...prev].reverse().find((r) => r.licenseState)?.licenseState ??
+        application?.profile?.licenseState ??
+        ''
+      return [...prev, { ...emptyPractitioner(), licenseState: sharedLicenseState }]
+    })
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
@@ -300,14 +314,34 @@ export function PractitionersForm({
         )
       })}
 
-      <button
-        type="button"
-        onClick={() => setRows((prev) => [...prev, emptyPractitioner()])}
-        disabled={rows.length >= 20}
-        className="inline-flex items-center gap-2 rounded-full border border-dashed border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
-      >
-        <Plus className="h-4 w-4" /> Add practitioner
-      </button>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <button
+          type="button"
+          onClick={() => addPractitioner(reuseDetails)}
+          disabled={rows.length >= 20}
+          className="inline-flex items-center gap-2 rounded-full border border-dashed border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+        >
+          <Plus className="h-4 w-4" /> Add practitioner
+        </button>
+        <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+          <input
+            type="checkbox"
+            checked={reuseDetails}
+            onChange={(ev) => setReuseDetails(ev.target.checked)}
+          />
+          Reuse the practice&apos;s details (license state)
+        </label>
+        {reuseDetails && (
+          <button
+            type="button"
+            onClick={() => addPractitioner(false)}
+            disabled={rows.length >= 20}
+            className="text-xs font-medium text-indigo-600 underline-offset-2 hover:underline disabled:opacity-50"
+          >
+            Add new (blank)
+          </button>
+        )}
+      </div>
 
       {show.list && (
         <p role="alert" className="text-sm text-rose-600">

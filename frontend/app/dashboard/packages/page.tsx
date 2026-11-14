@@ -8,8 +8,12 @@ import {
   AppCardHeader,
   AppCardTitle,
   AppButton,
+  AppPageHeader,
+  AppEmptyState,
+  AppErrorState,
 } from '@/components/ui-system'
 import { PageContainer } from '@/components/layout'
+import { BookingSetupSteps } from '@/components/dashboard/BookingSetupSteps'
 import { getPackageOperationalSummary, getPackages } from '@/lib/packageApi'
 import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
 
@@ -18,7 +22,12 @@ function formatMoney(value?: string | number | null) {
 }
 
 export default function PackagesPage() {
-  const { data: packages = [], isLoading } = useQuery({
+  const {
+    data: packages = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['packages'],
     queryFn: () => getPackages(true),
   })
@@ -30,12 +39,20 @@ export default function PackagesPage() {
 
   return (
     <PageContainer className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Packages</h1>
-        <AppButton disabled title="Package catalog setup is managed by your account administrator.">
-          <Plus className="mr-2 h-4 w-4" /> Add Package
-        </AppButton>
-      </div>
+      <AppPageHeader
+        title="Packages"
+        description="Live package catalog and patient package activity."
+        actions={
+          <AppButton
+            disabled
+            title="Package catalog setup is managed by your account administrator."
+          >
+            <Plus className="mr-2 h-4 w-4" /> Add Package
+          </AppButton>
+        }
+      />
+
+      <BookingSetupSteps />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AppCard>
@@ -79,6 +96,16 @@ export default function PackagesPage() {
 
       {isLoading ? (
         <LoadingSkeleton variant="card" count={4} />
+      ) : error ? (
+        <AppErrorState
+          description="We couldn't load the package catalog. Please try again."
+          onRetry={() => void refetch()}
+        />
+      ) : packages.length === 0 ? (
+        <AppEmptyState
+          title="No packages yet"
+          description="Package catalog setup is managed by your account administrator."
+        />
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {packages.map((pkg) => (
@@ -117,11 +144,6 @@ export default function PackagesPage() {
               </AppCardContent>
             </AppCard>
           ))}
-          {packages.length === 0 && (
-            <div className="col-span-full py-10 text-center text-muted-foreground">
-              No packages found. Add one to get started.
-            </div>
-          )}
         </div>
       )}
     </PageContainer>

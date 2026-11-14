@@ -2,18 +2,18 @@
 
 import { MfaSettings } from '@/components/auth/MfaSettings'
 import { useAuth } from '@/contexts/AuthContext'
+import { AppPageHeader } from '@/components/ui-system'
+import { PageContainer } from '@/components/layout'
 
 /** Account security for staff (F0.2.2): two-step verification and the session policy. */
 export default function SecuritySettingsPage() {
   const { idleTimeoutMinutes } = useAuth()
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Security</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Protect your account and the patient data it can open.
-        </p>
-      </div>
+    <PageContainer className="max-w-3xl space-y-6">
+      <AppPageHeader
+        title="Security"
+        description="Protect your account and the patient data it can open."
+      />
       <MfaSettings />
       <section
         aria-labelledby="session-policy-title"
@@ -27,6 +27,6 @@ export default function SecuritySettingsPage() {
           cleared. You get a one-minute warning first.
         </p>
       </section>
-    </div>
+    </PageContainer>
   )
 }
