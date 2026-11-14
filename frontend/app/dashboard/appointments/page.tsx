@@ -21,6 +21,7 @@ import {
   AppButton,
   AppPageHeader,
   AppEmptyState,
+  AppErrorState,
   AppTable,
   KPIStatCard,
   DateRangeFilter,
@@ -84,6 +85,7 @@ export default function AppointmentsPage() {
     data: appointments = [],
     isLoading,
     error,
+    refetch,
   } = useQuery({
     queryKey: ['appointments', user?.role, dateRangeOption],
     queryFn: async () => {
@@ -188,6 +190,13 @@ export default function AppointmentsPage() {
           {isLoading ? (
             <div className="p-6">
               <LoadingSkeleton variant="table" />
+            </div>
+          ) : error ? (
+            <div className="p-12">
+              <AppErrorState
+                description="We couldn't load the appointment registry. Please try again."
+                onRetry={() => void refetch()}
+              />
             </div>
           ) : appointments.length === 0 ? (
             <div className="p-12">

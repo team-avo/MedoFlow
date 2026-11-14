@@ -279,7 +279,10 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
       />
 
       {/* Navigation */}
-      <nav className="custom-scrollbar relative flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      <nav
+        aria-label="Primary"
+        className="custom-scrollbar relative flex-1 space-y-6 overflow-y-auto px-3 py-5"
+      >
         {sections.map((section, sIdx) => (
           <div
             key={section.title}
