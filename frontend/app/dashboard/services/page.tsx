@@ -34,6 +34,7 @@ import {
 } from '@/components/ui-system'
 import type { DateRangeOption, DateRange } from '@/components/ui-system/DateRangeFilter'
 import { PageContainer } from '@/components/layout'
+import { BookingSetupSteps } from '@/components/dashboard/BookingSetupSteps'
 import {
   Dialog,
   DialogContent,
@@ -370,6 +371,8 @@ export default function ServicesPage() {
           </div>
         }
       />
+
+      <BookingSetupSteps />
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <KPIStatCard

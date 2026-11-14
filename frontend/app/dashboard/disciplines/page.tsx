@@ -28,6 +28,7 @@ import {
   KPIStatCard,
 } from '@/components/ui-system'
 import { PageContainer } from '@/components/layout'
+import { BookingSetupSteps } from '@/components/dashboard/BookingSetupSteps'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Stethoscope, ClipboardList, Plus, Edit2, Trash2, Calendar } from 'lucide-react'
@@ -190,6 +191,8 @@ export default function DisciplinesPage() {
           </AppButton>
         }
       />
+
+      <BookingSetupSteps />
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <KPIStatCard

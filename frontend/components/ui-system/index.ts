@@ -1,6 +1,8 @@
 export { AppButton } from './AppButton'
 export { AppCard, AppCardHeader, AppCardTitle, AppCardContent, AppCardFooter } from './AppCard'
 export { AppInput } from './AppInput'
+export { AppSelect } from './AppSelect'
+export type { AppSelectOption, AppSelectProps } from './AppSelect'
 export { PasswordInput } from './PasswordInput'
 export { AppBadge } from './AppBadge'
 export { AppFormField } from './AppFormField'
