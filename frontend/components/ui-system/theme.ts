@@ -5,8 +5,8 @@
 
 export const theme = {
   colors: {
-    primary: '#0F172A',
-    accent: '#2563EB',
+    primary: '#1E3A5F', // navy — matches tailwind `primary` / console default
+    accent: '#0D9488', // teal — matches tailwind `accent`; the focus/selection colour
     success: '#16A34A',
     warning: '#F59E0B',
     danger: '#DC2626',
@@ -29,9 +29,9 @@ export const theme = {
     },
   },
   radius: {
-    lg: '24px',
-    md: '16px',
-    sm: '12px',
+    lg: '12px', // matches tailwind borderRadius.lg (0.75rem); used by inputs/cards
+    md: '10px',
+    sm: '8px',
   },
   spacing: {
     page: '1.5rem', // 24px = p-6
@@ -41,6 +41,6 @@ export const theme = {
   shadow: {
     card: '0 8px 30px rgb(0 0 0 / 0.04)',
   },
-} as const;
+} as const
 
-export type Theme = typeof theme;
+export type Theme = typeof theme
