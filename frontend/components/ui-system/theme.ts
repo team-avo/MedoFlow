@@ -5,8 +5,8 @@
 
 export const theme = {
   colors: {
-    primary: '#1E3A5F', // navy — matches tailwind `primary` / console default
-    accent: '#0D9488', // teal — matches tailwind `accent`; the focus/selection colour
+    primary: '#1E3A5F', // navy, matches tailwind primary / console default
+    accent: '#0D9488', // teal, matches tailwind accent; the focus/selection colour
     success: '#16A34A',
     warning: '#F59E0B',
     danger: '#DC2626',
