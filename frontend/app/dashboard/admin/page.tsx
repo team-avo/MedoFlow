@@ -128,8 +128,10 @@ function AdminDashboardContent() {
       {/* CTO-30: the owner-doctor's next appointment, with Start scribe. */}
       <StartingSoonCard />
 
-      {/* CTO-19: a compact, collapsible Quick setup panel; the tool comes first. */}
-      <SetupChecklist />
+      {/* CTO-19 / UI-09: a compact Quick setup panel, collapsed by default so it
+          never dominates the Command Center. It still shows the next step and
+          expands on demand; the user's open/closed choice is remembered. */}
+      <SetupChecklist defaultCollapsed />
 
       <LaunchWebsiteModal
         open={generatorOpen}
