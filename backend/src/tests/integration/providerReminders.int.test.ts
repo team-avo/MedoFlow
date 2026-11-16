@@ -54,7 +54,9 @@ describe('starting-soon reminders', () => {
       (x: { appointmentId: string }) => x.appointmentId === appt.id
     )
     expect(n.title).toMatch(/^Your \d{1,2}:\d{2} (AM|PM) appointment starts soon$/)
-    expect(n.link).toBe(`/dashboard/provider/appointments/${appt.id}/consultation?autostart=1`)
+    expect(n.link).toBe(
+      `/dashboard/provider/appointments/${appt.id}/consultation?autostart=1&from=reminder`
+    )
     // Nothing about the patient or the visit.
     const patient = await adminDb.user.findUniqueOrThrow({ where: { id: fx.users.patient.id } })
     expect(JSON.stringify(res.body)).not.toContain(patient.name)

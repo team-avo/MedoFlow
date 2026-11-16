@@ -19,8 +19,18 @@ import type { ApiError } from '../types/errors'
 import { lookupNpi, verdictFor, VERDICT_MESSAGE } from '../services/npiRegistryService'
 import { isValidNpi, normalizeNpi } from '../utils/practiceIds'
 import { npiLookupRateLimit } from '../middleware/rateLimit'
+import { trackUsage } from '../services/usageAnalytics/usageAnalytics'
 
 const router = Router()
+
+/** CTO-39: the NPI verdict as a usage outcome (never the NPI itself). */
+const NPI_OUTCOME: Record<ReturnType<typeof verdictFor>, string> = {
+  OK: 'verified',
+  WRONG_TYPE: 'mismatch',
+  DEACTIVATED: 'mismatch',
+  NOT_FOUND: 'not_found',
+  UNVERIFIED: 'unavailable',
+}
 
 /**
  * Onboarding is the clinic owner's job: only a SUPER_ADMIN of the clinic may
@@ -96,6 +106,7 @@ router.patch(
   asyncHandler(async (req, res) => {
     const clinicId = requireClinic(req.user?.clinicId)
     await onboardingService.updateBrand(clinicId, req.body as z.infer<typeof brandSchema.body>)
+    trackUsage('onboarding.brand_saved')
     const status = await onboardingService.getStatus(clinicId)
     successResponse(res, 200, 'Brand updated', status)
   })
@@ -148,6 +159,7 @@ router.get(
     const expect = req.query['expect'] === '2' ? 2 : 1
     const lookup = await lookupNpi(npi)
     const verdict = verdictFor(lookup, expect)
+    trackUsage('onboarding.npi_lookup', { outcome: NPI_OUTCOME[verdict] })
     successResponse(res, 200, 'NPI lookup', {
       lookup,
       verdict,

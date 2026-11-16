@@ -10,6 +10,7 @@
 
 import * as checkoutLinkService from './checkoutLinkService'
 import prisma from '../config/prisma'
+import { trackUsage } from './usageAnalytics/usageAnalytics'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
 import { AIScribeStatus, ConsentStatus, Prisma } from '@prisma/client'
@@ -559,6 +560,12 @@ export const approveDraft = async (
       meta
     )
   }
+
+  // CTO-39: one approval; the count is how many Rx lines the provider kept.
+  trackUsage('scribe.approved', {
+    sent_to_patient: send,
+    count: rx?.confirmedLineIds?.length ?? 0,
+  })
 
   // CTO-32/33: the patient gets the checkout link for what went into the cart.
   const cartLink = rxResult

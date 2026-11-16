@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
+import { trackUsage } from '../services/usageAnalytics/usageAnalytics'
 import * as staffService from '../services/staffService'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
@@ -64,6 +65,7 @@ export const createStaff = asyncHandler(
       const validatedData = providerCreateSchema.body.parse(req.body)
       const { createProvider } = await import('../services/providerService')
       const provider = await createProvider(validatedData, req.clinicId!, req.user!.id)
+      trackUsage('staff.invited', { source: 'PROVIDER' })
       successResponse(res, 201, 'Provider invited', { provider })
     } else {
       // All non-provider staff: works with both legacy roles and custom roles
@@ -73,6 +75,7 @@ export const createStaff = asyncHandler(
         req.clinicId!,
         req.user!.id
       )
+      trackUsage('staff.invited')
       successResponse(res, 201, 'Staff user invited', { user })
     }
   }

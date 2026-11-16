@@ -20,6 +20,11 @@ import fs from 'fs'
 import path from 'path'
 import { Prisma } from '@prisma/client'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  __drainUsageForTests,
+  __setUsageClientForTests,
+  type UsageClient,
+} from '../../services/usageAnalytics/usageAnalytics'
 import { adminDb, api, login, startServer, type TestServer } from './helpers'
 import { createClinicFixture, type ClinicFixture } from './fixtures'
 import * as rxCartService from '../../services/rxCartService'
@@ -364,6 +369,44 @@ describe('the pipeline (FR-3 … FR-7) and human in the loop (B2.3)', () => {
       token: aPatient,
     })
     expect(JSON.stringify(patientView.body)).not.toMatch(/fatigue|Vitamin D3|Provider:/i)
+  })
+
+  it('CTO-39: approving counts as scribe.approved, with no clinical content sent', async () => {
+    const captured: Parameters<UsageClient['capture']>[0][] = []
+    __setUsageClientForTests(
+      { capture: (m) => void captured.push(m), groupIdentify: () => {}, shutdown: async () => {} },
+      { env: 'it' }
+    )
+    try {
+      const { sessionId } = await draftedSession()
+      const ok = await api(server.url, `/ai-scribe/session/${sessionId}/approve`, {
+        token: aProvider,
+        body: {},
+      })
+      expect(ok.status).toBe(200)
+      await __drainUsageForTests()
+      const features = captured.map((c) => c.properties.feature)
+      expect(features).toEqual(
+        expect.arrayContaining([
+          'scribe.session_started',
+          'consult.consent',
+          'scribe.draft_generated',
+          'scribe.approved',
+          'consult.visit_finalized',
+        ])
+      )
+      const approved = captured.find((c) => c.properties.feature === 'scribe.approved')!
+      expect(approved.properties).toMatchObject({
+        role: 'PROVIDER',
+        clinic_id: A.clinicId,
+        sent_to_patient: false,
+        count: 0,
+      })
+      expect(JSON.stringify(captured)).not.toMatch(/fatigue|Vitamin|Provider:|Patient:/i)
+      expect(JSON.stringify(captured)).not.toContain(A.users.patient.id)
+    } finally {
+      __setUsageClientForTests(null)
+    }
   })
 
   it('a duplicate or late job for an approved session is a no-op', async () => {
