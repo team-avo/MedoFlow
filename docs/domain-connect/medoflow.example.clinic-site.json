@@ -1,0 +1,27 @@
+{
+  "providerId": "medoflow.example",
+  "providerName": "MedoFlow",
+  "serviceId": "clinic-site",
+  "serviceName": "MedoFlow clinic website",
+  "version": 1,
+  "description": "Points a clinic's sub-domain (for example www) at its MedoFlow website and proves the clinic owns it.",
+  "variableDescription": "target: the MedoFlow address the sub-domain must CNAME to (medoflow.pages.dev today). token: the ownership token MedoFlow shows the clinic.",
+  "hostRequired": true,
+  "syncPubKeyDomain": "medoflow.example",
+  "syncRedirectDomain": "medoflow.pages.dev",
+  "records": [
+    {
+      "type": "CNAME",
+      "host": "@",
+      "pointsTo": "%target%",
+      "ttl": 3600
+    },
+    {
+      "type": "TXT",
+      "host": "_medoflow-verify",
+      "data": "medoflow-verify=%token%",
+      "ttl": 3600,
+      "txtConflictMatchingMode": "All"
+    }
+  ]
+}

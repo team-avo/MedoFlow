@@ -8,6 +8,7 @@ import { purgeExpiredAuditLogs } from '../services/auditService'
 import { sendStartingSoonReminders } from '../services/providerReminderService'
 import { logError } from '../utils/errorLogger'
 import { withTenantBypass } from '../config/tenantContext'
+import { recheckDomains } from '../site/services/domainService'
 
 const INTERVAL_MS = 5 * 60 * 1000
 const MINUTE_MS = 60 * 1000
@@ -62,6 +63,20 @@ export const startCronJobs = (): void => {
       }
     })
   }, MINUTE_MS)
+
+  // CTO-38: clinic custom domains still connecting move on without anyone
+  // watching the screen; live ones are re-checked daily for DNS drift.
+  const domainTick = (live: boolean) =>
+    void withTenantBypass('cron:domain-recheck', async () => {
+      try {
+        const changed = await recheckDomains({ live })
+        if (changed > 0) process.stderr.write(`[Cron] Custom domains changed stage: ${changed}.\n`)
+      } catch (err) {
+        logError(err, { job: live ? 'domain-drift-check' : 'domain-recheck' })
+      }
+    })
+  setInterval(() => domainTick(false), INTERVAL_MS)
+  setInterval(() => domainTick(true), DAILY_MS)
 
   // Audit retention (B0.3.6): delete rows older than AUDIT_RETENTION_YEARS
   // (≥ 6). Runs over AUDIT_PURGE_DATABASE_URL; skipped when unset.

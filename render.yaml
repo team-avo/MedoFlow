@@ -66,6 +66,11 @@ services:
       #   SITE_CNAME_TARGET=sites.<root>  SITE_PREVIEW_SECRET (secret)
       #   SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL  (public R2 bucket)
       #   DOMAIN_PROVIDER=cloudflare + CF_API_TOKEN / CF_ZONE_ID (secrets)
+      # CTO-38, today (no domain owned): clinic custom domains on the Pages project
+      #   DOMAIN_PROVIDER=pages  SITE_CNAME_TARGET=medoflow.pages.dev
+      #   CF_PAGES_API_TOKEN (secret; Account · Cloudflare Pages · Edit) + CF_ACCOUNT_ID
+      #   (the same pair turns on CTO-26 auto-launch). Domain Connect: DOMAIN_CONNECT_*
+      #   (docs/domain-connect/README.md), only once a domain is owned.
       #   TRUST_PROXY=2 if api.<root> is proxied (orange cloud), else 1
       - key: CORS_ORIGIN
         value: https://medoflow-web.advertout-medoflow.workers.dev

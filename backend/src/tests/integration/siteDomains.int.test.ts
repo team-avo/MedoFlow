@@ -12,6 +12,8 @@ import {
   type DomainCheck,
 } from '../../site/domainProvider'
 import { invalidateHostCache } from '../../site/services/hostService'
+import { setDnsResolverForTests } from '../../site/domainProvider/diagnose'
+import { setHttpsProbeForTests } from '../../site/domainProvider/probe'
 
 let server: TestServer
 let A: ClinicFixture
@@ -46,8 +48,18 @@ const stub: DomainProvider = {
   remove: () => Promise.resolve(),
 }
 
+const nodata = () => Promise.reject(new Error('ENODATA'))
+
 beforeAll(async () => {
   setDomainProviderForTests(stub)
+  // CTO-38: zone detection and the HTTPS probe never leave the machine here.
+  setDnsResolverForTests({
+    resolveTxt: nodata,
+    resolveCname: nodata,
+    resolve4: nodata,
+    resolveNs: nodata,
+  })
+  setHttpsProbeForTests(() => Promise.resolve({ ok: true, detail: 'ok' }))
   server = await startServer()
   A = await createClinicFixture('dom-a')
   B = await createClinicFixture('dom-b')
@@ -64,6 +76,8 @@ beforeAll(async () => {
 })
 afterAll(async () => {
   setDomainProviderForTests(null)
+  setDnsResolverForTests(null)
+  setHttpsProbeForTests(null)
   invalidateHostCache()
   await server.close()
 })

@@ -88,6 +88,10 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
     if (domainProviderName(env) === 'cloudflare' && (!env.CF_API_TOKEN || !env.CF_ZONE_ID)) {
       fatal('DOMAIN_PROVIDER=cloudflare needs CF_API_TOKEN and CF_ZONE_ID')
     }
+    // CTO-38: clinic domains on the Cloudflare Pages project.
+    if (domainProviderName(env) === 'pages' && (!env.CF_PAGES_API_TOKEN || !env.CF_ACCOUNT_ID)) {
+      fatal('DOMAIN_PROVIDER=pages needs CF_PAGES_API_TOKEN and CF_ACCOUNT_ID')
+    }
   } catch (e) {
     fatal((e as Error).message)
   }

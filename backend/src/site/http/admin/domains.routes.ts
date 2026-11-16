@@ -55,6 +55,54 @@ router.post(
   })
 )
 
+// CTO-38: the Domains screen polls this while a domain connects (throttled server-side).
+router.get(
+  '/:id/status',
+  validateRequest({ params: idParam }),
+  asyncHandler(async (req, res) => {
+    successResponse(
+      res,
+      200,
+      'Domain status',
+      await domains.domainStatus(actorFrom(req), String(req.params.id))
+    )
+  })
+)
+
+// CTO-38: Domain Connect ("Connect automatically") availability and apply URL.
+router.get(
+  '/:id/connect',
+  validateRequest({ params: idParam }),
+  asyncHandler(async (req, res) => {
+    successResponse(
+      res,
+      200,
+      'Domain Connect',
+      await domains.domainConnectInfo(actorFrom(req), String(req.params.id))
+    )
+  })
+)
+
+router.post(
+  '/:id/connect/return',
+  validateRequest({
+    params: idParam,
+    body: z.object({
+      state: z.string().max(64),
+      error: z.string().max(64).optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const body = req.body as { state: string; error?: string }
+    successResponse(
+      res,
+      200,
+      'Domain checked',
+      await domains.domainConnectReturn(actorFrom(req), String(req.params.id), body)
+    )
+  })
+)
+
 router.post(
   '/:id/primary',
   validateRequest({ params: idParam }),
