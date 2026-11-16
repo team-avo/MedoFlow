@@ -216,21 +216,67 @@ test('SEO: title, canonical, JSON-LD and the sitemap on the clinic host', async 
   expect(internal.status()).toBe(404)
 })
 
-test('custom domain: DNS records, a failed check, then verified', async ({ page }) => {
+test('custom domain (CTO-38): guided records, then dns → verified → ssl → live with no clicks', async ({
+  page,
+}) => {
+  await page.clock.install()
   await asAdmin(page)
   await page.goto('/dashboard/site/domains')
   await expect(page.getByTestId('subdomain-url')).toHaveText('everwell.localhost')
   await page.getByLabel('Domain', { exact: true }).fill('www.everwell.example')
   await page.getByRole('button', { name: 'Add domain' }).click()
   const row = page.getByTestId('domain-www.everwell.example')
-  await expect(row.getByText('_medoflow-verify.www.everwell.example')).toBeVisible()
-  await expect(row.getByText('sites.localhost')).toBeVisible()
-  await row.getByRole('button', { name: 'Verify', exact: true }).click()
-  await expect(row.getByText(/TXT record not found yet/)).toBeVisible()
+
+  // Detected provider, its own steps, zone-relative hosts with copy buttons.
+  await expect(row.getByTestId('dns-guide')).toContainText(
+    'We detected GoDaddy manages DNS for everwell.example'
+  )
+  await expect(row.getByRole('link', { name: /Open GoDaddy DNS settings/ })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Copy www', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Copy _medoflow-verify.www' })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Copy medoflow.pages.dev' })).toBeVisible()
+
+  // First automatic check: nothing there yet, said in plain language per record.
+  await page.clock.runFor(11_000)
+  await expect(row.getByTestId('record-CNAME')).toContainText(
+    'No CNAME record for www.everwell.example yet'
+  )
+  await expect(row.getByTestId('step-dns')).toHaveAttribute('data-state', 'current')
+
+  // The clinic adds the records; the screen moves on by itself.
   state.domains.find((d) => d.hostname === 'www.everwell.example')!.dnsReady = true
-  await row.getByRole('button', { name: 'Verify', exact: true }).click()
-  await expect(row.getByText('Connected')).toBeVisible()
-  await expect(row.getByRole('button', { name: 'Make primary' })).toBeVisible()
+  for (const stage of ['verified', 'ssl'] as const) {
+    await page.clock.runFor(11_000)
+    await expect(row.getByTestId(`step-${stage}`)).toHaveAttribute('data-state', 'current')
+  }
+  await page.clock.runFor(11_000)
+  await expect(row.getByTestId('step-live')).toHaveAttribute('data-state', 'done')
+  await expect(row.getByText('HTTPS active')).toBeVisible()
+  const verifyCalls = state.calls.filter((c) => c.includes('/verify')).length
+  expect(verifyCalls).toBe(0)
+
+  // Live: it can be the primary address.
+  await row.getByRole('button', { name: 'Make primary' }).click()
+  await expect(row.getByText('Primary')).toBeVisible()
+})
+
+test('custom domain (CTO-38): "Connect automatically" goes to the DNS provider', async ({
+  page,
+}) => {
+  state.domainConnect = true
+  await asAdmin(page)
+  await page.goto('/dashboard/site/domains')
+  await page.getByLabel('Domain', { exact: true }).fill('www.everwell.example')
+  await page.getByRole('button', { name: 'Add domain' }).click()
+  const row = page.getByTestId('domain-www.everwell.example')
+  await expect(row.getByTestId('domain-connect')).toContainText(
+    'GoDaddy can add these records for you in one step'
+  )
+  await page.route('**/dc-apply**', (route) =>
+    route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>DNS provider</h1>' })
+  )
+  await row.getByRole('button', { name: 'Connect automatically' }).click()
+  await expect(page).toHaveURL(/\/dc-apply\?domain=www\.everwell\.example/)
 })
 
 test('contact form on the live site → the enquiries inbox', async ({ page }) => {
