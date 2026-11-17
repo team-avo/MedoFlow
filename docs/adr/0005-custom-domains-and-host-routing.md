@@ -106,6 +106,47 @@ The design has to hold for thousands of clinics, so adding a clinic must not mea
 - **No domain yet (2026-10-22).** MedoFlow owns no domain and has no budget. Until it does, the app is served from a free Pages front door (`medoflow.pages.dev`, which refuses TLS < 1.2) that hands requests to the Worker over a service binding. Clinic sites use `/s/<slug>`, optional per-clinic Pages branch hosts, or clinic-owned domains added to the Pages project (100 free). The host-routing design above is unchanged: `SITE_ROOT_DOMAIN=medoflow.pages.dev` works like any root domain. The wildcard route and Cloudflare for SaaS parts take effect once a domain is bought.
 - **Owner steps:** front door, environment cut-over and `check-domain-posture` now (setup guide Steps 1–10; walkthrough §6); zone, DNS, routes and Cloudflare for SaaS later, once a domain is bought.
 
+## Addendum (2026-11-17, CTO-38): `pages` provider and guided connect
+
+**Why:** with no domain owned, `DOMAIN_PROVIDER=manual` checks DNS but issues no certificate. A clinic domain that CNAMEs to `medoflow.pages.dev` without being added to the Pages project gets a Cloudflare 522. CTO-38 also asks for a Shopify / Wix style connect flow.
+
+**Decision:**
+
+1. **A third provider, `DOMAIN_PROVIDER=pages`.**
+   - Each clinic domain is added to the `medoflow` Pages project with the Pages custom-domains API (`POST/GET/PATCH/DELETE /accounts/:acct/pages/projects/:project/domains`).
+   - The clinic CNAMEs its host to `<project>.pages.dev`, and Cloudflare issues the certificate.
+   - The project's production front door hands the request to the app Worker, where `classifyHost` sees `site-custom` and serves the clinic's verified domain. No routing change was needed.
+   - It reuses `CF_PAGES_API_TOKEN` (Pages · Edit) and `CF_ACCOUNT_ID`. The limit is 100 domains per project on Free. Cloudflare's "limit reached" answer becomes `503 site_domain_capacity` plus an e-mail to the platform team.
+2. **Ownership stays ours.** The `_medoflow-verify` TXT must be present before a domain is `VERIFIED` under every provider, so a clinic can't claim a hostname it doesn't control.
+3. **Root domains are refused under `pages`.** Pages needs the zone on Cloudflare for an apex, so the API returns `422 site_domain_apex` and the UI offers "Add www.<domain> instead" plus provider-specific forwarding steps.
+4. **Stages.** `SiteDomain.stage` is `dns → verified → ssl → live` (or `error`).
+   - `live` needs an HTTPS probe of `/robots.txt` to pass: a valid certificate plus the Worker's HSTS header.
+   - Primary needs `live` (except under `manual`), so aliases never 301 to a broken HTTPS origin.
+5. **Checks run three ways:**
+   - the screen polls `GET /site/domains/:id/status`, throttled to one real check per 15 s;
+   - a cron re-checks domains still connecting every 5 minutes, and live ones daily;
+   - the owner presses **Check now**.
+
+   Background checks never downgrade a verified domain: drift is recorded and shown, and only a person can un-verify. Audit rows are written on stage changes only.
+
+6. **Diagnostics.**
+   - The zone is found from NS records (no public suffix list) and the DNS provider from the name servers.
+   - Each record gets a plain-language result: CNAME pointing elsewhere, an A record instead of a CNAME, a missing or wrong TXT, a Cloudflare-proxied record, and CAA records that block the CA.
+7. **Domain Connect** (synchronous flow) is built but dormant until `DOMAIN_CONNECT_PROVIDER_ID` is set and DNS providers onboard the template in `docs/domain-connect/`.
+   - Discovery fetches a host named in the clinic's own DNS, so it goes through an SSRF guard: https only, no IP literals, public addresses only, no redirects, a 5 s timeout and a 32 KB cap.
+   - Apply URLs are RS256-signed. The return carries an HMAC `state` bound to the domain.
+
+**Consequences:**
+
+- **+** Clinic domains get HTTPS today at no cost.
+- **+** Owners see what is wrong with each record, in their provider's words.
+- **−** No apex domains under `pages`.
+- **−** 100 domains per project on Free.
+- **−** Pages custom domains are Cloudflare-managed. The TLS minimum on external-DNS hostnames must be checked with `check-domain-posture` on a real domain (owner step).
+- **−** One-click connect waits on provider onboarding and a MedoFlow-owned domain for the signing key.
+
+Evidence: `backend/src/tests/domainDiagnose.test.ts`, `pagesDomainProvider.test.ts`, `domainConnect.test.ts`, `integration/siteDomainConnect.int.test.ts`; `frontend/tests/components/domainConnect.test.tsx`; `frontend/e2e/site-builder.spec.ts`. Walkthrough: `development-log-docs/cto-38-guided-domain-connect-WALKTHROUGH-AND-VERIFICATION.md`.
+
 ## Evidence
 
 - Unit:
