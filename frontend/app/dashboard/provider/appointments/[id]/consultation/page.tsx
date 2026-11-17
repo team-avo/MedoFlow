@@ -98,6 +98,14 @@ function statusColor(status: string): string {
 // Page
 // ---------------------------------------------------------------------------
 
+/** CTO-30/39: where this scribe was started from (`?from=`), for usage analytics. */
+const SCRIBE_ORIGINS = ['command_center', 'appointments_list', 'reminder']
+function scribeOrigin(): string | undefined {
+  if (typeof window === 'undefined') return undefined
+  const from = new URLSearchParams(window.location.search).get('from')
+  return from && SCRIBE_ORIGINS.includes(from) ? from : undefined
+}
+
 export default function ConsultationRoomPage() {
   const params = useParams()
   const router = useRouter()
@@ -320,7 +328,8 @@ export default function ConsultationRoomPage() {
     try {
       const updated = await startConsultationRecordingFlow({
         startBrowserCapture: () => recorder.startRecording(),
-        markRecordingStarted: () => consultationApi.startRecording(session.id),
+        markRecordingStarted: () =>
+          consultationApi.startRecording(session.id, undefined, scribeOrigin()),
         rollbackBrowserCapture: async () => {
           recorder.cancelRecording()
         },
@@ -359,7 +368,8 @@ export default function ConsultationRoomPage() {
       setError(null)
       const updated = await startConsultationRecordingFlow({
         startBrowserCapture: () => recorder.startRecording(),
-        markRecordingStarted: () => consultationApi.startRecording(session.id),
+        markRecordingStarted: () =>
+          consultationApi.startRecording(session.id, undefined, scribeOrigin()),
         rollbackBrowserCapture: async () => {
           recorder.cancelRecording()
         },

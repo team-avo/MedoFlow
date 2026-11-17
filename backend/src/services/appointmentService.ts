@@ -1,5 +1,6 @@
 import { confirmVirtualVisit } from './virtualVisitService'
 import prisma from '../config/prisma'
+import { trackUsage } from './usageAnalytics/usageAnalytics'
 import type { Request } from 'express'
 import type { ApiError } from '../types/errors'
 import {
@@ -728,6 +729,15 @@ export const createAppointment = async (
       if (appointment.mode === 'VIRTUAL' && appointment.status === 'CONFIRMED') {
         await withPatientSelfEnrollScope(clinicId, patientId, () =>
           confirmVirtualVisit(appointment.id, clinicId)
+        )
+      }
+      // CTO-39: count the booking (a reschedule counts as APPOINTMENT_RESCHEDULED).
+      if (!context?.rescheduleFromAppointmentId) {
+        const selfBooked = !performedById || performedById === patientId
+        trackUsage(
+          'appointment.created',
+          { source: bookingSource, mode: appointment.mode },
+          selfBooked ? { clinicId, userId: null, role: 'PATIENT' } : { clinicId }
         )
       }
       return { appointment, clientSecret }
@@ -1468,6 +1478,15 @@ export const updateAppointmentStatus = async (
       newValue: status,
       performedById,
     })
+  }
+
+  // CTO-39: completions and no-shows (scribe adoption = approvals / completions).
+  if (appointment.status !== status) {
+    if (status === AppointmentStatus.COMPLETED) {
+      trackUsage('appointment.completed', { mode: appointment.mode })
+    } else if (status === AppointmentStatus.NO_SHOW) {
+      trackUsage('appointment.no_show', { mode: appointment.mode })
+    }
   }
 
   if (

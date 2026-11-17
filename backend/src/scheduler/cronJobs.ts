@@ -6,6 +6,7 @@ import * as breakGlassService from '../services/breakGlassService'
 import * as fileService from '../services/fileService'
 import { purgeExpiredAuditLogs } from '../services/auditService'
 import { sendStartingSoonReminders } from '../services/providerReminderService'
+import { syncClinicGroups } from '../services/usageAnalytics/usageAnalytics'
 import { logError } from '../utils/errorLogger'
 import { withTenantBypass } from '../config/tenantContext'
 
@@ -74,4 +75,16 @@ export const startCronJobs = (): void => {
       })
       .catch((err) => logError(err, { job: 'audit-retention-purge' }))
   }, DAILY_MS)
+
+  // CTO-39: refresh PostHog clinic-group facts (plan, status, set-up
+  // progress) once shortly after boot, then daily. No-op when analytics is off.
+  const syncGroups = () => {
+    syncClinicGroups()
+      .then((n) => {
+        if (n) process.stderr.write(`[Cron] Usage analytics: refreshed ${n} clinic groups.\n`)
+      })
+      .catch((err) => logError(err, { job: 'usage-group-sync' }))
+  }
+  setTimeout(syncGroups, MINUTE_MS).unref()
+  setInterval(syncGroups, DAILY_MS)
 }

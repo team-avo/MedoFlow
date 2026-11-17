@@ -8,6 +8,12 @@ import { validateRequest } from '../middleware/validateRequest'
 import * as platformAdminService from '../services/platformAdminService'
 import * as clinicApplicationService from '../services/clinicApplicationService'
 import { reviewDecisionSchema, type ReviewDecisionInput } from '../validation/onboardingSchemas'
+import { logAudit, requestMeta } from '../services/auditService'
+import {
+  exportUsageCsv,
+  getUsageSummary,
+  parseUsageRange,
+} from '../services/usageAnalytics/usageQueryService'
 
 const router = Router()
 
@@ -103,6 +109,51 @@ router.post(
       }
     )
     successResponse(res, 200, 'Review recorded', result)
+  })
+)
+
+// ─── CTO-39: cross-clinic feature usage ──────────────────────────────────────
+
+/** Usage per feature over time, clinics per feature, least used. */
+router.get(
+  '/usage',
+  asyncHandler(async (req, res) => {
+    const summary = await getUsageSummary(parseUsageRange(req.query['days']))
+    successResponse(res, 200, 'Feature usage', summary)
+  })
+)
+
+/** Clinic × feature usage as CSV (tier planning, B12.3). Audited, ids only. */
+router.get(
+  '/usage/export.csv',
+  asyncHandler(async (req, res) => {
+    const days = parseUsageRange(req.query['days'])
+    const csv = await exportUsageCsv(days)
+    if (csv === null) {
+      res.status(404).json({
+        success: false,
+        message: 'Usage analytics is not configured',
+        code: 'usage_not_configured',
+      })
+      return
+    }
+    await logAudit({
+      clinicId: null,
+      entityType: 'Platform',
+      entityId: 'feature-usage',
+      action: 'USAGE_EXPORTED',
+      newValue: { days },
+      performedById: req.user!.id,
+      ...requestMeta(req),
+    })
+    const date = new Date().toISOString().slice(0, 10)
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="medoflow-feature-usage-${days}d-${date}.csv"`
+    )
+    res.setHeader('Cache-Control', 'no-store')
+    res.status(200).send(csv)
   })
 )
 

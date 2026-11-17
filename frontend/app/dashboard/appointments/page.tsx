@@ -269,7 +269,7 @@ export default function AppointmentsPage() {
                           className="rounded-full bg-brand font-bold text-brand-foreground hover:bg-brand-strong"
                           asChild
                         >
-                          <Link href={scribeHref(apt.id)}>
+                          <Link href={scribeHref(apt.id, 'appointments_list')}>
                             <Mic className="mr-1 h-3.5 w-3.5" />
                             Start scribe
                           </Link>

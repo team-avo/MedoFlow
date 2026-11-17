@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import * as inventoryService from '../services/inventoryService'
+import { trackUsage } from '../services/usageAnalytics/usageAnalytics'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 
@@ -30,6 +31,7 @@ export const adjust = asyncHandler(
       clinicId,
       req.body as inventoryService.AdjustInventoryInput
     )
+    trackUsage('inventory.adjusted')
     successResponse(res, 200, 'Inventory adjusted successfully', { inventoryItem })
   }
 )

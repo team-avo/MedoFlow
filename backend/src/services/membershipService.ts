@@ -1,4 +1,5 @@
 import prisma from '../config/prisma'
+import { trackUsage } from './usageAnalytics/usageAnalytics'
 import stripe from '../config/stripe'
 import { clinicScope } from '../config/tenantContext'
 import type { ApiError } from '../types/errors'
@@ -674,6 +675,12 @@ export const recordPaidSubscriptionInvoice = async (invoiceObject: PaidSubscript
           notes: `Membership invoice ${stripeInvoiceId}`,
         },
       })
+      // CTO-39: once per paid invoice (webhook retries find the payment row).
+      trackUsage(
+        'membership.purchased',
+        {},
+        { clinicId: subscription.clinicId, userId: null, role: 'PATIENT' }
+      )
     }
   }
 

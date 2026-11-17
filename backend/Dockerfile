@@ -24,8 +24,9 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate
 
-# Build TypeScript
-RUN npm run build
+# Build TypeScript. tsc needs about 2.7 GB for this codebase, above Node's
+# ~2 GB default heap on CI and Render builders, so it ran out of memory.
+RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build
 
 # --- Production Image ---
 FROM node:20-slim

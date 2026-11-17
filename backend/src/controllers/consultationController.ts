@@ -8,6 +8,7 @@ import { asyncHandler } from '../utils/asyncHandler'
 import type { ApiError } from '../types/errors'
 import * as auditService from '../services/auditService'
 import { logRead } from '../services/auditService'
+import { trackUsage } from '../services/usageAnalytics/usageAnalytics'
 import { Role } from '@prisma/client'
 
 // ---------------------------------------------------------------------------
@@ -178,6 +179,12 @@ export const startRecording = asyncHandler(
     const { providerId } = await providerScope(req)
     const sessionId = req.params.id as string
     const session = await consultationService.startRecording(sessionId, providerId, req.user!.id)
+    // CTO-39 / CTO-30: where the recording was started from. Only known
+    // values survive the usage allow-list; anything else is dropped.
+    const from = (req.body as { source?: unknown } | undefined)?.source
+    trackUsage('scribe.recording_started', {
+      source: typeof from === 'string' ? from : 'consult_room',
+    })
     successResponse(res, 200, 'Recording started', { session })
   }
 )

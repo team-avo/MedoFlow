@@ -40,9 +40,12 @@ export function canStartScribe(
   )
 }
 
+/** Where a scribe was started from; counted in usage analytics (CTO-39). */
+export type ScribeOrigin = 'command_center' | 'appointments_list' | 'reminder'
+
 /** The scribe entry point for a visit (CTO-30): straight into recording. */
-export const scribeHref = (appointmentId: string) =>
-  `/dashboard/provider/appointments/${appointmentId}/consultation?autostart=1`
+export const scribeHref = (appointmentId: string, from: ScribeOrigin = 'command_center') =>
+  `/dashboard/provider/appointments/${appointmentId}/consultation?autostart=1&from=${from}`
 
 /**
  * Command Center: today's appointments (CTO-19), with a Start scribe action on

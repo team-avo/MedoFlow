@@ -4,6 +4,7 @@ import { Prisma, PrismaClient } from '@prisma/client'
 import prisma from '../config/prisma'
 import { withTenantBypass } from '../config/tenantContext'
 import { recordRecordAccess } from './securityMonitorService'
+import { trackAuditAction } from './usageAnalytics/usageAnalytics'
 
 export type AuditSeverity = 'info' | 'warning' | 'critical'
 
@@ -62,6 +63,10 @@ export const logAudit = async (params: LogAuditParams): Promise<void> => {
 
   if (clinicId) await write()
   else await withTenantBypass('audit.unscoped_auth_event', write)
+
+  // CTO-39: count feature use. Reads only the action, entity type, clinic
+  // and actor id (never oldValue/newValue); fire and forget.
+  trackAuditAction({ action, entityType, clinicId, performedById })
 }
 
 /** Client IP + user agent for audit rows. */

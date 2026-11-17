@@ -164,9 +164,11 @@ export const videoAutoEnded = async (sessionId: string): Promise<void> => {
 /** POST /consultations/:id/recording/start */
 export const startRecording = async (
   sessionId: string,
-  clinicId?: string
+  clinicId?: string,
+  /** CTO-30/39: where the scribe was started from (usage analytics only). */
+  source?: string
 ): Promise<ConsultationSession> => {
-  const body = clinicId ? { clinicId } : {}
+  const body = { ...(clinicId ? { clinicId } : {}), ...(source ? { source } : {}) }
   const { data } = await api.post<ApiRes<{ session: ConsultationSession }>>(
     `/consultations/${sessionId}/recording/start`,
     body
