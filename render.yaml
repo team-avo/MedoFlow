@@ -125,6 +125,22 @@ services:
         sync: false
       - key: VIDEO_PHI_POLICY
         sync: false
+      # CTO-39 usage analytics (PostHog US Cloud, server-side, no PHI, no BAA).
+      # Off until POSTHOG_API_KEY is set; then USAGE_ANALYTICS_SALT
+      # (openssl rand -hex 32) is required, and production boot needs
+      # USAGE_ANALYTICS_POLICY=no-phi. The read keys enable /platform/usage.
+      - key: POSTHOG_API_KEY # Project API key, phc_…
+        sync: false
+      - key: USAGE_ANALYTICS_SALT
+        sync: false
+      - key: USAGE_ANALYTICS_POLICY
+        value: no-phi
+      - key: USAGE_ANALYTICS_ENV
+        value: demo
+      - key: POSTHOG_PROJECT_ID
+        sync: false
+      - key: POSTHOG_PERSONAL_API_KEY # Personal key, Query: Read only, phx_…
+        sync: false
       # R2 (S3-compatible) file storage: required in production (B3.1: patient
       # files are only reached through presigned URLs; boot refuses local disk).
       - key: S3_SSE # R2 always encrypts at rest and rejects the SSE header

@@ -1,6 +1,7 @@
 import { google } from 'googleapis'
 import crypto from 'crypto'
 import prisma from '../config/prisma'
+import { trackUsage } from './usageAnalytics/usageAnalytics'
 import type { ApiError } from '../types/errors'
 import * as aiScribeService from './aiScribeService'
 import * as visitService from './visitService'
@@ -127,6 +128,7 @@ export const connectGoogleCalendar = async (
     },
   })
 
+  trackUsage('calendar.google_connected')
   return connection
 }
 

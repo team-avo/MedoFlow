@@ -7,6 +7,7 @@ import { startCronJobs } from './scheduler/cronJobs'
 import { createAiScribeWorker } from './queues/aiScribeQueue'
 import { createSiteLaunchWorker } from './site/services/siteLaunchService'
 import { initFieldEncryption } from './config/fieldKeys'
+import { shutdownUsageAnalytics } from './services/usageAnalytics/usageAnalytics'
 import type { Server } from 'http'
 
 const PORT = process.env.PORT || 3000
@@ -49,6 +50,8 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
     await siteLaunchWorker.close()
     console.warn('Site launch worker closed.')
   }
+  // CTO-39: send any queued usage events before exiting.
+  await shutdownUsageAnalytics()
   if (server) {
     server.close(() => {
       console.warn('HTTP server closed.')

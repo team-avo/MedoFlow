@@ -3,13 +3,17 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Building2, Users, ShieldAlert } from 'lucide-react'
+import { BarChart3, Building2, Users, ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { LoadingSkeleton } from '@/components/ui-system'
 import { cn } from '@/lib/utils'
 import { platformRedirect } from '@/lib/routeGuards'
 
-const NAV = [{ href: '/platform/clinics', label: 'Clinics', icon: Users }] as const
+const NAV = [
+  { href: '/platform/clinics', label: 'Clinics', icon: Users },
+  // CTO-39: cross-clinic feature usage.
+  { href: '/platform/usage', label: 'Usage', icon: BarChart3 },
+] as const
 
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()

@@ -1,6 +1,7 @@
 import * as argon2 from 'argon2'
 import type { Request, Response, NextFunction } from 'express'
 import prisma from '../config/prisma'
+import { trackUsage } from '../services/usageAnalytics/usageAnalytics'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 import * as authService from '../services/authService'
@@ -203,6 +204,22 @@ const issueSessionAndRespond = async (
     req,
     details: { sessionId: session.id },
   })
+
+  // CTO-39: a sign-in (not a cross-domain handoff). Patients count per clinic,
+  // staff by hashed id; the role is known here even though the request is
+  // not yet authenticated.
+  if (!opts.handoff) {
+    trackUsage(
+      'auth.login',
+      {},
+      {
+        clinicId: user.clinicId,
+        userId: user.role === 'PATIENT' ? null : user.id,
+        role: user.role,
+        tenantId: null,
+      }
+    )
+  }
 
   successResponse(res, 200, opts.message, {
     accessToken,

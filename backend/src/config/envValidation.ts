@@ -8,6 +8,7 @@ import { patientFilesBucket } from '../services/fileStorage'
 import { domainProviderName } from '../site/config'
 import { scribeEgressProblems } from '../services/ai/egressPolicy'
 import { videoConfigProblems } from '../services/jaasService'
+import { usageAnalyticsConfigProblems } from '../services/usageAnalytics/config'
 
 /**
  * Configuration problems found at boot. `fatal` entries stop a production
@@ -118,6 +119,10 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   // Video consultations (8x8 JaaS) carry PHI: complete config, and a BAA
   // decision in production.
   for (const p of videoConfigProblems(env)) problems.push(p)
+
+  // CTO-39: usage analytics goes to PostHog without a BAA, so it must be
+  // declared no-PHI and must hash staff ids.
+  for (const p of usageAnalyticsConfigProblems(env)) problems.push(p)
 
   if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
     warn('STRIPE_SECRET_KEY is not set: Stripe payment features will not function')

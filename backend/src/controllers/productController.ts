@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express'
 import * as productService from '../services/productService'
+import { trackUsage } from '../services/usageAnalytics/usageAnalytics'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
 
@@ -27,6 +28,7 @@ export const create = asyncHandler(
       clinicId,
       req.body as productService.CreateProductInput
     )
+    trackUsage('product.created')
     successResponse(res, 201, 'Product created successfully', { product })
   }
 )

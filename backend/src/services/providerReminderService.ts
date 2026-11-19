@@ -49,7 +49,7 @@ export function reminderPayload(appt: {
     userId: appt.providerUserId,
     kind: STARTING_SOON_KIND,
     title: `Your ${localTime(appt.startTime, appt.timezone)} appointment starts soon`,
-    link: `/dashboard/provider/appointments/${appt.id}/consultation?autostart=1`,
+    link: `/dashboard/provider/appointments/${appt.id}/consultation?autostart=1&from=reminder`,
     appointmentId: appt.id,
     startsAt: appt.startTime,
   }
