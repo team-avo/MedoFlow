@@ -15,12 +15,24 @@ export type FulfillmentClass =
   | 'RX_NON_SCHEDULED'
   | 'RX_SCHEDULED'
 
+/** The classes a person can pick (forms and import preview). */
 export const FULFILLMENT_CLASS_LABELS: Record<FulfillmentClass, string> = {
   SUPPLEMENT: 'Supplement',
   OTC: 'Over the counter',
   AESTHETIC: 'Aesthetic',
   RX_NON_SCHEDULED: 'Prescription (non-scheduled)',
   RX_SCHEDULED: 'Prescription (scheduled)',
+}
+
+/**
+ * A stored product's class. CTO-40: an imported product is UNCLASSIFIED (not
+ * sold anywhere) until someone picks one of the classes above.
+ */
+export type ProductClass = FulfillmentClass | 'UNCLASSIFIED'
+
+export const PRODUCT_CLASS_LABELS: Record<ProductClass, string> = {
+  ...FULFILLMENT_CLASS_LABELS,
+  UNCLASSIFIED: 'Needs classification',
 }
 
 export type RxRoute = 'CART' | 'EPRESCRIBE' | 'MANUAL'

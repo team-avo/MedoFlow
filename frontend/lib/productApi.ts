@@ -1,5 +1,5 @@
 import api from './api'
-import type { FulfillmentClass } from './rxCartApi'
+import type { FulfillmentClass, ProductClass } from './rxCartApi'
 
 export interface Product {
   id: string
@@ -7,11 +7,16 @@ export interface Product {
   description?: string
   sku?: string
   price: string | number
-  fulfillmentClass?: FulfillmentClass
+  fulfillmentClass?: ProductClass
   aliases?: string[]
   inventoryItem?: {
     quantityInStock: number
   }
+  /** CTO-40: product photo (imported or uploaded). */
+  imageUrl?: string | null
+  /** CTO-40: where an imported product came from (SHOPIFY, SQUARE, WOOCOMMERCE, WIX, CSV). */
+  externalSource?: string | null
+  externalSyncedAt?: string | null
 }
 
 export interface CreateProductPayload {

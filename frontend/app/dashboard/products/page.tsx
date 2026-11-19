@@ -13,17 +13,22 @@ import {
 } from '@/components/ui-system'
 import { PageContainer } from '@/components/layout'
 import { getProducts, type Product } from '@/lib/productApi'
-import { Plus, Package, ShoppingCart } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Plus, Package, Download } from 'lucide-react'
 import { AddProductModal } from '@/components/products/AddProductModal'
 import { StockControl } from '@/components/products/StockControl'
 import { useAuth } from '@/contexts/AuthContext'
-import { FULFILLMENT_CLASS_LABELS } from '@/lib/rxCartApi'
+import { PRODUCT_CLASS_LABELS } from '@/lib/rxCartApi'
+import { ClassifyControl } from '@/components/products/ClassifyControl'
+import { PROVIDER_LABELS, type StoreProvider } from '@/lib/catalogImportApi'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const { user } = useAuth()
+  const router = useRouter()
   const canAdjust = user?.role === 'SUPER_ADMIN'
+  const canImport = user?.role === 'SUPER_ADMIN' || user?.role === 'STAFF'
 
   const {
     data: products = [],
@@ -40,9 +45,20 @@ export default function ProductsPage() {
         title="Products Catalog"
         description="Manage clinical supplements, wellness products, and retail inventory."
         actions={
-          <AppButton onClick={() => setIsModalOpen(true)} className="rounded-full shadow-md px-6">
-            <Plus className="mr-2 h-4 w-4" /> Add Product
-          </AppButton>
+          <div className="flex flex-wrap gap-2">
+            {canImport && (
+              <AppButton
+                variant="outline"
+                className="rounded-full px-6"
+                onClick={() => router.push('/dashboard/products/import')}
+              >
+                <Download className="mr-2 h-4 w-4" /> Import products
+              </AppButton>
+            )}
+            <AppButton onClick={() => setIsModalOpen(true)} className="rounded-full shadow-md px-6">
+              <Plus className="mr-2 h-4 w-4" /> Add Product
+            </AppButton>
+          </div>
         }
       />
 
@@ -61,7 +77,7 @@ export default function ProductsPage() {
       ) : products.length === 0 ? (
         <AppEmptyState
           title="No products yet"
-          description="Your clinical store is currently empty. Add your first product to start selling."
+          description="Your clinical store is currently empty. Add your first product, or import your catalog from Shopify, Square, WooCommerce, Wix or a spreadsheet."
           actionLabel="Add First Product"
           onAction={() => setIsModalOpen(true)}
           className="py-24"
@@ -79,22 +95,46 @@ export default function ProductsPage() {
                     <AppCardTitle className="text-lg font-bold text-slate-900 leading-tight">
                       {product.name}
                     </AppCardTitle>
-                    {product.fulfillmentClass && (
-                      <span
-                        className={cn(
-                          'mt-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                          product.fulfillmentClass.startsWith('RX_')
-                            ? 'bg-violet-100 text-violet-800'
-                            : 'bg-slate-100 text-slate-700'
-                        )}
-                      >
-                        {FULFILLMENT_CLASS_LABELS[product.fulfillmentClass]}
-                      </span>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {product.fulfillmentClass && product.fulfillmentClass !== 'UNCLASSIFIED' && (
+                        <span
+                          className={cn(
+                            'inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold',
+                            product.fulfillmentClass.startsWith('RX_')
+                              ? 'bg-violet-100 text-violet-800'
+                              : 'bg-slate-100 text-slate-700'
+                          )}
+                        >
+                          {PRODUCT_CLASS_LABELS[product.fulfillmentClass]}
+                        </span>
+                      )}
+                      {product.externalSource && (
+                        <span className="inline-block rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-800">
+                          {`From ${PROVIDER_LABELS[product.externalSource as StoreProvider] ?? 'a file'}`}
+                        </span>
+                      )}
+                    </div>
+                    {product.fulfillmentClass === 'UNCLASSIFIED' && (
+                      <ClassifyControl
+                        productId={product.id}
+                        productName={product.name}
+                        canEdit={canAdjust}
+                      />
                     )}
                   </div>
-                  <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
-                    <Package className="h-4 w-4 text-primary-600" />
-                  </div>
+                  {product.imageUrl ? (
+                    // Clinic-hosted photo (SiteAsset); plain img keeps any host working.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={product.imageUrl}
+                      alt=""
+                      className="h-14 w-14 shrink-0 rounded-xl border border-slate-100 bg-white object-cover"
+                    />
+                  ) : (
+                    <div className="p-2 bg-white rounded-xl shadow-sm border border-slate-100">
+                      <Package className="h-4 w-4 text-primary-600" />
+                    </div>
+                  )}
                 </div>
               </AppCardHeader>
               <AppCardContent className="p-6">

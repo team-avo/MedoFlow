@@ -100,6 +100,10 @@ const SUPER_ADMIN_ONLY_PREFIXES = [
   '/dashboard/staff',
   '/dashboard/locations',
   '/dashboard/clinic',
+  // CTO-40: catalog import and store connections (the API also lets staff
+  // holding products.manage in).
+  '/dashboard/products/import',
+  '/dashboard/settings/integrations',
 ]
 
 const matches = (pathname: string, prefix: string) =>
