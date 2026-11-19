@@ -50,6 +50,8 @@ interface MockDomain {
   status: 'PENDING' | 'VERIFIED' | 'FAILED'
   isPrimary: boolean
   dnsReady: boolean
+  /** CTO-38: dns → verified → ssl → live; each status poll moves one step once DNS is ready. */
+  stage?: 'dns' | 'verified' | 'ssl' | 'live'
 }
 
 export interface SiteState {
@@ -59,6 +61,8 @@ export interface SiteState {
   publishedAt: string | null
   pages: MockPage[]
   domains: MockDomain[]
+  /** CTO-38: the DNS provider supports Domain Connect for MedoFlow's template. */
+  domainConnect: boolean
   leads: {
     id: string
     name: string
@@ -401,31 +405,73 @@ function publishPage(p: MockPage) {
   })
 }
 
-const domainView = (d: MockDomain) => ({
-  id: d.id,
-  kind: d.kind,
-  hostname: d.hostname,
-  status: d.status,
-  isPrimary: d.isPrimary,
-  sslStatus: d.status === 'VERIFIED' ? 'active' : null,
-  lastError:
-    d.status === 'FAILED' ? 'TXT record not found yet (DNS changes can take up to an hour)' : null,
-  lastCheckedAt: null,
-  verifiedAt: null,
-  url: d.kind === 'SUBDOMAIN' ? `http://${d.hostname}:4310` : `https://${d.hostname}`,
-  records:
-    d.kind === 'CUSTOM'
-      ? [
-          { type: 'CNAME', name: d.hostname, value: 'sites.localhost', purpose: 'routing' },
-          {
-            type: 'TXT',
-            name: `_medoflow-verify.${d.hostname}`,
-            value: 'medoflow-verify=e2etoken',
-            purpose: 'ownership',
-          },
-        ]
-      : [],
-})
+const domainStage = (d: MockDomain) => (d.kind === 'SUBDOMAIN' ? 'live' : (d.stage ?? 'dns'))
+
+const domainView = (d: MockDomain) => {
+  const stage = domainStage(d)
+  const zone = d.hostname.split('.').slice(-2).join('.')
+  const host = d.hostname.slice(0, -(zone.length + 1)) || '@'
+  return {
+    id: d.id,
+    kind: d.kind,
+    hostname: d.hostname,
+    status: d.status,
+    stage,
+    isPrimary: d.isPrimary,
+    sslStatus: stage === 'ssl' || stage === 'live' ? 'active' : null,
+    lastError:
+      d.kind === 'CUSTOM' && stage === 'dns' && d.status === 'FAILED'
+        ? 'TXT record _medoflow-verify.' +
+          d.hostname +
+          ' not found yet (DNS changes can take up to an hour)'
+        : null,
+    lastCheckedAt: null,
+    verifiedAt: null,
+    zone: d.kind === 'CUSTOM' ? zone : null,
+    dnsProvider: d.kind === 'CUSTOM' ? { key: 'godaddy', name: 'GoDaddy' } : null,
+    checks:
+      d.kind === 'CUSTOM' && d.status === 'FAILED'
+        ? [
+            {
+              type: 'CNAME',
+              name: d.hostname,
+              purpose: 'routing',
+              ok: false,
+              found: [],
+              message: `No CNAME record for ${d.hostname} yet. Add a CNAME pointing to medoflow.pages.dev`,
+            },
+            {
+              type: 'TXT',
+              name: `_medoflow-verify.${d.hostname}`,
+              purpose: 'ownership',
+              ok: false,
+              found: [],
+              message: `TXT record _medoflow-verify.${d.hostname} not found yet (DNS changes can take up to an hour)`,
+            },
+          ]
+        : [],
+    url: d.kind === 'SUBDOMAIN' ? `http://${d.hostname}:4310` : `https://${d.hostname}`,
+    records:
+      d.kind === 'CUSTOM'
+        ? [
+            {
+              type: 'CNAME',
+              name: d.hostname,
+              host,
+              value: 'medoflow.pages.dev',
+              purpose: 'routing',
+            },
+            {
+              type: 'TXT',
+              name: `_medoflow-verify.${d.hostname}`,
+              host: `_medoflow-verify.${host}`,
+              value: 'medoflow-verify=e2etoken',
+              purpose: 'ownership',
+            },
+          ]
+        : [],
+  }
+}
 
 export function newSiteState(): SiteState {
   return {
@@ -445,6 +491,7 @@ export function newSiteState(): SiteState {
       },
     ],
     leads: [],
+    domainConnect: false,
     plan: { maxPages: 8, maxCustomDomains: 1, canRemoveBadge: false, maxAssets: 40 },
     calls: [],
     ssrCalls: [],
@@ -665,7 +712,36 @@ export async function installSiteMock(page: Page, s: SiteState) {
       if ((m = /^\/site\/domains\/([a-z0-9-]+)\/verify$/.exec(path))) {
         const d = s.domains.find((x) => x.id === m![1])!
         d.status = d.dnsReady ? 'VERIFIED' : 'FAILED'
+        if (d.dnsReady && domainStage(d) === 'dns') d.stage = 'verified'
         return ok(route, domainView(d))
+      }
+      // CTO-38: the screen polls; once DNS is ready each poll moves one stage.
+      if (method === 'GET' && (m = /^\/site\/domains\/([a-z0-9-]+)\/status$/.exec(path))) {
+        const d = s.domains.find((x) => x.id === m![1])!
+        if (!d.dnsReady) d.status = 'FAILED'
+        else {
+          d.status = 'VERIFIED'
+          const next = { dns: 'verified', verified: 'ssl', ssl: 'live', live: 'live' } as const
+          d.stage = next[domainStage(d)]
+        }
+        return ok(route, domainView(d))
+      }
+      if (method === 'GET' && (m = /^\/site\/domains\/([a-z0-9-]+)\/connect$/.exec(path))) {
+        const d = s.domains.find((x) => x.id === m![1])!
+        return ok(
+          route,
+          s.domainConnect
+            ? {
+                available: true,
+                providerName: 'GoDaddy',
+                url: `http://localhost:4310/dc-apply?domain=${encodeURIComponent(d.hostname)}`,
+              }
+            : { available: false, reason: 'not_configured' }
+        )
+      }
+      if ((m = /^\/site\/domains\/([a-z0-9-]+)\/primary$/.exec(path))) {
+        for (const x of s.domains) x.isPrimary = x.id === m[1]
+        return ok(route, { rootDomain: 'localhost', domains: s.domains.map(domainView) })
       }
       if (method === 'GET' && path === '/site/assets') return ok(route, { items: [] })
       if (method === 'POST' && path === '/public/sites/leads') {

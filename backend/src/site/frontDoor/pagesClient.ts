@@ -12,8 +12,9 @@
  * Least privilege: CF_PAGES_API_TOKEN needs only Account · Cloudflare Pages ·
  * Edit, and never leaves the server. Requests time out after 15 s.
  */
-const API = 'https://api.cloudflare.com/client/v4'
-const TIMEOUT_MS = 15_000
+import { cfCall, pagesConfig, projectPath, type FetchLike, type PagesConfig } from './cfApi'
+
+export { pagesConfig, PagesError, type PagesConfig } from './cfApi'
 
 /** The worker every clinic branch serves (advanced mode `_worker.js`). */
 export const FRONT_DOOR_WORKER = `// MedoFlow front door: pass every request to the app unchanged.
@@ -21,57 +22,18 @@ export default { fetch: (request, env) => env.APP.fetch(request) }
 `
 export const FRONT_DOOR_ROUTES = '{ "version": 1, "include": ["/*"], "exclude": [] }'
 
-export interface PagesConfig {
-  token: string
-  accountId: string
-  project: string
-}
-
-export function pagesConfig(env: NodeJS.ProcessEnv = process.env): PagesConfig | null {
-  const token = env.CF_PAGES_API_TOKEN?.trim()
-  const accountId = env.CF_ACCOUNT_ID?.trim()
-  if (!token || !accountId) return null
-  return { token, accountId, project: env.CF_PAGES_PROJECT?.trim() || 'medoflow' }
-}
-
-type FetchLike = typeof fetch
-
-export class PagesError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number
-  ) {
-    super(message)
-  }
-}
-
 export class PagesClient {
   constructor(
     private readonly cfg: PagesConfig,
     private readonly fetchImpl: FetchLike = fetch
   ) {}
 
-  private async call<T>(path: string, init: RequestInit): Promise<T> {
-    const res = await this.fetchImpl(`${API}${path}`, {
-      ...init,
-      headers: { authorization: `Bearer ${this.cfg.token}`, ...(init.headers ?? {}) },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-    const body = (await res.json().catch(() => null)) as {
-      success?: boolean
-      result?: T
-      errors?: Array<{ message?: string }>
-    } | null
-    if (!res.ok || !body?.success) {
-      // Cloudflare's own message only: never the token or the request.
-      const msg = body?.errors?.[0]?.message ?? `Cloudflare answered ${res.status}`
-      throw new PagesError(msg.slice(0, 200), res.status)
-    }
-    return body.result as T
+  private call<T>(path: string, init: RequestInit): Promise<T> {
+    return cfCall<T>(this.cfg, path, init, this.fetchImpl)
   }
 
   private projectPath() {
-    return `/accounts/${encodeURIComponent(this.cfg.accountId)}/pages/projects/${encodeURIComponent(this.cfg.project)}`
+    return projectPath(this.cfg)
   }
 
   /** Deploys the front door to branch `label`. Returns the deployment id and address. */

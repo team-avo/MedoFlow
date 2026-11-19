@@ -8,6 +8,7 @@
  *                       "*.workers.dev" style suffix patterns allowed
  *   SITE_CNAME_TARGET   what a clinic's custom domain must CNAME to
  *   DOMAIN_PROVIDER     manual (DNS TXT check) | cloudflare (Cloudflare for SaaS)
+ *                       | pages (Cloudflare Pages custom domains, CTO-38)
  *   SITE_PREVIEW_SECRET HMAC key for draft-preview links
  */
 import crypto from 'crypto'
@@ -58,18 +59,31 @@ export const RESERVED_SITE_LABELS: ReadonlySet<string> = new Set([
   'preview',
 ])
 
-export function siteCnameTarget(env: NodeJS.ProcessEnv = process.env): string {
-  return (env.SITE_CNAME_TARGET || `sites.${siteRootDomain(env)}`).trim().toLowerCase()
-}
-
-export type DomainProviderName = 'manual' | 'cloudflare'
+export type DomainProviderName = 'manual' | 'cloudflare' | 'pages'
 
 export function domainProviderName(env: NodeJS.ProcessEnv = process.env): DomainProviderName {
   const v = (env.DOMAIN_PROVIDER || 'manual').trim()
-  if (v !== 'manual' && v !== 'cloudflare') {
-    throw new Error(`DOMAIN_PROVIDER must be "manual" or "cloudflare" (got "${v}")`)
+  if (v !== 'manual' && v !== 'cloudflare' && v !== 'pages') {
+    throw new Error(`DOMAIN_PROVIDER must be "manual", "cloudflare" or "pages" (got "${v}")`)
   }
   return v
+}
+
+/**
+ * What a clinic's custom domain must CNAME to. With DOMAIN_PROVIDER=pages
+ * (CTO-38) that is the Pages project's own address, <project>.pages.dev.
+ */
+export function siteCnameTarget(env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = env.SITE_CNAME_TARGET?.trim()
+  if (explicit) return explicit.toLowerCase()
+  let provider: DomainProviderName = 'manual'
+  try {
+    provider = domainProviderName(env)
+  } catch {
+    // envValidation reports the bad value at boot.
+  }
+  if (provider === 'pages') return `${env.CF_PAGES_PROJECT?.trim() || 'medoflow'}.pages.dev`
+  return `sites.${siteRootDomain(env)}`
 }
 
 let devPreviewKey: Buffer | null = null

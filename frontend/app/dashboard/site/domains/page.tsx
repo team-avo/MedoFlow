@@ -7,66 +7,21 @@
 import React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  CheckCircle2,
-  Clock,
-  Copy,
-  Globe,
-  Loader2,
-  Lock,
-  ShieldCheck,
-  Star,
-  Trash2,
-  XCircle,
-} from 'lucide-react'
+import { Globe, Loader2, Lock } from 'lucide-react'
 import { siteApi, siteErrorMessage, type SiteDomain } from '@/lib/site/siteApi'
 import { AppBadge, AppButton } from '@/components/ui-system'
 import { inputCls, Label } from '@/components/site/builder/fields'
 import { useInvalidateSite, useSiteOverview } from '@/components/site/builder/BuilderData'
 import { LoadingSkeleton } from '@/components/ui-system/LoadingSkeleton'
+import { DomainConnectCard } from '@/components/site/domains/DomainConnectCard'
 
 const DOMAINS_KEY = ['site', 'domains'] as const
 
-function CopyCell({ value }: { value: string }) {
-  return (
-    <span className="inline-flex max-w-full items-center gap-1">
-      <code className="truncate rounded bg-slate-100 px-1.5 py-0.5 text-xs">{value}</code>
-      <button
-        type="button"
-        className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-        aria-label={`Copy ${value}`}
-        onClick={() =>
-          void navigator.clipboard?.writeText(value).then(() => toast.success('Copied'))
-        }
-      >
-        <Copy className="h-3.5 w-3.5" />
-      </button>
-    </span>
-  )
-}
+type DomainList = { rootDomain: string; domains: SiteDomain[] }
 
-function StatusPill({ d }: { d: SiteDomain }) {
-  if (d.status === 'VERIFIED')
-    return (
-      <AppBadge variant="success">
-        <CheckCircle2 className="mr-1 inline h-3 w-3" />
-        Connected
-      </AppBadge>
-    )
-  if (d.status === 'FAILED')
-    return (
-      <AppBadge variant="danger">
-        <XCircle className="mr-1 inline h-3 w-3" />
-        Not verified yet
-      </AppBadge>
-    )
-  return (
-    <AppBadge variant="warning">
-      <Clock className="mr-1 inline h-3 w-3" />
-      Waiting for DNS
-    </AppBadge>
-  )
-}
+/** The API's machine-readable error code, if any. */
+const errorCode = (e: unknown) =>
+  (e as { response?: { data?: { code?: string } } })?.response?.data?.code
 
 export default function SiteDomainsPage() {
   const qc = useQueryClient()
@@ -79,12 +34,62 @@ export default function SiteDomainsPage() {
   const [hostname, setHostname] = React.useState('')
   const [label, setLabel] = React.useState('')
   const [busy, setBusy] = React.useState<string | null>(null)
+  /** A root domain the provider can't take: offer www instead (CTO-38). */
+  const [apexHint, setApexHint] = React.useState<string | null>(null)
+
+  /** A poll or check returned a newer copy of one domain: patch the list. */
+  const updateDomain = React.useCallback(
+    (d: SiteDomain) =>
+      qc.setQueryData<DomainList>(DOMAINS_KEY, (old) =>
+        old
+          ? { ...old, domains: old.domains.map((x) => (x.id === d.id ? { ...x, ...d } : x)) }
+          : old
+      ),
+    [qc]
+  )
+
+  // Back from "Connect automatically" (Domain Connect): ?dc=<id>&state=…[&error=…]
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const q = new URLSearchParams(window.location.search)
+    const id = q.get('dc')
+    if (!id) return
+    const state = q.get('state') ?? ''
+    const error = q.get('error') ?? undefined
+    window.history.replaceState(null, '', window.location.pathname)
+    siteApi
+      .domainConnectReturn(id, { state, ...(error ? { error } : {}) })
+      .then((d) => {
+        updateDomain(d)
+        if (error) toast.error('The DNS provider did not add the records. Add them by hand below')
+        else toast.success('Records added. We are checking them now')
+      })
+      .catch((e: unknown) => toast.error(siteErrorMessage(e)))
+  }, [updateDomain])
+
+  const addDomain = async (value: string) => {
+    setBusy('add')
+    setApexHint(null)
+    try {
+      const d = await siteApi.addDomain(value)
+      void qc.invalidateQueries({ queryKey: DOMAINS_KEY })
+      invalidate()
+      toast.success(`${d.hostname} added. Now create the DNS records`)
+      setHostname('')
+    } catch (e) {
+      if (errorCode(e) === 'site_domain_apex') setApexHint(value.replace(/^https?:\/\//, ''))
+      toast.error(siteErrorMessage(e))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const act = async (key: string, fn: () => Promise<unknown>, ok?: string) => {
     setBusy(key)
     try {
       const out = await fn()
       if (out && typeof out === 'object' && 'domains' in out) qc.setQueryData(DOMAINS_KEY, out)
+      else if (out && typeof out === 'object' && 'stage' in out) updateDomain(out as SiteDomain)
       else void qc.invalidateQueries({ queryKey: DOMAINS_KEY })
       invalidate()
       if (ok) toast.success(ok)
@@ -175,9 +180,9 @@ export default function SiteDomainsPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Your own domain</h2>
             <p className="mt-1 max-w-2xl text-sm text-slate-600">
-              Use a domain you own, like <code>www.yourclinic.com</code>. We show the DNS records to
-              add at your domain provider, then check them. HTTPS is set up automatically once
-              verified.
+              Use a domain you own, like <code>www.yourclinic.com</code>. We detect who manages its
+              DNS, show exactly what to add there, and check it for you. HTTPS is set up
+              automatically, and you can watch each step go green.
             </p>
           </div>
           <span className="text-xs text-slate-500">
@@ -203,11 +208,7 @@ export default function SiteDomainsPage() {
             className="mt-4 flex max-w-lg flex-wrap gap-2"
             onSubmit={(e) => {
               e.preventDefault()
-              void act(
-                'add',
-                () => siteApi.addDomain(hostname),
-                'Domain added. Now create the DNS records'
-              ).then((ok) => ok && setHostname(''))
+              void addDomain(hostname)
             }}
           >
             <div className="min-w-[12rem] flex-1">
@@ -230,119 +231,44 @@ export default function SiteDomainsPage() {
           </form>
         )}
 
+        {apexHint && (
+          <div
+            className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+            data-testid="apex-hint"
+          >
+            <span>
+              Connect <strong>www.{apexHint}</strong> instead, then forward {apexHint} to it at your
+              DNS provider.
+            </span>
+            <AppButton
+              size="sm"
+              variant="outline"
+              onClick={() => void addDomain(`www.${apexHint}`)}
+            >
+              Add www.{apexHint} instead
+            </AppButton>
+          </div>
+        )}
+
         <ul className="mt-6 space-y-4">
           {custom.map((d) => (
-            <li
+            <DomainConnectCard
               key={d.id}
-              className="rounded-xl border border-slate-200 p-4"
-              data-testid={`domain-${d.hostname}`}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-semibold text-slate-900">{d.hostname}</span>
-                <StatusPill d={d} />
-                {d.isPrimary && (
-                  <AppBadge variant="accent">
-                    <Star className="mr-1 inline h-3 w-3" />
-                    Primary
-                  </AppBadge>
-                )}
-                {d.sslStatus === 'active' && (
-                  <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
-                    <ShieldCheck className="h-3.5 w-3.5" /> HTTPS active
-                  </span>
-                )}
-                <div className="ml-auto flex flex-wrap gap-1">
-                  <AppButton
-                    size="sm"
-                    variant="outline"
-                    disabled={busy === `v-${d.id}`}
-                    onClick={() => void act(`v-${d.id}`, () => siteApi.verifyDomain(d.id))}
-                  >
-                    {busy === `v-${d.id}` ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : d.status === 'VERIFIED' ? (
-                      'Re-check'
-                    ) : (
-                      'Verify'
-                    )}
-                  </AppButton>
-                  {d.status === 'VERIFIED' && !d.isPrimary && (
-                    <AppButton
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        void act(
-                          `p-${d.id}`,
-                          () => siteApi.setPrimaryDomain(d.id),
-                          'Primary domain set. Other addresses now redirect here'
-                        )
-                      }
-                    >
-                      Make primary
-                    </AppButton>
-                  )}
-                  <AppButton
-                    size="sm"
-                    variant="ghost"
-                    className="text-red-600"
-                    onClick={() =>
-                      void act(`r-${d.id}`, () => siteApi.removeDomain(d.id), 'Domain removed')
-                    }
-                    aria-label={`Remove ${d.hostname}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </AppButton>
-                </div>
-              </div>
-              {d.lastError && d.status !== 'VERIFIED' && (
-                <p className="mt-2 text-xs text-red-600">{d.lastError}</p>
-              )}
-              {d.status !== 'VERIFIED' && (
-                <div className="mt-3 overflow-x-auto">
-                  <p className="mb-2 text-xs text-slate-600">
-                    Add these records at your DNS provider (GoDaddy, Namecheap, Cloudflare…), then
-                    press Verify. Changes can take up to an hour.
-                  </p>
-                  <table className="w-full min-w-[32rem] text-left text-sm">
-                    <thead className="text-xs uppercase tracking-wide text-slate-400">
-                      <tr>
-                        <th className="py-1 pr-3 font-semibold">Type</th>
-                        <th className="py-1 pr-3 font-semibold">Name / host</th>
-                        <th className="py-1 pr-3 font-semibold">Value / target</th>
-                        <th className="py-1 font-semibold">Why</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {d.records.map((r, i) => (
-                        <tr key={i} className="border-t border-slate-100 align-top">
-                          <td className="py-2 pr-3 font-mono text-xs">{r.type}</td>
-                          <td className="py-2 pr-3">
-                            <CopyCell value={r.name} />
-                          </td>
-                          <td className="py-2 pr-3">
-                            <CopyCell value={r.value} />
-                          </td>
-                          <td className="py-2 text-xs text-slate-500">
-                            {r.purpose === 'routing'
-                              ? 'Points the domain at your site'
-                              : r.purpose === 'ownership'
-                                ? 'Proves you own it'
-                                : 'Issues the HTTPS certificate'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!d.hostname.startsWith('www.') && d.hostname.split('.').length === 2 && (
-                    <p className="mt-2 text-xs text-amber-700">
-                      Root domains (without www) can’t use CNAME at most providers. Use your
-                      provider’s ALIAS / ANAME / “CNAME flattening”, or connect{' '}
-                      <strong>www.{d.hostname}</strong> and forward the root to it.
-                    </p>
-                  )}
-                </div>
-              )}
-            </li>
+              domain={d}
+              busy={busy}
+              onUpdate={updateDomain}
+              onVerify={() => act(`v-${d.id}`, () => siteApi.verifyDomain(d.id))}
+              onPrimary={() =>
+                void act(
+                  `p-${d.id}`,
+                  () => siteApi.setPrimaryDomain(d.id),
+                  'Primary domain set. Other addresses now redirect here'
+                )
+              }
+              onRemove={() =>
+                void act(`r-${d.id}`, () => siteApi.removeDomain(d.id), 'Domain removed')
+              }
+            />
           ))}
         </ul>
       </section>

@@ -22,7 +22,7 @@ import { idleWorkerOptions, parseRedisUrl } from '../../queues/redisConnection'
 import { getPagesClient } from '../frontDoor/pagesClient'
 import * as auditService from '../../services/auditService'
 import { sendSiteLaunchFailedEmail } from '../../services/emailService'
-import { platformReviewRecipients } from '../../config/clinicReview'
+import { platformAlertRecipients } from './platformAlert'
 
 export const SITE_LAUNCH_ATTEMPTS = 3
 const LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$/
@@ -155,15 +155,7 @@ async function alertPlatform(clinicId: string, label: string, reason: string) {
       where: { id: clinicId },
       select: { name: true },
     })
-    let to = platformReviewRecipients()
-    if (!to) {
-      const admins = await prisma.user.findMany({
-        where: { role: 'PLATFORM_ADMIN', isActive: true },
-        select: { email: true },
-        take: 20,
-      })
-      to = admins.map((a) => a.email)
-    }
+    const to = await platformAlertRecipients()
     for (const address of to) {
       await sendSiteLaunchFailedEmail({
         to: address,
