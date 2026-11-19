@@ -12,6 +12,9 @@ const siteApiMock = vi.hoisted(() => ({
   listDomains: vi.fn(),
   addDomain: vi.fn(),
   verifyDomain: vi.fn(),
+  getDomainStatus: vi.fn(),
+  getDomainConnect: vi.fn(),
+  domainConnectReturn: vi.fn(),
   setPrimaryDomain: vi.fn(),
   removeDomain: vi.fn(),
   changeSubdomain: vi.fn(),
@@ -159,6 +162,7 @@ describe('Domains screen', () => {
         kind: 'SUBDOMAIN',
         hostname: 'everwell.medoflow.test',
         status: 'VERIFIED',
+        stage: 'live',
         isPrimary: true,
         sslStatus: null,
         lastError: null,
@@ -172,6 +176,7 @@ describe('Domains screen', () => {
         kind: 'CUSTOM',
         hostname: 'www.everwell.example',
         status: 'FAILED',
+        stage: 'dns',
         isPrimary: false,
         sslStatus: null,
         lastError: 'TXT record not found yet',
@@ -200,12 +205,14 @@ describe('Domains screen', () => {
     siteApiMock.getSite.mockResolvedValue({ entitlements: { maxCustomDomains: 1 } })
     siteApiMock.listDomains.mockResolvedValue(domains)
     siteApiMock.verifyDomain.mockResolvedValue({ ...domains.domains[1], status: 'VERIFIED' })
+    siteApiMock.getDomainStatus.mockResolvedValue(domains.domains[1])
+    siteApiMock.getDomainConnect.mockResolvedValue({ available: false, reason: 'not_configured' })
     wrap(<SiteDomainsPage />)
     expect(await screen.findByTestId('subdomain-url')).toHaveTextContent('everwell.medoflow.test')
     expect(screen.getByText('TXT record not found yet')).toBeInTheDocument()
     expect(screen.getByText('_medoflow-verify.www.everwell.example')).toBeInTheDocument()
     expect(screen.getByText('sites.medoflow.test')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Check now' }))
     await waitFor(() => expect(siteApiMock.verifyDomain).toHaveBeenCalledWith('d2'))
   })
 

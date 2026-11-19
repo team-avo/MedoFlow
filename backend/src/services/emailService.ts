@@ -518,3 +518,18 @@ export async function sendSiteLaunchFailedEmail(params: {
     text: `${params.clinicName} published its website, but ${params.label} could not be deployed to Cloudflare Pages.\nReason: ${params.reason}\nThe owner can press Retry on the Website page, or run the front-door workflow by hand.`,
   })
 }
+
+/** CTO-38: Cloudflare refused a clinic domain because the Pages project is full. */
+export async function sendDomainCapacityEmail(params: {
+  to: string
+  clinicName: string
+  hostname: string
+  reason: string
+}): Promise<void> {
+  await sendEmail({
+    to: params.to,
+    subject: `Clinic domain could not be added: ${params.hostname}`,
+    html: `<p><strong>${escapeHtml(params.clinicName)}</strong> tried to connect <code>${escapeHtml(params.hostname)}</code>, but Cloudflare Pages refused it.</p><p>Reason: ${escapeHtml(params.reason)}</p><p>The project's custom-domain limit (100 on the Free plan) is probably reached. Remove unused domains or upgrade the Cloudflare plan.</p>`,
+    text: `${params.clinicName} tried to connect ${params.hostname}, but Cloudflare Pages refused it.\nReason: ${params.reason}\nThe project's custom-domain limit (100 on the Free plan) is probably reached. Remove unused domains or upgrade the Cloudflare plan.`,
+  })
+}

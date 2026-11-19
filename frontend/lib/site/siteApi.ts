@@ -88,24 +88,52 @@ export interface SiteAsset {
 
 export interface DnsRecord {
   type: 'CNAME' | 'TXT' | 'A' | 'AAAA'
+  /** Fully qualified name. */
   name: string
   value: string
   purpose: 'routing' | 'ownership' | 'certificate'
+  /** Name relative to the DNS zone (`www`, `_medoflow-verify.www`), when known. */
+  host?: string
 }
+
+/** CTO-38: what DNS answered for one required record at the last check. */
+export interface DomainRecordCheck {
+  type: DnsRecord['type'] | 'CAA'
+  name: string
+  purpose: DnsRecord['purpose']
+  ok: boolean
+  found: string[]
+  message: string | null
+}
+
+/** CTO-38 connection stages: dns → verified → ssl → live (error = team must look). */
+export type DomainStage = 'dns' | 'verified' | 'ssl' | 'live' | 'error'
 
 export interface SiteDomain {
   id: string
   kind: 'SUBDOMAIN' | 'CUSTOM'
   hostname: string
   status: 'PENDING' | 'VERIFIED' | 'FAILED'
+  stage: DomainStage
   isPrimary: boolean
   sslStatus: string | null
   lastError: string | null
   lastCheckedAt: string | null
   verifiedAt: string | null
+  liveAt?: string | null
+  /** The DNS zone, e.g. `clinic.com` for `www.clinic.com`. */
+  zone?: string | null
+  /** Who runs the domain's DNS, detected from its name servers. */
+  dnsProvider?: { key: string; name: string } | null
+  checks?: DomainRecordCheck[]
   url: string
   records: DnsRecord[]
 }
+
+/** Domain Connect ("Connect automatically") for one domain. */
+export type DomainConnectInfo =
+  | { available: true; providerName: string; url: string }
+  | { available: false; reason: string }
 
 export interface SiteRedirect {
   id: string
@@ -209,6 +237,13 @@ export const siteApi = {
   listDomains: () => data<{ rootDomain: string; domains: SiteDomain[] }>(api.get('/site/domains')),
   addDomain: (hostname: string) => data<SiteDomain>(api.post('/site/domains', { hostname })),
   verifyDomain: (id: string) => data<SiteDomain>(api.post(`/site/domains/${id}/verify`)),
+  /** Polled while a domain connects; the server checks at most every 15 s. */
+  getDomainStatus: (id: string) => data<SiteDomain>(api.get(`/site/domains/${id}/status`)),
+  getDomainConnect: (id: string) => data<DomainConnectInfo>(api.get(`/site/domains/${id}/connect`)),
+  domainConnectReturn: (id: string, body: { state: string; error?: string }) =>
+    data<SiteDomain & { connectError: string | null }>(
+      api.post(`/site/domains/${id}/connect/return`, body)
+    ),
   setPrimaryDomain: (id: string) =>
     data<{ rootDomain: string; domains: SiteDomain[] }>(api.post(`/site/domains/${id}/primary`)),
   removeDomain: (id: string) =>

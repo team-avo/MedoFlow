@@ -556,12 +556,24 @@ model SiteDomain {
   lastError     String?
   lastCheckedAt DateTime?
   verifiedAt    DateTime?
+  /// CTO-38: guided connect. dns | verified | ssl | live | error
+  stage         String           @default("dns")
+  /// Who runs the domain's DNS (godaddy, namecheap, cloudflare, …), detected from NS.
+  dnsProvider   String?
+  /// The DNS zone the hostname lives in (e.g. clinic.com for www.clinic.com).
+  zone          String?
+  /// Per-record diagnostics from the last check (hostnames and DNS values only).
+  checks        Json?
+  liveAt        DateTime?
+  /// Last time Cloudflare was asked to re-validate the domain (throttle).
+  lastRetryAt   DateTime?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@index([clinicId])
+  @@index([kind, stage])
 }
 
 enum SiteAssetStatus {

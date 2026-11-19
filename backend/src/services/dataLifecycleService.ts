@@ -21,6 +21,7 @@
  * new clinic-scoped model is covered automatically (a test asserts it).
  */
 import { removeLaunch } from '../site/services/siteLaunchService'
+import { removeProviderDomains } from '../site/services/domainService'
 import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
@@ -258,6 +259,8 @@ export const offboardTenant = (
 
     // CTO-26: take each clinic's address off Cloudflare Pages (best effort).
     for (const id of clinicIds) await removeLaunch(id)
+    // CTO-38: and take their own domains off the Pages project (best effort).
+    await removeProviderDomains(clinicIds)
 
     // Object storage first (references are lost once the rows go).
     const [files, scribe, consults, voice] = await Promise.all([
