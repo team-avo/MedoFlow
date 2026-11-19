@@ -177,6 +177,9 @@ enum ProductFulfillmentClass {
   AESTHETIC
   RX_NON_SCHEDULED
   RX_SCHEDULED
+  /// CTO-40: imported and not yet classified by the clinic. Never sold (cart,
+  /// storefront, Rx→Cart) until a person picks one of the classes above.
+  UNCLASSIFIED
 }
 
 enum CartItemPatientDecision {
@@ -450,6 +453,8 @@ model Clinic {
   notifications             Notification[]
   checkoutLinkTokens        CheckoutLinkToken[]
   siteLaunch                SiteLaunch?
+  storeConnections          StoreConnection[]
+  catalogImports            CatalogImport[]
   clinicAgreements          ClinicAgreement[]
 
   @@index([tenantId])
@@ -966,29 +971,29 @@ model SlotHold {
 }
 
 model Service {
-  id                      String   @id @default(cuid())
+  id                      String          @id @default(cuid())
   clinicId                String
   disciplineId            String
   name                    String
   slug                    String?
   duration                Int
-  defaultPrice            Decimal  @db.Decimal(10, 2)
-  taxApplicable           Boolean  @default(false)
-  minimumNoticeMinutes    Int?     @default(0)
-  maxFutureBookingDays    Int?     @default(365)
-  cancellationWindowHours Int?     @default(0)
-  cancellationFeeType     String?  @default("NONE")
-  cancellationFeeValue    Decimal? @db.Decimal(10, 2)
-  prepaymentType          String   @default("NONE") // NONE, DEPOSIT, FULL
-  depositAmount           Decimal? @db.Decimal(10, 2)
-  requirePrepayment       Boolean  @default(false)
+  defaultPrice            Decimal         @db.Decimal(10, 2)
+  taxApplicable           Boolean         @default(false)
+  minimumNoticeMinutes    Int?            @default(0)
+  maxFutureBookingDays    Int?            @default(365)
+  cancellationWindowHours Int?            @default(0)
+  cancellationFeeType     String?         @default("NONE")
+  cancellationFeeValue    Decimal?        @db.Decimal(10, 2)
+  prepaymentType          String          @default("NONE") // NONE, DEPOSIT, FULL
+  depositAmount           Decimal?        @db.Decimal(10, 2)
+  requirePrepayment       Boolean         @default(false)
   /// CTO-31: the visit type a new booking of this service starts with.
   defaultMode             AppointmentMode @default(IN_PERSON)
-  requireProviderApproval Boolean  @default(false)
-  isActive                Boolean  @default(true)
-  isArchived              Boolean  @default(false)
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  requireProviderApproval Boolean         @default(false)
+  isActive                Boolean         @default(true)
+  isArchived              Boolean         @default(false)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
 
   clinic              Clinic              @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   discipline          Discipline          @relation(fields: [disciplineId], references: [id], onDelete: Restrict)
@@ -1197,23 +1202,34 @@ model Payment {
 }
 
 model Product {
-  id               String                  @id @default(cuid())
-  clinicId         String
-  name             String
-  slug             String?
-  description      String?
-  sku              String?
-  price            Decimal                 @db.Decimal(10, 2)
-  taxApplicable    Boolean                 @default(false)
-  isActive         Boolean                 @default(true)
+  id                String                  @id @default(cuid())
+  clinicId          String
+  name              String
+  slug              String?
+  description       String?
+  sku               String?
+  price             Decimal                 @db.Decimal(10, 2)
+  taxApplicable     Boolean                 @default(false)
+  isActive          Boolean                 @default(true)
   /// B5.5: how the product may be sold. RX_* never goes through the one-click cart.
-  fulfillmentClass ProductFulfillmentClass @default(SUPPLEMENT)
+  fulfillmentClass  ProductFulfillmentClass @default(SUPPLEMENT)
   /// B5.1: extra names the Rx→Cart mapper matches (e.g. "vit d3", "cholecalciferol").
-  aliases          String[]                @default([])
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
+  aliases           String[]                @default([])
+  /// CTO-40: product photo, a SiteAsset of the same clinic (public image).
+  imageAssetId      String?
+  /// CTO-40: where an imported image came from, so a re-sync skips unchanged images.
+  imageSourceUrl    String?
+  /// CTO-40: SHOPIFY | SQUARE | WOOCOMMERCE | WIX | CSV. Null for products made in MedoFlow.
+  externalSource    String?
+  /// CTO-40: the source's own id (variant id for multi-variant products).
+  externalId        String?
+  storeConnectionId String?
+  externalSyncedAt  DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   clinic                 Clinic           @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  storeConnection        StoreConnection? @relation(fields: [storeConnectionId], references: [id], onDelete: SetNull)
   inventoryItem          InventoryItem?
   cartItems              CartItem[]
   commissionRules        CommissionRule[]
@@ -1223,6 +1239,7 @@ model Product {
 
   @@unique([clinicId, name])
   @@unique([clinicId, slug])
+  @@unique([clinicId, externalSource, externalId])
   @@index([clinicId])
 }
 
@@ -1465,16 +1482,16 @@ model RefreshToken {
 /// `sid`; logout, idle timeout and refresh-token reuse revoke it, after which
 /// every token bound to it is rejected.
 model UserSession {
-  id             String    @id @default(cuid())
-  userId         String
-  createdAt      DateTime  @default(now())
-  lastActivityAt DateTime  @default(now())
-  expiresAt      DateTime
-  revokedAt      DateTime?
-  revokedReason  String?
-  mfaVerifiedAt  DateTime?
-  ipAddress      String?
-  userAgent      String?
+  id                 String    @id @default(cuid())
+  userId             String
+  createdAt          DateTime  @default(now())
+  lastActivityAt     DateTime  @default(now())
+  expiresAt          DateTime
+  revokedAt          DateTime?
+  revokedReason      String?
+  mfaVerifiedAt      DateTime?
+  ipAddress          String?
+  userAgent          String?
   /// Per-session idle window override (CTO-13: longer while an owner fills in
   /// the clinic application). Null = SESSION_IDLE_TIMEOUT_MINUTES.
   idleTimeoutMinutes Int?
@@ -2182,4 +2199,111 @@ model SiteLaunch {
   updatedAt    DateTime  @updatedAt
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+}
+
+// ─── CTO-40: product catalog import ─────────────────────────────────────────
+
+/// A clinic's link to an outside store (Shopify, Square, WooCommerce, Wix).
+/// Credentials are field-encrypted (fle:v1) and wiped on disconnect.
+model StoreConnection {
+  id                String    @id @default(cuid())
+  clinicId          String
+  /// SHOPIFY | SQUARE | WOOCOMMERCE | WIX
+  provider          String
+  /// Shop domain, Square merchant id, store URL or Wix site id.
+  externalAccountId String
+  displayName       String
+  /// ACTIVE | ERROR | DISCONNECTED
+  status            String    @default("ACTIVE")
+  accessToken       String?
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  /// Non-secret half of a key pair (WooCommerce consumer key).
+  apiKeyId          String?
+  scopes            String    @default("")
+  connectedById     String
+  lastSyncedAt      DateTime?
+  /// A short, safe reason (no tokens, no response bodies).
+  lastError         String?
+  disconnectedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  clinic   Clinic          @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  products Product[]
+  imports  CatalogImport[]
+
+  @@unique([clinicId, provider, externalAccountId])
+  @@index([clinicId])
+}
+
+/// One import run: fetch into staging rows (dry run), then apply.
+model CatalogImport {
+  id                String    @id @default(cuid())
+  clinicId          String
+  /// SHOPIFY | SQUARE | WOOCOMMERCE | WIX | CSV
+  source            String
+  /// File preset (shopify_csv, wix_csv, square_xlsx, woocommerce_csv, generic).
+  preset            String?
+  storeConnectionId String?
+  /// FETCHING | PREVIEW_READY | APPLYING | DONE | FAILED
+  status            String    @default("FETCHING")
+  /// The column → field map used for a file import.
+  columnMapping     Json?
+  /// { syncStock, syncPrice }
+  options           Json      @default("{}")
+  /// Counts per action, warnings, products missing upstream.
+  summary           Json      @default("{}")
+  attempts          Int       @default(0)
+  lastError         String?
+  createdById       String
+  appliedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  clinic          Clinic             @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  storeConnection StoreConnection?   @relation(fields: [storeConnectionId], references: [id], onDelete: SetNull)
+  rows            CatalogImportRow[]
+
+  @@index([clinicId, createdAt])
+}
+
+/// A staged product: what the import would do, editable before apply.
+model CatalogImportRow {
+  id               String                   @id @default(cuid())
+  importId         String
+  clinicId         String
+  position         Int
+  externalId       String
+  name             String
+  /// The owner's rename, used instead of `name` when set.
+  nameOverride     String?
+  sku              String?
+  price            Decimal?                 @db.Decimal(10, 2)
+  description      String?
+  imageSourceUrl   String?
+  stock            Int?
+  sourceCategory   String?
+  suggestedClass   ProductFulfillmentClass?
+  /// The class a person chose. Null means the product arrives UNCLASSIFIED.
+  chosenClass      ProductFulfillmentClass?
+  /// The item looks like a prescription product: never auto-suggested.
+  rxLike           Boolean                  @default(false)
+  /// CREATE | UPDATE | UNCHANGED | CONFLICT | ERROR
+  action           String
+  skipped          Boolean                  @default(false)
+  matchedProductId String?
+  /// How the match was made: EXTERNAL_ID | SKU | NAME
+  matchedBy        String?
+  diff             Json?
+  error            String?
+  appliedProductId String?
+  appliedAt        DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  import CatalogImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+
+  @@index([importId, position])
+  @@index([clinicId])
 }

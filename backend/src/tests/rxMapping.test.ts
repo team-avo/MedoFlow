@@ -149,6 +149,8 @@ describe('mapOrders (B5.1)', () => {
     assert.equal(routeFor('AESTHETIC'), 'CART')
     assert.equal(routeFor('RX_NON_SCHEDULED'), 'EPRESCRIBE')
     assert.equal(routeFor('RX_SCHEDULED'), 'EPRESCRIBE')
+    // CTO-40: an imported product nobody has classified is never sold.
+    assert.equal(routeFor('UNCLASSIFIED'), 'MANUAL')
   })
 })
 
@@ -195,6 +197,39 @@ describe('parseScribeOrders', () => {
     assert.equal(line!.dose, '400 mg')
     assert.equal(line!.rawText, 'Magnesium glycinate')
     assert.equal(line!.matchStatus, 'UNMAPPED')
+  })
+
+  it('CTO-40: an imported catalog maps by name and SKU; unclassified items route to MANUAL', () => {
+    const imported: CatalogProduct[] = [
+      {
+        id: 'imp_col',
+        name: 'Collagen Peptides - Unflavored',
+        sku: 'COL-U',
+        aliases: [],
+        fulfillmentClass: 'SUPPLEMENT',
+      },
+      {
+        id: 'imp_spf',
+        name: 'Mineral SPF 50 - 50 ml',
+        sku: 'SPF-50',
+        aliases: [],
+        fulfillmentClass: 'UNCLASSIFIED',
+      },
+    ]
+    const [bySku, byName, unclassified] = mapOrders(
+      [
+        { name: 'COL-U one scoop daily' },
+        { name: 'collagen peptides' },
+        { name: 'mineral spf 50' },
+      ],
+      imported
+    )
+    assert.equal(bySku!.matchedProductId, 'imp_col')
+    assert.equal(bySku!.route, 'CART')
+    assert.equal(byName!.matchedProductId, 'imp_col')
+    assert.equal(unclassified!.matchedProductId, 'imp_spf')
+    assert.equal(unclassified!.matchStatus, 'MATCHED')
+    assert.equal(unclassified!.route, 'MANUAL')
   })
 
   it('returns [] for anything that is not an array, and caps the count', () => {

@@ -68,11 +68,12 @@ app.use(
   )
 )
 // Raised limit to accept base64 logo data-URLs during onboarding (<=2 MB raw → ~2.7 MB encoded).
-// The Stripe webhook is skipped: signature verification needs the raw body,
+// The Stripe and Shopify webhooks are skipped: signature verification needs the raw body,
 // which routes/webhooks.ts reads with express.raw().
 const jsonParser = express.json({ limit: '6mb' })
 app.use((req, res, next) => {
-  if (req.path === '/api/v1/webhooks/stripe') return next()
+  if (req.path === '/api/v1/webhooks/stripe' || req.path === '/api/v1/webhooks/shopify')
+    return next()
   jsonParser(req, res, next)
 })
 app.use(cookieParser())

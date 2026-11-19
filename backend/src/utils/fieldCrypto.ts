@@ -41,6 +41,8 @@ export const ENCRYPTED_FIELDS: Readonly<Record<string, Readonly<Record<string, F
   User: { phone: 's' },
   // Clinic onboarding: the practice's tax and DEA registration numbers.
   ClinicProfile: { federalTaxId: 's', deaNumber: 's' },
+  // CTO-40: outside-store credentials (OAuth tokens, API key secrets).
+  StoreConnection: { accessToken: 's', refreshToken: 's' },
 }
 
 export const ENVELOPE_PREFIX = 'fle:v1:'

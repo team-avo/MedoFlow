@@ -26,6 +26,7 @@ import { assetPublicUrl, assetUrlMap } from './assetService'
 import { findRedirect } from './redirectService'
 import { verifyPreviewToken } from './previewToken'
 import { pagePath } from './pageService'
+import { SELLABLE_CLASSES } from '../../services/rxMappingService'
 
 export interface RenderRequest {
   host?: string
@@ -100,12 +101,13 @@ const PROVIDER_SELECT = {
 } satisfies Prisma.ProviderSelect
 
 /**
- * Products a public site may show: active, and never prescription-only. The C5
+ * Products a public site may show: active, and only the sellable classes. The C5
  * scope guard (ADR 0003) keeps RX_* products off every storefront; the site is one.
+ * Unclassified imports (CTO-40) stay off too.
  */
 const PUBLIC_PRODUCT_WHERE = {
   isActive: true,
-  fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
+  fulfillmentClass: { in: SELLABLE_CLASSES },
 } satisfies Prisma.ProductWhereInput
 
 /** Non-prescription medicines (WS3 "Medicine store"); everything else is "other". */
@@ -118,6 +120,7 @@ const PRODUCT_SELECT = {
   description: true,
   price: true,
   fulfillmentClass: true,
+  imageAssetId: true,
   inventoryItem: { select: { quantityInStock: true } },
 } satisfies Prisma.ProductSelect
 
@@ -152,6 +155,8 @@ export interface PublicProduct {
   inStock: boolean
   /** OTC or supplement: shown by the Medicine store section and store filter. */
   medicine: boolean
+  /** CTO-40: product photo (imported or uploaded), or null. */
+  imageUrl?: string | null
 }
 
 const toService = (s: ServiceRow): PublicService => ({
@@ -172,7 +177,7 @@ const toProvider = (p: ProviderRow): PublicProvider => ({
   disciplines: p.disciplines.map((d) => d.discipline.name),
   serviceIds: p.providerServices.map((s) => s.serviceId),
 })
-const toProduct = (p: ProductRow): PublicProduct => ({
+const toProduct = (p: ProductRow, images?: Map<string, { url: string }>): PublicProduct => ({
   id: p.id,
   slug: p.slug,
   name: p.name,
@@ -180,7 +185,15 @@ const toProduct = (p: ProductRow): PublicProduct => ({
   price: p.price.toFixed(2),
   inStock: (p.inventoryItem?.quantityInStock ?? 1) > 0,
   medicine: MEDICINE_CLASSES.has(p.fulfillmentClass),
+  imageUrl: (p.imageAssetId && images?.get(p.imageAssetId)?.url) || null,
 })
+
+/** Products with their photo URLs resolved in one query. */
+async function toProducts(clinicId: string, rows: ProductRow[]): Promise<PublicProduct[]> {
+  const ids = rows.map((r) => r.imageAssetId).filter((v): v is string => !!v)
+  const images = ids.length ? await assetUrlMap(clinicId, ids) : undefined
+  return rows.map((r) => toProduct(r, images))
+}
 
 export interface SectionData {
   services: PublicService[]
@@ -266,7 +279,8 @@ async function loadSectionData(
           take: 100,
           select: PRODUCT_SELECT,
         })
-        .then((r) => void (data.products = r.map(toProduct)))
+        .then((r) => toProducts(clinicId, r))
+        .then((r) => void (data.products = r))
     )
   }
   if (types.has('pricing')) {
@@ -618,7 +632,7 @@ export async function render(req: RenderRequest): Promise<RenderResult> {
           ...base,
           route: { key, path, params },
           page: null,
-          entity: { type: 'product', product: toProduct(p) },
+          entity: { type: 'product', product: (await toProducts(clinicId, [p]))[0]! },
         },
         [],
         200

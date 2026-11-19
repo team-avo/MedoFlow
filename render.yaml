@@ -136,6 +136,22 @@ services:
         sync: false
       - key: POSTHOG_PERSONAL_API_KEY # Personal key, Query: Read only, phx_…
         sync: false
+      # CTO-40 product catalog import. Each store is off until its app
+      # credentials are set (file import always works). Redirect URLs to
+      # register: <frontend>/dashboard/settings/integrations/callback/<shopify|square>;
+      # Shopify webhook URL: <backend>/api/v1/webhooks/shopify.
+      - key: SHOPIFY_CLIENT_ID
+        sync: false
+      - key: SHOPIFY_CLIENT_SECRET
+        sync: false
+      - key: SHOPIFY_API_VERSION
+        value: 2026-10
+      - key: SQUARE_APP_ID
+        sync: false
+      - key: SQUARE_APP_SECRET
+        sync: false
+      - key: SQUARE_ENV # sandbox | production
+        value: sandbox
       # R2 (S3-compatible) file storage: required in production (B3.1: patient
       # files are only reached through presigned URLs; boot refuses local disk).
       - key: S3_SSE # R2 always encrypts at rest and rejects the SSE header

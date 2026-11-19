@@ -25,6 +25,8 @@ import checkoutLinkRoutes from './checkoutLinks'
 import consultationRoutes, { appointmentConsultationRouter } from './consultations'
 
 import productRoutes from './products'
+import storeConnectionRoutes from './storeConnections'
+import catalogImportRoutes from './catalogImports'
 import rxCartRoutes from './rxCart'
 import inventoryRoutes from './inventory'
 import packageRoutes from './packages'
@@ -75,6 +77,8 @@ router.use('/consultations', consultationRoutes)
 router.use('/notifications', notificationRoutes)
 router.use('/checkout-links', checkoutLinkRoutes)
 router.use('/products', productRoutes)
+router.use('/store-connections', storeConnectionRoutes)
+router.use('/catalog-imports', catalogImportRoutes)
 router.use('/rx-cart', rxCartRoutes)
 router.use('/inventory', inventoryRoutes)
 router.use('/packages', packageRoutes)

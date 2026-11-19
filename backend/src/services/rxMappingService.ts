@@ -9,7 +9,8 @@
  *
  * Routing (B5.5): only supplements, OTC and aesthetic products may reach the
  * frictionless cart. Anything classified as a prescription product goes to
- * the e-prescribe path, never the cart.
+ * the e-prescribe path, never the cart. An imported product that is still
+ * UNCLASSIFIED (CTO-40) goes to MANUAL.
  */
 import type { ProductFulfillmentClass, RxMatchStatus, RxRoute } from '@prisma/client'
 import prisma from '../config/prisma'
@@ -52,8 +53,22 @@ const FUZZY_THRESHOLD = 0.6
 export const isPrescriptionClass = (cls: ProductFulfillmentClass): boolean =>
   cls === 'RX_SCHEDULED' || cls === 'RX_NON_SCHEDULED'
 
+/**
+ * CTO-40: an imported product nobody has classified yet. It is matched (so
+ * the provider sees it) but routed to MANUAL and never sold until a person
+ * picks a class.
+ */
+export const isUnclassified = (cls: ProductFulfillmentClass): boolean => cls === 'UNCLASSIFIED'
+
+/** The classes the cart and the public storefronts may sell. */
+export const SELLABLE_CLASSES = [
+  'SUPPLEMENT',
+  'OTC',
+  'AESTHETIC',
+] satisfies ProductFulfillmentClass[]
+
 export const routeFor = (cls: ProductFulfillmentClass): RxRoute =>
-  isPrescriptionClass(cls) ? 'EPRESCRIBE' : 'CART'
+  isPrescriptionClass(cls) ? 'EPRESCRIBE' : isUnclassified(cls) ? 'MANUAL' : 'CART'
 
 export const normalize = (text: string): string =>
   text
