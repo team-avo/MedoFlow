@@ -29,6 +29,9 @@ class DisabledStt implements SpeechToTextProvider {
   describe() {
     return disabledDescriptor()
   }
+  supportsSpeakerTurns(): boolean {
+    return false
+  }
   transcribe(): Promise<never> {
     return Promise.reject(new AiError('ai_not_configured'))
   }
@@ -85,6 +88,16 @@ export interface ScribeCapabilities {
   transcriptionAvailable: boolean
   /** On-screen captions while recording (WS2): needs speech-to-text only. */
   liveTranscription: boolean
+  /**
+   * Live captions may come back with speaker turns (CTO-41). "May": a
+   * chat-audio model can be asked, but can still ignore the instruction, so
+   * the UI labels a turn only when that turn names a speaker.
+   */
+  liveSpeakerLabels: boolean
+  /** Starting caption segment length, and the bounds the client adapts within. */
+  liveSegmentMs: number
+  liveSegmentMinMs: number
+  liveSegmentMaxMs: number
   draftingAvailable: boolean
   demoEnabled: boolean
   stt: Pick<ProviderDescriptor, 'kind' | 'preset' | 'model' | 'location'>
@@ -98,17 +111,34 @@ const publicView = (d: ProviderDescriptor) => ({
   location: d.location,
 })
 
+/**
+ * Shortest caption segment worth using while speaker turns are on. Per-segment
+ * diarisation has no cross-segment speaker identity, and the shorter the
+ * segment the less context the model has, so labels get unreliable below this
+ * (CTO-41). Captions are a little slower when labelled; that is the trade.
+ */
+export const LABELLED_SEGMENT_FLOOR_MS = 3_000
+
 /** What the UI may know: no hosts, URLs or keys. */
 export function scribeCapabilities(): ScribeCapabilities {
   const { llm, stt } = getScribeAi()
+  const cfg = getScribeAiConfig()
   const l = llm.describe()
   const s = stt.describe()
   const transcriptionAvailable = s.kind !== 'disabled'
   const draftingAvailable = l.kind !== 'disabled'
+  const liveSpeakerLabels = transcriptionAvailable && stt.supportsSpeakerTurns()
+  const liveSegmentMinMs = liveSpeakerLabels
+    ? Math.max(cfg.liveSegmentMinMs, LABELLED_SEGMENT_FLOOR_MS)
+    : cfg.liveSegmentMinMs
   return {
     available: transcriptionAvailable && draftingAvailable,
     transcriptionAvailable,
     liveTranscription: transcriptionAvailable,
+    liveSpeakerLabels,
+    liveSegmentMs: Math.max(cfg.liveSegmentMs, liveSegmentMinMs),
+    liveSegmentMinMs,
+    liveSegmentMaxMs: cfg.liveSegmentMaxMs,
     draftingAvailable,
     demoEnabled: isScribeDemoEnabled(),
     stt: publicView(s),

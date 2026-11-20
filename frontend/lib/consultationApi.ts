@@ -1,4 +1,5 @@
 import api from './api'
+import type { LiveSegmentResult, LiveSpeaker, LiveTurn } from '@/hooks/useLiveTranscription'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -206,24 +207,59 @@ export const uploadRecording = async (
   return data.data.session
 }
 
+/** A speaker label we are willing to show; anything else is treated as unknown. */
+const SPEAKERS = new Set<LiveSpeaker>(['PROVIDER', 'PATIENT'])
+
+/**
+ * Normalises the server's turns at the boundary, once, so no unvalidated model
+ * output reaches the DOM: an unrecognised speaker becomes "unknown" rather
+ * than being rendered, and empty turns are dropped.
+ */
+function normalizeTurns(raw: unknown): LiveTurn[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const turns: LiveTurn[] = []
+  for (const item of raw) {
+    const text = String((item as { text?: unknown })?.text ?? '').trim()
+    if (!text) continue
+    const speaker = (item as { speaker?: unknown })?.speaker
+    turns.push({
+      speaker:
+        typeof speaker === 'string' && SPEAKERS.has(speaker as LiveSpeaker)
+          ? (speaker as LiveSpeaker)
+          : null,
+      text,
+    })
+  }
+  return turns.length > 0 ? turns : undefined
+}
+
 /**
  * POST /consultations/:id/live-transcript: one live-caption segment while
  * recording (WS2). The text is a preview; nothing is stored server-side.
+ *
+ * CTO-41: `turns` splits the text by speaker where the speech-to-text provider
+ * supports it. It is optional, so a server without it (or Whisper, which
+ * cannot diarize) simply yields an unlabelled caption as before.
  */
 export const liveTranscript = async (
   sessionId: string,
   segment: Blob,
   seq: number
-): Promise<string> => {
+): Promise<LiveSegmentResult> => {
   const formData = new FormData()
   formData.append('segment', String(seq))
   formData.append('audio', segment, 'segment.webm')
-  const { data } = await api.post<ApiRes<{ text: string; segment: number }>>(
-    `/consultations/${sessionId}/live-transcript`,
-    formData,
-    { headers: { 'Content-Type': 'multipart/form-data' } }
-  )
-  return data.data.text
+  const { data } = await api.post<
+    ApiRes<{
+      text: string
+      segment: number
+      turns?: Array<{ speaker?: string | null; text?: string }>
+    }>
+  >(`/consultations/${sessionId}/live-transcript`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  const turns = normalizeTurns(data.data.turns)
+  return { text: data.data.text, ...(turns ? { turns } : {}) }
 }
 
 /** POST /consultations/:id/transcribe */

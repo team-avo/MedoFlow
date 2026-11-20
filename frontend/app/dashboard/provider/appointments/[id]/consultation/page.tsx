@@ -163,6 +163,10 @@ export default function ConsultationRoomPage() {
     enabled:
       !!liveSessionId && session?.consentStatus === 'GRANTED' && caps?.liveTranscription !== false,
     transcribe: (segment, seq) => consultationApi.liveTranscript(liveSessionId!, segment, seq),
+    // CTO-41: the server owns the cadence bounds, the hook owns the policy.
+    ...(caps?.liveSegmentMs ? { segmentMs: caps.liveSegmentMs } : {}),
+    ...(caps?.liveSegmentMinMs ? { minSegmentMs: caps.liveSegmentMinMs } : {}),
+    ...(caps?.liveSegmentMaxMs ? { maxSegmentMs: caps.liveSegmentMaxMs } : {}),
   })
 
   // ----- Load or create session -----
@@ -636,6 +640,7 @@ export default function ConsultationRoomPage() {
               active={live.active}
               delayed={live.delayed}
               error={live.error}
+              stats={live.stats}
             />
           )}
 
@@ -894,6 +899,7 @@ export default function ConsultationRoomPage() {
               active={live.active}
               delayed={live.delayed}
               error={live.error}
+              stats={live.stats}
             />
           )}
           {/* Patient context */}

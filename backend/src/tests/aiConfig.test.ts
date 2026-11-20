@@ -306,3 +306,46 @@ describe('demo flag (FR-16)', () => {
     assert.equal(isScribeDemoEnabled(env({ AI_SCRIBE_DEMO_ENABLED: 'false' })), false)
   })
 })
+
+describe('live caption pacing (CTO-41)', () => {
+  const live = (vars: Record<string, string> = {}) => loadScribeAiConfig(env(vars))
+
+  it('defaults to a 3 s segment between 2 s and 6 s, and an 8 s timeout', () => {
+    const cfg = live()
+    assert.equal(cfg.liveSegmentMs, 3_000)
+    assert.equal(cfg.liveSegmentMinMs, 2_000)
+    assert.equal(cfg.liveSegmentMaxMs, 6_000)
+    assert.equal(cfg.liveSegmentTimeoutMs, 8_000)
+    // Independent of the batch timeout, which must stay long.
+    assert.equal(cfg.timeoutMs, 120_000)
+  })
+
+  it('takes the configured segment length and timeout', () => {
+    const cfg = live({ AI_SCRIBE_LIVE_SEGMENT_MS: '2500', AI_SCRIBE_LIVE_TIMEOUT_MS: '5000' })
+    assert.equal(cfg.liveSegmentMs, 2_500)
+    assert.equal(cfg.liveSegmentTimeoutMs, 5_000)
+  })
+
+  it('clamps values outside the supported range', () => {
+    assert.equal(live({ AI_SCRIBE_LIVE_SEGMENT_MS: '50' }).liveSegmentMs, 1_000)
+    assert.equal(live({ AI_SCRIBE_LIVE_SEGMENT_MS: '999999' }).liveSegmentMs, 10_000)
+    assert.equal(live({ AI_SCRIBE_LIVE_TIMEOUT_MS: '1' }).liveSegmentTimeoutMs, 1_000)
+    assert.equal(live({ AI_SCRIBE_LIVE_TIMEOUT_MS: '600000' }).liveSegmentTimeoutMs, 30_000)
+  })
+
+  it('falls back to the defaults for an unparseable value', () => {
+    const cfg = live({ AI_SCRIBE_LIVE_SEGMENT_MS: 'soon', AI_SCRIBE_LIVE_TIMEOUT_MS: '' })
+    assert.equal(cfg.liveSegmentMs, 3_000)
+    assert.equal(cfg.liveSegmentTimeoutMs, 8_000)
+  })
+
+  it('keeps min <= start <= max however hostile the value', () => {
+    for (const v of ['1000', '2500', '3000', '7500', '10000', '-5', 'nonsense']) {
+      const cfg = live({ AI_SCRIBE_LIVE_SEGMENT_MS: v })
+      assert.ok(
+        cfg.liveSegmentMinMs <= cfg.liveSegmentMs && cfg.liveSegmentMs <= cfg.liveSegmentMaxMs,
+        `${v}: ${cfg.liveSegmentMinMs} <= ${cfg.liveSegmentMs} <= ${cfg.liveSegmentMaxMs}`
+      )
+    }
+  })
+})
