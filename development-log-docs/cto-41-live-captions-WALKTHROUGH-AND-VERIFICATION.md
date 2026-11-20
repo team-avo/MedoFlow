@@ -109,7 +109,7 @@ cd frontend && pnpm exec playwright test e2e/consultation-room.spec.ts
 | Backend unit                   | **762 passed**, 47 files                                                    |
 | Frontend typecheck / lint      | clean / zero warnings                                                       |
 | Frontend unit                  | **675 passed**, 57 files                                                    |
-| Backend integration            | ⬜ not run here (needs the Docker Postgres); run before the PR              |
+| Backend integration            | **400 passed · 1 failed · 2 skipped** (32 files, 211 s) — see §4.4          |
 | Playwright `consultation-room` | **5 passed** (23.5 s), including both new CTO-41 cases                      |
 | Playwright `start-scribe`      | **1 passed** — it also mocks the live-transcript route and needed no change |
 
@@ -142,7 +142,37 @@ Two bugs were caught here and fixed, which is what the e2e was for:
 
 > **Note on running these locally:** the Next.js CLI now interrupts `next build` with a security-upgrade recommendation and exits non-zero, which breaks Playwright's `build && serve` chain. Build once by hand (it continues on a retry), then run with `E2E_SKIP_BUILD=1`. The recommendation itself is unrelated to this change and is left for the team to decide on.
 
-### 4.4 The opt-in server-side benchmark
+### 4.4 Backend integration (Docker Postgres)
+
+Run against a brand-new database on the documented container (`mf-pg`, `postgres:16` on 55432), as the app role with RLS live, following the recipe in [the CTO-39 walkthrough](cto-39-usage-analytics-WALKTHROUGH-AND-VERIFICATION.md) §4.1:
+
+```zsh
+DB=mf_cto41
+docker start mf-pg
+docker exec mf-pg psql -U postgres -c "DROP DATABASE IF EXISTS $DB WITH (FORCE)" -c "CREATE DATABASE $DB"
+DATABASE_URL=postgresql://postgres:postgres@localhost:55432/$DB pnpm exec prisma migrate deploy
+docker exec mf-pg psql -U postgres -d $DB -c "ALTER ROLE medoflow_app WITH LOGIN PASSWORD 'ci_app_password'"
+INTEGRATION_DATABASE_URL=postgresql://medoflow_app:ci_app_password@localhost:55432/$DB \
+INTEGRATION_ADMIN_DATABASE_URL=postgresql://postgres:postgres@localhost:55432/$DB \
+  pnpm test:integration:coverage
+```
+
+Migrations applied cleanly on an empty database (none added by CTO-41), and `medoflow_app` was verified non-superuser with `rolbypassrls = false`, so the tenant guard and RLS were both live.
+
+|                                    | Result                                                                       |
+| ---------------------------------- | ---------------------------------------------------------------------------- |
+| Full suite, fresh DB               | **400 passed · 1 failed · 2 skipped** (32 files, 211 s)                      |
+| **`consultationLive.int.test.ts`** | **9 passed** — 6 pre-existing, byte-identical, plus the 3 added for CTO-41   |
+| `aiScribe.int.test.ts`             | **38 passed** on an isolated re-run, including the new capability assertions |
+| `liveCaption.bench.int.test.ts`    | correctly **skipped** (opt-in, needs `LIVE_CAPTION_BENCH=1`)                 |
+
+**The one failure is environmental, not a defect.** `aiScribe.int.test.ts > CTO-12 … FREE plan, BILLING_MODE=demo` timed out at 30 s. Re-run in isolation it passes in **455 ms** — a 60× margin — and the whole file is green. That test does not touch live captions at all: the batch pipeline passes no `speakerTurns` flag, so no turn parsing runs, and the only mock change on that path is a latency knob that defaults to 0 and is set solely by the skipped benchmark.
+
+The cause was CPU starvation on this machine: a macOS `StorageManagement` scan was pegging two cores (load average 11, later 47). Two further attempts while it ran are recorded only as evidence of that, not as results: a fresh-DB repeat took **5299 s** instead of 211 s with a 60 s `beforeAll` hook timeout, and a focused two-file run took **2483 s** and failed 8 `aiScribe` cases with `401` on session start — the token minted in `beforeAll` outliving the suite's own 15-minute `SESSION_IDLE_TIMEOUT_MINUTES`. Notably `consultationLive` passed even then, because it is fast.
+
+**Re-run the full suite on an idle machine before the PR** to replace the single flake with a clean green, and note the two timing-sensitive spots above if CI is ever run on a loaded runner.
+
+### 4.5 The opt-in server-side benchmark
 
 ```bash
 LIVE_CAPTION_BENCH=1 pnpm exec vitest run --config vitest.integration.config.ts \
@@ -172,7 +202,7 @@ Prints a p50/p95 table for the caption endpoint against the mock, and again with
 2. **Force the free-tier rate limit** on Groq (talk continuously for a few minutes) and confirm the client backs off **and stays backed off** rather than oscillating.
 3. **Confirm the Whisper path** shows unlabelled captions exactly as before, and that `liveSpeakerLabels` is `false` in `GET /ai-scribe/capabilities`.
 4. **Set env on Render** if the defaults are not wanted: `AI_SCRIBE_LIVE_SEGMENT_MS`, `AI_SCRIBE_LIVE_TIMEOUT_MS`, `LIVE_TRANSCRIPT_RATE_LIMIT_MAX`.
-5. **Run the backend integration suite** (needs the Docker Postgres) before the PR.
+5. **Re-run the backend integration suite on an idle machine** (§4.4). It has been run and is green apart from one CPU-starvation timeout that passes in 455 ms on its own; a clean run replaces that flake in the PR evidence.
 
 | Profile | Provider / model              | N   | Dropped | First-word p50 / p95 | Round-trip p50 / p95 | Target met |
 | ------- | ----------------------------- | --- | ------- | -------------------- | -------------------- | ---------- |
