@@ -6,6 +6,7 @@ import prisma, { getDatabaseRoleInfo } from './config/prisma'
 import { startCronJobs } from './scheduler/cronJobs'
 import { createAiScribeWorker } from './queues/aiScribeQueue'
 import { createSiteLaunchWorker } from './site/services/siteLaunchService'
+import { createCatalogImportWorker } from './services/catalogImport/service'
 import { initFieldEncryption } from './config/fieldKeys'
 import { shutdownUsageAnalytics } from './services/usageAnalytics/usageAnalytics'
 import type { Server } from 'http'
@@ -45,6 +46,10 @@ const gracefulShutdown = async (signal: string): Promise<void> => {
   if (aiScribeWorker) {
     await aiScribeWorker.close()
     console.warn('AI Scribe worker closed.')
+  }
+  if (catalogImportWorker) {
+    await catalogImportWorker.close()
+    console.warn('Catalog import worker closed.')
   }
   if (siteLaunchWorker) {
     await siteLaunchWorker.close()
@@ -86,6 +91,7 @@ process.on('SIGINT', () => void gracefulShutdown('SIGINT'))
 
 let aiScribeWorker: ReturnType<typeof createAiScribeWorker> | null = null
 let siteLaunchWorker: ReturnType<typeof createSiteLaunchWorker> = null
+let catalogImportWorker: ReturnType<typeof createCatalogImportWorker> = null
 
 const bootstrap = async (): Promise<void> => {
   // Every console.* line is PHI-scrubbed before it reaches the log drain (B0.3.5).
@@ -124,6 +130,13 @@ const bootstrap = async (): Promise<void> => {
     if (siteLaunchWorker) console.warn('Site launch worker started')
   } catch (err) {
     console.warn('Site launch worker not started:', err instanceof Error ? err.message : err)
+  }
+  // CTO-40: product catalog imports read stores and apply from a queue.
+  try {
+    catalogImportWorker = createCatalogImportWorker()
+    if (catalogImportWorker) console.warn('Catalog import worker started')
+  } catch (err) {
+    console.warn('Catalog import worker not started:', err instanceof Error ? err.message : err)
   }
   startServer()
 }

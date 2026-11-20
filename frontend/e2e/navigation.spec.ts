@@ -65,6 +65,7 @@ test('owner: one Commerce group, no Catalog, Settings last', async ({ page }) =>
     'Locations & hours',
     'Disciplines',
     'Forms',
+    'Integrations', // CTO-40: connected stores for catalog import
     'Security',
   ])
 })

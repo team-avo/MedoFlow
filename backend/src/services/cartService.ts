@@ -7,7 +7,7 @@ import stripe from '../config/stripe'
 import { recalculateInvoiceTotals } from './invoiceService'
 import * as commissionService from './commissionService'
 import * as auditService from './auditService'
-import { isPrescriptionClass } from './rxMappingService'
+import { isPrescriptionClass, isUnclassified } from './rxMappingService'
 
 const apiError = (status: number, message: string, code?: string): ApiError => {
   const err = new Error(message) as ApiError
@@ -29,6 +29,14 @@ const rxRouteError = () =>
     422,
     'Prescription products are sent to e-prescribing and cannot be bought from the cart',
     'RX_ROUTE_EPRESCRIBE'
+  )
+
+/** CTO-40: an imported product is not sold until the clinic classifies it. */
+const unclassifiedError = () =>
+  apiError(
+    422,
+    'This product is not available yet: the clinic has not classified it',
+    'PRODUCT_UNCLASSIFIED'
   )
 
 /** Who did it, for the audit row. */
@@ -108,6 +116,7 @@ export const addToCart = async (
     const product = await prisma.product.findFirst({ where: { id: input.itemId, clinicId } })
     if (!product) throw apiError(404, 'Product not found')
     if (isPrescriptionClass(product.fulfillmentClass)) throw rxRouteError()
+    if (isUnclassified(product.fulfillmentClass)) throw unclassifiedError()
     unitPrice = product.price
   } else if (input.itemType === 'SERVICE') {
     const service = await prisma.service.findFirst({ where: { id: input.itemId, clinicId } })
@@ -240,7 +249,8 @@ export const setItemDecision = async (
  * The checkout rules shared by every way of paying for a cart:
  *  - prescribed items need the patient's accept/decline first;
  *  - declined items are not charged;
- *  - prescription products never reach payment (B5.5).
+ *  - prescription products never reach payment (B5.5);
+ *  - unclassified imported products never reach payment (CTO-40).
  */
 export const preparePayableCart = async (clinicId: string, patientId: string) => {
   const cart = await prisma.cart.findFirst({
@@ -256,6 +266,9 @@ export const preparePayableCart = async (clinicId: string, patientId: string) =>
     cart.items.some((item) => item.product && isPrescriptionClass(item.product.fulfillmentClass))
   ) {
     throw rxRouteError()
+  }
+  if (cart.items.some((item) => item.product && isUnclassified(item.product.fulfillmentClass))) {
+    throw unclassifiedError()
   }
   if (cart.items.some((item) => item.rxOrderLineId && item.patientDecision === 'PENDING')) {
     throw apiError(

@@ -2,14 +2,29 @@ import prisma from '../config/prisma'
 import type { ApiError } from '../types/errors'
 import type { ProductFulfillmentClass } from '@prisma/client'
 import { uniqueEntitySlug } from '../site/services/slugService'
+import { assetUrlMap } from '../site/services/assetService'
+
+/** CTO-40: adds each product's photo URL (imported or uploaded). */
+async function withImageUrls<T extends { imageAssetId: string | null }>(
+  clinicId: string,
+  rows: T[]
+) {
+  const ids = rows.map((r) => r.imageAssetId).filter((v): v is string => !!v)
+  const urls = ids.length ? await assetUrlMap(clinicId, ids) : new Map<string, { url: string }>()
+  return rows.map((r) => ({
+    ...r,
+    imageUrl: (r.imageAssetId && urls.get(r.imageAssetId)?.url) || null,
+  }))
+}
 
 export const getProducts = async (clinicId: string) => {
-  return prisma.product.findMany({
+  const rows = await prisma.product.findMany({
     where: { clinicId, isActive: true },
     include: {
       inventoryItem: true,
     },
   })
+  return withImageUrls(clinicId, rows)
 }
 
 export const getProductById = async (id: string, clinicId: string) => {

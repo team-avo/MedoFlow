@@ -27,6 +27,7 @@ import {
   LayoutTemplate,
   PenSquare,
   Building2,
+  Plug,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/common/BrandLogo'
 
@@ -130,6 +131,7 @@ const superAdminSections: SidebarSection[] = [
       { href: '/dashboard/locations', label: 'Locations & hours', icon: MapPin },
       { href: '/dashboard/disciplines', label: 'Disciplines', icon: Layers },
       { href: '/dashboard/forms', label: 'Forms', icon: FileText },
+      { href: '/dashboard/settings/integrations', label: 'Integrations', icon: Plug },
       { href: '/dashboard/settings', label: 'Security', icon: Settings },
     ],
   },
@@ -279,6 +281,8 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
       />
 
       {/* Navigation */}
+      {/* One active item: the longest href the path starts with, so
+          /dashboard/settings/integrations is not also "Security". */}
       <nav
         aria-label="Primary"
         className="custom-scrollbar relative flex-1 space-y-6 overflow-y-auto px-3 py-5"
@@ -303,9 +307,7 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
             <div className="space-y-0.5">
               {section.items.map((item) => {
                 const itemPath = item.href.split('?')[0] ?? item.href
-                const isActive =
-                  pathname === itemPath ||
-                  (itemPath !== '/dashboard' && pathname.startsWith(itemPath))
+                const isActive = itemPath === activeNavPath(sections, pathname)
                 const Icon = item.icon
                 const tourId = anchorIdFor(item.href)
                 return (
@@ -382,4 +384,17 @@ export function SidebarContent({ variant = 'fixed' }: SidebarContentProps) {
 
 export function AppSidebar() {
   return <SidebarContent variant="fixed" />
+}
+
+/** The href of the sidebar item for `pathname`: the longest one that matches. */
+function activeNavPath(sections: SidebarSection[], pathname: string): string | undefined {
+  let best: string | undefined
+  for (const section of sections) {
+    for (const item of section.items) {
+      const p = item.href.split('?')[0] ?? item.href
+      const hit = pathname === p || (p !== '/dashboard' && pathname.startsWith(`${p}/`))
+      if (hit && (!best || p.length > best.length)) best = p
+    }
+  }
+  return best
 }

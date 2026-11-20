@@ -204,6 +204,18 @@ export const USAGE_FEATURES = [
   },
   { key: 'product.created', area: 'commerce', label: 'Storefront product added' },
   { key: 'inventory.adjusted', area: 'commerce', label: 'Stock adjusted' },
+  {
+    key: 'catalog.store_connected',
+    area: 'commerce',
+    label: 'Outside store connected (Shopify, Square, WooCommerce, Wix)',
+    auditActions: ['STORE_CONNECTED'],
+  },
+  {
+    key: 'catalog.import_applied',
+    area: 'commerce',
+    label: 'Product catalog imported',
+    auditActions: ['CATALOG_IMPORT_APPLIED'],
+  },
   { key: 'membership.purchased', area: 'commerce', label: 'Membership payment received' },
   {
     key: 'treatment_plan.created',

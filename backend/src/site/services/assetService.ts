@@ -212,6 +212,62 @@ export async function completeUpload(actor: SiteActor, id: string) {
   return publicAsset(done)
 }
 
+/**
+ * CTO-40: stores an image the server fetched itself (an imported product
+ * photo). The bytes were already size-checked by the caller; the type is
+ * worked out from the bytes, never from the source's headers. Returns null
+ * (and stores nothing) when the bytes are not an allowed image or the plan's
+ * image limit is reached.
+ */
+export async function createAssetFromBytes(
+  clinicId: string,
+  uploadedById: string,
+  bytes: Buffer,
+  alt = ''
+): Promise<{ id: string; url: string } | null> {
+  if (bytes.length === 0 || bytes.length > SITE_IMAGE_MAX_BYTES) return null
+  const mime = SITE_IMAGE_TYPES.find((m) =>
+    contentMatchesMime(bytes.subarray(0, 64 * 1024), m as AllowedMime, bytes.length)
+  )
+  if (!mime) return null
+  const clinic = await prisma.clinic.findFirst({
+    where: { id: clinicId },
+    select: { tenant: { select: { plan: true } } },
+  })
+  const { maxAssets } = siteEntitlements(clinic?.tenant.plan)
+  const count = await prisma.siteAsset.count({ where: { clinicId, status: 'AVAILABLE' } })
+  if (count >= maxAssets) return null
+  const driver = storage()
+  const dims = imageSize(bytes.subarray(0, 64 * 1024))
+  const asset = await prisma.siteAsset.create({
+    data: {
+      clinicId,
+      storageKey: '',
+      mimeType: mime,
+      size: bytes.length,
+      alt: alt.slice(0, 200),
+      uploadedById,
+    },
+  })
+  const key = assetKey(clinicId, asset.id, mime)
+  try {
+    await driver.putObject(key, bytes, mime)
+  } catch (err) {
+    await prisma.siteAsset.delete({ where: { id: asset.id, clinicId } }).catch(() => undefined)
+    throw err
+  }
+  const done = await prisma.siteAsset.update({
+    where: { id: asset.id, clinicId },
+    data: {
+      storageKey: key,
+      status: 'AVAILABLE',
+      width: dims?.width ?? null,
+      height: dims?.height ?? null,
+    },
+  })
+  return { id: done.id, url: assetPublicUrl(done) }
+}
+
 export async function updateAssetAlt(actor: SiteActor, id: string, alt: string) {
   const asset = await prisma.siteAsset.findFirst({ where: { id, clinicId: actor.clinicId } })
   if (!asset) throw notFound('Image')

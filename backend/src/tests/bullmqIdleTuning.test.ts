@@ -37,6 +37,7 @@ import {
 } from '../queues/redisConnection'
 import { createAiScribeWorker } from '../queues/aiScribeQueue'
 import { createSiteLaunchWorker } from '../site/services/siteLaunchService'
+import { createCatalogImportWorker } from '../services/catalogImport/service'
 
 const ENV_KEYS = ['REDIS_URL', 'BULLMQ_DRAIN_DELAY_SECONDS', 'BULLMQ_STALLED_INTERVAL_MS'] as const
 const saved: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {}
@@ -106,6 +107,7 @@ describe('every worker uses the idle tuning', () => {
   it.each([
     ['ai-scribe-processing', () => createAiScribeWorker()],
     ['site-launch', () => createSiteLaunchWorker()],
+    ['catalog-import', () => createCatalogImportWorker()],
   ])('%s', (queueName, create) => {
     expect(create()).not.toBeNull()
     const opts = workerOpts[queueName]

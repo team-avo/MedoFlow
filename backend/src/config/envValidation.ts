@@ -124,6 +124,28 @@ export const collectEnvProblems = (env: NodeJS.ProcessEnv = process.env): EnvPro
   // declared no-PHI and must hash staff ids.
   for (const p of usageAnalyticsConfigProblems(env)) problems.push(p)
 
+  // CTO-40: store connections for catalog import. Each OAuth provider needs
+  // both halves of its app credentials; without them that provider shows
+  // "not set up" and file import still works.
+  for (const [id, secret] of [
+    ['SHOPIFY_CLIENT_ID', 'SHOPIFY_CLIENT_SECRET'],
+    ['SQUARE_APP_ID', 'SQUARE_APP_SECRET'],
+  ] as const) {
+    if (!!env[id]?.trim() !== !!env[secret]?.trim()) {
+      warn(`${id} and ${secret} must be set together: that store cannot be connected`)
+    }
+  }
+  if (env.SQUARE_ENV && !['sandbox', 'production'].includes(env.SQUARE_ENV.trim().toLowerCase())) {
+    warn('SQUARE_ENV must be "sandbox" or "production"')
+  }
+  if (
+    env.NODE_ENV === 'production' &&
+    env.SQUARE_APP_ID &&
+    env.SQUARE_ENV?.trim().toLowerCase() !== 'production'
+  ) {
+    warn('SQUARE_ENV is not "production": Square connections use the sandbox')
+  }
+
   if (!env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET) {
     warn('STRIPE_SECRET_KEY is not set: Stripe payment features will not function')
   }

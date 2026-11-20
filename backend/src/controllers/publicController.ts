@@ -3,6 +3,7 @@ import prisma from '../config/prisma'
 import { assertClinicLive, liveClinicWhere } from '../services/clinicVerification'
 import { successResponse } from '../utils/apiResponse'
 import { asyncHandler } from '../utils/asyncHandler'
+import { SELLABLE_CLASSES } from '../services/rxMappingService'
 import type { ApiError } from '../types/errors'
 import * as slotHoldService from '../services/slotHoldService'
 import * as availabilityService from '../services/availabilityService'
@@ -171,8 +172,9 @@ export const getClinicProducts = asyncHandler(
       where: {
         clinicId,
         isActive: true,
-        // B5.5: prescription products are never sold from the storefront.
-        fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
+        // B5.5: prescription products are never sold from the storefront, and
+        // CTO-40: neither are unclassified imports.
+        fulfillmentClass: { in: SELLABLE_CLASSES },
       },
       // Stock level only: supplier, batch, expiry and storage stay internal (B8.5).
       include: {
@@ -229,7 +231,7 @@ export const getProduct = asyncHandler(
       where: {
         id,
         isActive: true,
-        fulfillmentClass: { notIn: ['RX_NON_SCHEDULED', 'RX_SCHEDULED'] },
+        fulfillmentClass: { in: SELLABLE_CLASSES },
       },
       // Stock level only: supplier, batch, expiry and storage stay internal (B8.5).
       include: {
