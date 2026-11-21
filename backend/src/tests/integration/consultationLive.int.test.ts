@@ -99,11 +99,26 @@ describe('the recording gate', () => {
     })
     expect(rec.status, JSON.stringify(rec.body)).toBe(200)
 
+    // `text` stays the provider's wording verbatim, prefix included, so a
+    // client that reads only `text` is unaffected by CTO-41.
     const first = await segment(t.provider, { seq: 0 })
     expect(first.status, JSON.stringify(first.body)).toBe(200)
-    expect(first.body.data).toEqual({ text: LINES[0], segment: 0 })
+    expect(first.body.data).toEqual({
+      text: LINES[0],
+      segment: 0,
+      turns: [{ speaker: 'PROVIDER', text: 'How have you been since the last visit?' }],
+    })
     const second = await segment(t.provider, { seq: 1 })
-    expect(second.body.data).toEqual({ text: LINES[1], segment: 1 })
+    expect(second.body.data).toEqual({
+      text: LINES[1],
+      segment: 1,
+      turns: [
+        {
+          speaker: 'PATIENT',
+          text: 'Better. The fatigue is easing, but I still feel low on energy by mid-afternoon.',
+        },
+      ],
+    })
 
     // The provider got the audio as audio/webm.
     expect(mockScribeControl.calls.filter((c) => c.kind === 'stt')).toEqual([
@@ -115,6 +130,38 @@ describe('the recording gate', () => {
     expect(row.transcriptText).toBeNull()
     expect(row.recordingStatus).toBe('RECORDING')
     expect(row.aiScribeSessionId).toBeNull()
+  })
+})
+
+describe('speaker turns (CTO-41)', () => {
+  beforeEach(() => setState({ consentStatus: 'GRANTED', recordingStatus: 'RECORDING' }))
+
+  it('a segment that continues a turn comes back unlabelled, not guessed at', async () => {
+    // MOCK_TRANSCRIPT's last line deliberately carries no prefix.
+    const res = await segment(t.provider, { seq: 5 })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    expect(res.body.data).toEqual({
+      text: LINES[5],
+      segment: 5,
+      turns: [
+        {
+          speaker: null,
+          text: 'and magnesium glycinate 400 mg at night, two bottles. Let us recheck in six weeks.',
+        },
+      ],
+    })
+  })
+
+  it('a provider that cannot diarize returns one unlabelled turn, prefix unparsed', async () => {
+    mockScribeControl.speakerTurns = false
+    const res = await segment(t.provider, { seq: 0 })
+    expect(res.status, JSON.stringify(res.body)).toBe(200)
+    // Whisper cannot label, so a spoken "Provider:" must never become a speaker.
+    expect(res.body.data).toEqual({
+      text: LINES[0],
+      segment: 0,
+      turns: [{ speaker: null, text: LINES[0] }],
+    })
   })
 })
 
@@ -174,6 +221,38 @@ describe('bad input and provider failures', () => {
     }
     for (const line of logged) {
       for (const text of LINES) expect(line).not.toContain(text)
+    }
+  })
+
+  it('turn text never reaches the logs either (CTO-41)', async () => {
+    // The test above compares against the prefixed lines, so a log of a turn
+    // *body* would slip past it. Turns are PHI too.
+    const bodies = LINES.map((l) => l.replace(/^(provider|patient)[ \t]*:[ \t]*/i, '')).filter(
+      (b) => b.length > 12
+    )
+    expect(bodies.length).toBe(LINES.length)
+
+    const logged: string[] = []
+    const originals = {
+      log: console.log,
+      warn: console.warn,
+      error: console.error,
+      info: console.info,
+    }
+    for (const k of Object.keys(originals) as Array<keyof typeof originals>) {
+      console[k] = (...args: unknown[]) => logged.push(args.map(String).join(' '))
+    }
+    try {
+      for (let seq = 0; seq < LINES.length; seq++) {
+        expect((await segment(t.provider, { seq })).status).toBe(200)
+      }
+      mockScribeControl.failNext('stt', 'ai_rejected')
+      await segment(t.provider, { seq: 3 })
+    } finally {
+      Object.assign(console, originals)
+    }
+    for (const line of logged) {
+      for (const body of bodies) expect(line).not.toContain(body)
     }
   })
 })

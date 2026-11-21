@@ -15,6 +15,7 @@ import * as aiScribeService from './aiScribeService'
 import * as visitService from './visitService'
 import { getScribeAi, getScribeAiConfig } from './ai/registry'
 import { isAiError } from './ai/errors'
+import { parseSpeakerTurns, type SpeakerTurn } from './ai/speakerTurns'
 
 // ---------------------------------------------------------------------------
 // State machine helpers
@@ -491,9 +492,6 @@ export const startRecording = async (
   return updated
 }
 
-/** A live caption must come back while it is still "live". */
-export const LIVE_SEGMENT_TIMEOUT_MS = 20_000
-
 /**
  * Live captions (WS2): transcribe one short, self-contained audio segment
  * while the consultation is being recorded and hand the text straight back
@@ -505,6 +503,10 @@ export const LIVE_SEGMENT_TIMEOUT_MS = 20_000
  *  - Nothing is stored and the text is never logged: the clinical
  *    transcript is still produced from the whole recording by the scribe
  *    pipeline. These captions are a preview only.
+ *
+ * CTO-41: `turns` splits the text by speaker where the provider supports it.
+ * `text` keeps the provider's wording verbatim, prefixes included, so an older
+ * client that reads only `text` is unaffected.
  */
 export const transcribeLiveSegment = async (
   sessionId: string,
@@ -512,7 +514,7 @@ export const transcribeLiveSegment = async (
   audio: Buffer,
   mimeType: string,
   segment: number
-): Promise<{ text: string; segment: number }> => {
+): Promise<{ text: string; segment: number; turns: SpeakerTurn[] }> => {
   const session = await prisma.consultationSession.findUnique({
     where: { id: sessionId, ...clinicScope() },
     select: { providerId: true, consentStatus: true, recordingStatus: true },
@@ -527,12 +529,24 @@ export const transcribeLiveSegment = async (
   }
   if (audio.length === 0) throwApi('Empty audio segment', 400, 'empty_segment')
 
+  const stt = getScribeAi().stt
+  const cfg = getScribeAiConfig()
+  const labelled = stt.supportsSpeakerTurns()
+
   try {
-    const result = await getScribeAi().stt.transcribe(
-      { audio, mimeType, language: getScribeAiConfig().language, segment },
-      { signal: AbortSignal.timeout(LIVE_SEGMENT_TIMEOUT_MS) }
+    const result = await stt.transcribe(
+      { audio, mimeType, language: cfg.language, segment, speakerTurns: labelled },
+      { signal: AbortSignal.timeout(cfg.liveSegmentTimeoutMs) }
     )
-    return { text: result.text.trim(), segment }
+    const text = result.text.trim()
+    // Only parse when the provider claims it can label, so a transcribed word
+    // ("...told the patient: rest") can never acquire a fabricated speaker.
+    const turns: SpeakerTurn[] = labelled
+      ? parseSpeakerTurns(text)
+      : text
+        ? [{ speaker: null, text }]
+        : []
+    return { text, segment, turns }
   } catch (err) {
     if (isAiError(err)) throwApi(err.message, err.retryable ? 503 : 502, err.code)
     // AbortSignal.timeout rejects with a DOMException, not an AiError.

@@ -24,6 +24,7 @@ import type {
   TranscriptionResult,
 } from './types'
 import { isPrivateHost } from './egressPolicy'
+import { SPEAKER_TURN_INSTRUCTION } from './speakerTurns'
 
 export interface HttpDeps {
   fetchImpl?: typeof fetch
@@ -189,6 +190,11 @@ export class OpenAiCompatibleStt implements SpeechToTextProvider {
     return describeEndpoint(this.cfg)
   }
 
+  /** Only a chat-audio model can be asked for turns: its prompt is free-form. */
+  supportsSpeakerTurns(): boolean {
+    return this.cfg.mode === 'chat-audio'
+  }
+
   async transcribe(
     input: TranscriptionInput,
     opts: CallOptions = {}
@@ -197,12 +203,17 @@ export class OpenAiCompatibleStt implements SpeechToTextProvider {
     const ext = audioExtension(input.mimeType)
 
     if (this.cfg.mode === 'chat-audio') {
+      // Without the flag the request is byte-identical to the batch pipeline's,
+      // which is what keeps the post-consult transcript unchanged (CTO-41).
+      const system = input.speakerTurns
+        ? `${TRANSCRIBE_SYSTEM}\n${SPEAKER_TURN_INSTRUCTION}`
+        : TRANSCRIBE_SYSTEM
       const body = {
         model: this.cfg.model,
         temperature: 0,
         stream: false,
         messages: [
-          { role: 'system', content: TRANSCRIBE_SYSTEM },
+          { role: 'system', content: system },
           {
             role: 'user',
             content: [
@@ -228,6 +239,9 @@ export class OpenAiCompatibleStt implements SpeechToTextProvider {
       return { text, model: (data as ChatCompletionResponse).model || this.cfg.model }
     }
 
+    // Whisper cannot diarize, so `input.speakerTurns` is ignored here: there is
+    // no parameter for it, and `verbose_json` returns timestamps, not speakers.
+    // Live captions report this through the liveSpeakerLabels capability.
     const form = new FormData()
     form.append(
       'file',

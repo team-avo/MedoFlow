@@ -22,6 +22,8 @@ export interface ScribeMockOptions {
   status?: 'RECORDING' | 'FAILED' | 'DRAFT_GENERATED'
   consent?: 'GRANTED' | 'PENDING' | 'DECLINED'
   available?: boolean
+  /** CTO-41: false models a Whisper deployment, which cannot label speakers. */
+  liveSpeakerLabels?: boolean
 }
 
 export interface ScribeMockState {
@@ -121,6 +123,11 @@ export async function installScribeMock(page: Page, opts: ScribeMockOptions = {}
           available,
           transcriptionAvailable: available,
           liveTranscription: available,
+          // CTO-41: labels are on unless a test asks for the Whisper path.
+          liveSpeakerLabels: available && opts.liveSpeakerLabels !== false,
+          liveSegmentMs: 3000,
+          liveSegmentMinMs: 3000,
+          liveSegmentMaxMs: 6000,
           draftingAvailable: available,
           demoEnabled: true,
           llm: model(available ? 'mock' : 'disabled'),

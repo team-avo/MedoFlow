@@ -134,17 +134,26 @@ export const siteLeadRateLimit = rateLimit({
 })
 
 /**
- * Live captions (WS2): one request per ~6 s audio segment while recording.
- * 60 per minute per signed-in user leaves room for retries.
- * LIVE_TRANSCRIPT_RATE_LIMIT_MAX overrides.
+ * Live captions (WS2): one request per audio segment while recording. The
+ * client adapts the segment length down to ~2 s (CTO-41), so one consult is up
+ * to ~30 a minute; 90 leaves room for retries and a restarted recording in the
+ * same window. LIVE_TRANSCRIPT_RATE_LIMIT_MAX overrides.
+ *
+ * `code` lets the client tell our throttle from the AI vendor's, which arrives
+ * as a 503 `ai_rate_limited` instead (services/ai/errors.ts).
  */
 export const liveTranscriptRateLimit = rateLimit({
   windowMs: 60 * 1000,
-  max: () => Number(process.env.LIVE_TRANSCRIPT_RATE_LIMIT_MAX) || 60,
+  max: () => Number(process.env.LIVE_TRANSCRIPT_RATE_LIMIT_MAX) || 90,
   keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : ipKeyGenerator(req.ip ?? '')),
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, error: 'Too many live caption requests. Please slow down.' },
+  message: {
+    success: false,
+    code: 'rate_limited',
+    message: 'Too many live caption requests. Please slow down.',
+    error: 'Too many live caption requests. Please slow down.',
+  },
 })
 
 /**
