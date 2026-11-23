@@ -85,15 +85,34 @@ const session = (s: RoomState) => ({
   patient: { id: 'patient-e2e-1', name: 'Synthetic Patient' },
 })
 
-const CAPTIONS = [
-  'Provider: How have you been since the last visit?',
-  'Patient: Better. The fatigue is easing.',
-  'Provider: Any trouble sleeping?',
+/**
+ * CTO-41: the server returns the verbatim text plus speaker turns, so the
+ * panel can label who spoke. `text` keeps the prefixes, as the real server does.
+ */
+const CAPTIONS: Array<{ text: string; turns: Array<{ speaker: string; text: string }> }> = [
+  {
+    text: 'Provider: How have you been since the last visit?',
+    turns: [{ speaker: 'PROVIDER', text: 'How have you been since the last visit?' }],
+  },
+  {
+    text: 'Patient: Better. The fatigue is easing.',
+    turns: [{ speaker: 'PATIENT', text: 'Better. The fatigue is easing.' }],
+  },
+  {
+    text: 'Provider: Any trouble sleeping?',
+    turns: [{ speaker: 'PROVIDER', text: 'Any trouble sleeping?' }],
+  },
 ]
 
-async function openRoom(page: Page, consentStatus: string): Promise<RoomState> {
+async function openRoom(
+  page: Page,
+  consentStatus: string,
+  /** CTO-41: false models a Whisper deployment, with no turns and no labels. */
+  opts: { speakerLabels?: boolean } = {}
+): Promise<RoomState> {
+  const speakerLabels = opts.speakerLabels !== false
   await installMockApi(page, { role: 'PROVIDER', signedIn: true })
-  await installScribeMock(page)
+  await installScribeMock(page, { liveSpeakerLabels: speakerLabels })
   await page.route('https://8x8.vc/external_api.js', (route) =>
     route.fulfill({ status: 200, contentType: 'application/javascript', body: JITSI_STUB })
   )
@@ -149,7 +168,13 @@ async function openRoom(page: Page, consentStatus: string): Promise<RoomState> {
     if (key === `POST /consultations/${CONSULT_ID}/live-transcript`) {
       const seq = state.segments.length
       state.segments.push(req.postDataBuffer()?.length ?? 0)
-      return ok(route, { text: CAPTIONS[seq % CAPTIONS.length], segment: seq })
+      const caption = CAPTIONS[seq % CAPTIONS.length]!
+      return ok(route, {
+        text: caption.text,
+        segment: seq,
+        // A Whisper server sends no turns at all.
+        ...(speakerLabels ? { turns: caption.turns } : {}),
+      })
     }
     return route.fallback()
   })
@@ -190,17 +215,58 @@ test('consent granted: join the call → recording starts → live transcript ap
   await expectBothVisible(page, /end video call/i, /stop recording/i)
   expect(state.calls).toContain(`POST /consultations/${CONSULT_ID}/recording/start`)
 
-  // Live captions: the first segment closes after ~6 s.
+  // Live captions: the first segment closes after a few seconds.
   const panel = page.getByTestId('live-transcript')
-  await expect(panel.getByRole('log')).toContainText(CAPTIONS[0]!, { timeout: 20_000 })
-  await expect(page.getByTestId('live-caption-strip')).toContainText(CAPTIONS[0]!)
+  await expect(panel.getByRole('log')).toContainText(CAPTIONS[0]!.text, { timeout: 20_000 })
+  // The strip holds only the last two turns, and at the CTO-41 cadence they
+  // turn over every few seconds, so assert what it always shows rather than a
+  // particular caption: a labelled line, and not the placeholder.
+  const strip = page.getByTestId('live-caption-strip')
+  await expect(strip).toContainText(/(Provider|Patient):\s\S/)
+  await expect(strip).not.toContainText('Listening')
   await expect(panel).toContainText('Live')
   expect(state.segments[0]).toBeGreaterThan(0) // real audio from the fake mic
+
+  // CTO-41 AC2: who spoke is shown, from the provider's own turns.
+  await expect(panel.getByRole('log')).toContainText('Provider:')
+  await expect(page.getByTestId('caption-speaker').first()).toBeVisible()
+
+  // CTO-41 AC1: the measured delay is on screen, behind its toggle so it does
+  // not distract mid-consult. Shape only: a fake-mic CI box is not a latency
+  // gate, and asserting a threshold here would be a flaky performance test.
+  await page.getByTestId('caption-latency-toggle').click()
+  await expect(page.getByTestId('caption-latency')).toContainText(/p95\s+\d+(\.\d)?\s*s/)
+  await expect(page.getByTestId('caption-latency')).toHaveAttribute('aria-live', 'off')
+
+  // The cadence keeps rotating segments at the shorter length.
+  await expect.poll(() => state.segments.length, { timeout: 20_000 }).toBeGreaterThanOrEqual(2)
 
   // Stop recording during the call: the call stays, the recording is ready to send.
   await page.getByRole('button', { name: /stop recording/i }).click()
   await expectBothVisible(page, /end video call/i, /upload & transcribe/i)
   expect(state.calls).toContain(`POST /consultations/${CONSULT_ID}/recording/stop`)
+})
+
+test('a provider that cannot label speakers still shows plain captions (CTO-41)', async ({
+  page,
+}) => {
+  // Whisper (OpenAI, Groq, self-hosted) cannot diarize, so captions must look
+  // exactly as they did before CTO-41: text, no speaker, no empty gutter.
+  const state = await openRoom(page, 'GRANTED', { speakerLabels: false })
+  await page.getByRole('button', { name: /start video call/i }).click()
+  await expect(page.getByTestId('jitsi-stub')).toBeVisible()
+
+  const log = page.getByTestId('live-transcript').getByRole('log')
+  await expect(log).toContainText('How have you been since the last visit?', { timeout: 20_000 })
+  expect(state.segments[0]).toBeGreaterThan(0)
+
+  // The raw text keeps whatever the provider said, but nothing is presented as
+  // an attributed speaker.
+  await expect(page.getByTestId('caption-speaker')).toHaveCount(0)
+
+  // The delay figure is still measured and reported: that is independent of labels.
+  await page.getByTestId('caption-latency-toggle').click()
+  await expect(page.getByTestId('caption-latency')).toContainText(/p95/)
 })
 
 test('consent pending: recording stays visible with its reason; joining says it did not start', async ({

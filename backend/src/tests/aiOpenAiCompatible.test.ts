@@ -305,6 +305,56 @@ describe('STT', () => {
   })
 })
 
+describe('STT speaker turns (CTO-41)', () => {
+  const audio = Buffer.from('synthetic-webm-bytes')
+  const chatCfg = () => sttCfg({ mode: 'chat-audio', preset: 'gemini', model: 'gemini-x' })
+  const chatReply = () => {
+    reply = (_req, res) =>
+      json(res, 200, { model: 'gemini-x', choices: [{ message: { content: 'Patient: tired.' } }] })
+  }
+  const systemOf = () =>
+    String((JSON.parse(captured[0]!.body.toString()) as Record<string, any>).messages[0].content)
+
+  it('only a chat-audio provider claims support', () => {
+    assert.equal(new OpenAiCompatibleStt(chatCfg(), deps).supportsSpeakerTurns(), true)
+    assert.equal(new OpenAiCompatibleStt(sttCfg(), deps).supportsSpeakerTurns(), false)
+  })
+
+  it('chat-audio: the flag adds the turn instruction to the system prompt', async () => {
+    chatReply()
+    await new OpenAiCompatibleStt(chatCfg(), deps).transcribe({
+      audio,
+      mimeType: 'audio/wav',
+      speakerTurns: true,
+    })
+    const system = systemOf()
+    assert.match(system, /"Provider:"/)
+    assert.match(system, /"Patient:"/)
+    // The verbatim instruction must survive alongside it.
+    assert.match(system, /medical transcriptionist/i)
+  })
+
+  it('chat-audio: without the flag the prompt is unchanged, so the batch draft cannot regress', async () => {
+    chatReply()
+    await new OpenAiCompatibleStt(chatCfg(), deps).transcribe({ audio, mimeType: 'audio/wav' })
+    const system = systemOf()
+    assert.doesNotMatch(system, /Provider:/)
+    assert.doesNotMatch(system, /Patient:/)
+  })
+
+  it('transcriptions: the flag is ignored and no prompt field is sent (Whisper cannot diarize)', async () => {
+    reply = (_req, res) => json(res, 200, { text: 'hello' })
+    const res = await new OpenAiCompatibleStt(sttCfg(), deps).transcribe({
+      audio,
+      mimeType: 'audio/webm',
+      speakerTurns: true,
+    })
+    assert.deepEqual(res, { text: 'hello', model: 'whisper-test' })
+    const body = captured[0]!.body.toString()
+    assert.doesNotMatch(body, /name="prompt"/)
+  })
+})
+
 describe('provider descriptor (provenance)', () => {
   it('names the host only, and marks loopback as self-hosted', () => {
     const d = new OpenAiCompatibleLlm(llmCfg(), deps).describe()

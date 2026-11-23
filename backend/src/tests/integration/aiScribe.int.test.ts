@@ -186,7 +186,16 @@ describe('capabilities', () => {
     const res = await api(server.url, '/ai-scribe/capabilities', { token: aProvider })
     expect(res.status).toBe(200)
     const caps = res.body.data.capabilities
-    expect(caps).toMatchObject({ available: true, demoEnabled: true })
+    expect(caps).toMatchObject({
+      available: true,
+      demoEnabled: true,
+      // CTO-41: the mock can label, so the segment floor is the labelled one.
+      liveTranscription: true,
+      liveSpeakerLabels: true,
+      liveSegmentMs: 3000,
+      liveSegmentMinMs: 3000,
+      liveSegmentMaxMs: 6000,
+    })
     expect(caps.llm).toEqual({
       kind: 'mock',
       preset: 'mock',

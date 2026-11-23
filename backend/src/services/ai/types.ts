@@ -42,6 +42,12 @@ export interface TranscriptionInput {
    * uses it to return one line of its synthetic conversation per segment.
    */
   segment?: number
+  /**
+   * Ask for `Provider:` / `Patient:` turn prefixes (CTO-41). A request, never
+   * a guarantee: providers that cannot diarize ignore it. Check
+   * `supportsSpeakerTurns()` before relying on the result.
+   */
+  speakerTurns?: boolean
 }
 
 export interface TranscriptionResult {
@@ -51,6 +57,12 @@ export interface TranscriptionResult {
 
 export interface SpeechToTextProvider {
   describe(): ProviderDescriptor
+  /**
+   * Whether this provider can be asked for `Provider:` / `Patient:` turn
+   * prefixes (CTO-41). True for `chat-audio` providers, whose system prompt is
+   * free-form; false for Whisper, which cannot diarize at all.
+   */
+  supportsSpeakerTurns(): boolean
   transcribe(input: TranscriptionInput, opts?: CallOptions): Promise<TranscriptionResult>
 }
 

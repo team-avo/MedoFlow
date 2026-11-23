@@ -17,6 +17,12 @@
  *
  *   AI_SCRIBE_TIMEOUT_MS   per request (default 120000)
  *   AI_SCRIBE_LANGUAGE     transcription language hint (default en)
+ *
+ * Live captions (CTO-41):
+ *   AI_SCRIBE_LIVE_SEGMENT_MS  starting segment length (default 3000); the
+ *                              client adapts between the derived min and max
+ *   AI_SCRIBE_LIVE_TIMEOUT_MS  per live segment (default 8000): a caption
+ *                              later than this is already stale
  */
 
 export type AdapterKind = 'openai-compatible' | 'mock' | 'disabled'
@@ -49,6 +55,16 @@ export interface ScribeAiConfig {
   stt: SttConfig
   timeoutMs: number
   language: string
+  /**
+   * Live captions (CTO-41). The server owns the bounds; the client owns the
+   * policy of adapting between them (shorten while fast, back off when slow
+   * or rate-limited), so cadence can be retuned by env with no frontend deploy.
+   */
+  liveSegmentMs: number
+  liveSegmentMinMs: number
+  liveSegmentMaxMs: number
+  /** A caption later than this is useless, so fail fast and let the client back off. */
+  liveSegmentTimeoutMs: number
   /** Problems that make an endpoint unusable; it is built as 'disabled' instead. */
   problems: string[]
 }
@@ -121,6 +137,20 @@ export const PRESETS: Readonly<Record<string, Preset>> = {
 }
 
 const DEFAULT_TIMEOUT_MS = 120_000
+
+/** Live captions (CTO-41): defaults and the hard bounds any env value is held to. */
+const LIVE_SEGMENT_DEFAULT_MS = 3_000
+const LIVE_SEGMENT_FLOOR_MS = 2_000
+const LIVE_SEGMENT_CEILING_MS = 6_000
+const LIVE_TIMEOUT_DEFAULT_MS = 8_000
+
+const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n))
+
+/** An integer env value within [lo, hi], or the fallback when absent or unparseable. */
+function intFromEnv(raw: string | undefined, fallback: number, lo: number, hi: number): number {
+  const n = Number.parseInt(raw ?? '', 10)
+  return Number.isFinite(n) ? clamp(n, lo, hi) : fallback
+}
 
 const oneOf = <T extends string>(value: string | undefined, allowed: readonly T[]): T | null =>
   value && (allowed as readonly string[]).includes(value) ? (value as T) : null
@@ -252,11 +282,30 @@ export function loadScribeAiConfig(env: NodeJS.ProcessEnv = process.env): Scribe
   })
 
   const timeout = Number.parseInt(env.AI_SCRIBE_TIMEOUT_MS ?? '', 10)
+
+  // The starting length is clamped to the bounds, then the bounds are widened
+  // to include it, so min ≤ default ≤ max holds for any env value.
+  const liveSegmentMs = intFromEnv(
+    env.AI_SCRIBE_LIVE_SEGMENT_MS,
+    LIVE_SEGMENT_DEFAULT_MS,
+    1_000,
+    10_000
+  )
+
   return {
     llm: { ...endpoint(llmBase, llmProblems.length > 0), jsonMode },
     stt: { ...endpoint(sttBase, sttProblems.length > 0), mode },
     timeoutMs: Number.isFinite(timeout) && timeout >= 1000 ? timeout : DEFAULT_TIMEOUT_MS,
     language: env.AI_SCRIBE_LANGUAGE?.trim() || 'en',
+    liveSegmentMs,
+    liveSegmentMinMs: Math.min(LIVE_SEGMENT_FLOOR_MS, liveSegmentMs),
+    liveSegmentMaxMs: Math.max(LIVE_SEGMENT_CEILING_MS, liveSegmentMs),
+    liveSegmentTimeoutMs: intFromEnv(
+      env.AI_SCRIBE_LIVE_TIMEOUT_MS,
+      LIVE_TIMEOUT_DEFAULT_MS,
+      1_000,
+      30_000
+    ),
     problems,
   }
 }

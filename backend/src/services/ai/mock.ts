@@ -80,6 +80,14 @@ export const mockScribeControl = {
   failures: [] as MockFailure[],
   /** Overrides the LLM's answer; return undefined to fall through to the default. */
   llmResponder: undefined as ((req: CompletionRequest) => string | undefined) | undefined,
+  /**
+   * What `MockStt.supportsSpeakerTurns()` answers (CTO-41). Set false to
+   * exercise the Whisper path (unlabelled captions) without reconfiguring
+   * the registry.
+   */
+  speakerTurns: true,
+  /** Delay every mock answer, so a benchmark can model provider latency. */
+  latencyMs: 0,
   /** Fail the next `times` calls of a kind with this AiError code. */
   failNext(on: 'llm' | 'stt', code: AiError['code'], times = 1): void {
     for (let i = 0; i < times; i += 1) this.failures.push({ on, error: new AiError(code) })
@@ -88,7 +96,16 @@ export const mockScribeControl = {
     this.calls = []
     this.failures = []
     this.llmResponder = undefined
+    this.speakerTurns = true
+    this.latencyMs = 0
   },
+}
+
+const settle = async <T>(value: T): Promise<T> => {
+  if (mockScribeControl.latencyMs > 0) {
+    await new Promise((r) => setTimeout(r, mockScribeControl.latencyMs))
+  }
+  return value
 }
 
 function takeFailure(on: 'llm' | 'stt'): AiError | null {
@@ -129,6 +146,10 @@ export class MockStt implements SpeechToTextProvider {
     return descriptor()
   }
 
+  supportsSpeakerTurns(): boolean {
+    return mockScribeControl.speakerTurns
+  }
+
   transcribe(input: TranscriptionInput, opts: CallOptions = {}): Promise<TranscriptionResult> {
     mockScribeControl.calls.push({
       kind: 'stt',
@@ -139,9 +160,11 @@ export class MockStt implements SpeechToTextProvider {
     const failure = takeFailure('stt')
     if (failure) return Promise.reject(failure)
     if (input.segment !== undefined) {
+      // MOCK_TRANSCRIPT's lines are already Provider:/Patient: prefixed, and
+      // the last one deliberately is not: a free `speaker: null` fixture.
       const lines = MOCK_TRANSCRIPT.split('\n')
-      return Promise.resolve({ text: lines[input.segment % lines.length]!, model: MOCK_MODEL })
+      return settle({ text: lines[input.segment % lines.length]!, model: MOCK_MODEL })
     }
-    return Promise.resolve({ text: MOCK_TRANSCRIPT, model: MOCK_MODEL })
+    return settle({ text: MOCK_TRANSCRIPT, model: MOCK_MODEL })
   }
 }

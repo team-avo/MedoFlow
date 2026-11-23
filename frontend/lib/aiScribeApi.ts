@@ -79,6 +79,16 @@ export interface ScribeCapabilities {
   transcriptionAvailable: boolean
   /** On-screen captions while recording (WS2). Older servers omit it. */
   liveTranscription?: boolean
+  /**
+   * Live captions may carry speaker turns (CTO-41). "May": a chat-audio model
+   * can be asked but can still ignore it, so a turn is labelled only when it
+   * names a speaker. Older servers omit it.
+   */
+  liveSpeakerLabels?: boolean
+  /** Starting caption segment length and the bounds the client adapts within. */
+  liveSegmentMs?: number
+  liveSegmentMinMs?: number
+  liveSegmentMaxMs?: number
   draftingAvailable: boolean
   demoEnabled: boolean
   llm: { kind: string; preset: string; model: string; location: string }
