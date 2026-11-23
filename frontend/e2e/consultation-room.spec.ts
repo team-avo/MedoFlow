@@ -107,7 +107,7 @@ const CAPTIONS: Array<{ text: string; turns: Array<{ speaker: string; text: stri
 async function openRoom(
   page: Page,
   consentStatus: string,
-  /** CTO-41: false models a Whisper deployment — no turns, no labels. */
+  /** CTO-41: false models a Whisper deployment, with no turns and no labels. */
   opts: { speakerLabels?: boolean } = {}
 ): Promise<RoomState> {
   const speakerLabels = opts.speakerLabels !== false

@@ -2,12 +2,12 @@
  * Speaker turns for live captions (CTO-41).
  *
  * Live captions ask a `chat-audio` speech-to-text provider to prefix each turn
- * with `Provider:` / `Patient:` — the same convention the batch pipeline's
- * labelling pass produces (`services/scribeAnalysis.ts`) — and this module
+ * with `Provider:` / `Patient:`, the same convention the batch pipeline's
+ * labelling pass produces (`services/scribeAnalysis.ts`), and this module
  * turns that text into structured turns for the provider's screen.
  *
  * Deliberately pure and dependency-free: no Prisma, no config, no logging.
- * Nothing here may log its input or output — a caption is PHI.
+ * Nothing here may log its input or output: a caption is PHI.
  *
  * Whisper (`transcriptions` mode) cannot diarize, so the live path only parses
  * when the provider claims support (`SpeechToTextProvider.supportsSpeakerTurns`).

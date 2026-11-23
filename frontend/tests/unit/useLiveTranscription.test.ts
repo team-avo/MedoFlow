@@ -162,7 +162,7 @@ describe('useLiveTranscription', () => {
 
 /**
  * CTO-41. Fake timers fake `performance.now()` too, so these delays are exact
- * rather than approximate — but only if `transcribe` itself awaits a timer:
+ * rather than approximate, but only if `transcribe` itself awaits a timer:
  * a promise that resolves in a microtask does so with the clock still frozen,
  * which would measure every round-trip as 0 ms.
  */

@@ -82,7 +82,7 @@ export const mockScribeControl = {
   llmResponder: undefined as ((req: CompletionRequest) => string | undefined) | undefined,
   /**
    * What `MockStt.supportsSpeakerTurns()` answers (CTO-41). Set false to
-   * exercise the Whisper path — unlabelled captions — without reconfiguring
+   * exercise the Whisper path (unlabelled captions) without reconfiguring
    * the registry.
    */
   speakerTurns: true,

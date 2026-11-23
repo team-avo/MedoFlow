@@ -34,7 +34,7 @@ export interface PacingState {
   throttled: boolean
   /**
    * Sticky lower bound. Once a rate limit is hit, the cadence that caused it is
-   * never returned to for the rest of the recording — otherwise the controller
+   * never returned to for the rest of the recording, otherwise the controller
    * is an oscillator: shorten, get throttled, back off, shorten, get throttled.
    */
   floorMs: number

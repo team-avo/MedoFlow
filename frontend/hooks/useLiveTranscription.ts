@@ -173,7 +173,7 @@ export function useLiveTranscription({
 
   // The adapted cadence lives in a ref on purpose: as state it would be an
   // effect dependency, and every adaptation would tear the capture effect down,
-  // restart the recorder and reset `seq` — colliding with the lines already on
+  // restart the recorder and reset `seq`, colliding with the lines already on
   // screen.
   const pacingRef = useRef<PacingState>(initPacing(segmentMs))
   const samplesRef = useRef<LatencySample[]>([])
