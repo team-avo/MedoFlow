@@ -40,7 +40,8 @@
 - Frontend: typecheck clean, lint zero-warnings, **675 unit tests green** (57 files).
 - No regressions: all pre-existing assertions in the touched test files pass **unchanged** (see §4.2).
 - HIPAA per-change gate ticked (§7) — no new vendor, no new PHI path.
-- **Still open:** peer review; PR and merge; the real-provider latency run and the Vertex label run (§6).
+- **CI green on `05110f4`** ([run 45134246584](https://github.com/team-avo/MedoFlow/actions/runs/45134246584)): 762 backend unit, 401 integration (2 skipped), 675 frontend unit, 104 e2e, both coverage thresholds, migrations, audits and the secret scan. See §4.6.
+- **Still open:** peer review and merge of [PR #29](https://github.com/team-avo/MedoFlow/pull/29); the real-provider latency run and the Vertex label run (§6).
 
 ---
 
@@ -170,7 +171,7 @@ Migrations applied cleanly on an empty database (none added by CTO-41), and `med
 
 The cause was CPU starvation on this machine: a macOS `StorageManagement` scan was pegging two cores (load average 11, later 47). Two further attempts while it ran are recorded only as evidence of that, not as results: a fresh-DB repeat took **5299 s** instead of 211 s with a 60 s `beforeAll` hook timeout, and a focused two-file run took **2483 s** and failed 8 `aiScribe` cases with `401` on session start — the token minted in `beforeAll` outliving the suite's own 15-minute `SESSION_IDLE_TIMEOUT_MINUTES`. Notably `consultationLive` passed even then, because it is fast.
 
-**Re-run the full suite on an idle machine before the PR** to replace the single flake with a clean green, and note the two timing-sensitive spots above if CI is ever run on a loaded runner.
+**Resolved in CI** (§4.6): the same file passes in **3.3 s** on the runner, so the local timeout was environmental and nothing was outstanding. Keep the two timing-sensitive spots above in mind if CI is ever run on a loaded runner.
 
 ### 4.5 The opt-in server-side benchmark
 
@@ -182,6 +183,30 @@ LIVE_CAPTION_BENCH=1 pnpm exec vitest run --config vitest.integration.config.ts 
 Prints a p50/p95 table for the caption endpoint against the mock, and again with a 400 ms provider delay, asserting the server-side overhead is bounded relative to a plain authenticated request. **It cannot measure either headline metric** — both need the browser's clocks — and its header says so.
 
 ---
+
+### 4.6 CI (the authoritative run)
+
+The **first** CI run on this branch (`f1f2390`) failed both quality gates, and it is worth recording why: the **em-dash guard (CTO-11) runs before the test steps**, so 8 comment lines tripped it and unit, coverage, migrations, integration, the audits, the secret scan, the build and e2e were all skipped. The gates looked red for a reason that had nothing to do with the feature, and the run carried no test evidence at all. `05110f4` fixes the comments (prose only; no code or test changed).
+
+Run [45134246584](https://github.com/team-avo/MedoFlow/actions/runs/45134246584) on `05110f4`, every step executed:
+
+| Step                                                            | Result                               |
+| --------------------------------------------------------------- | ------------------------------------ |
+| Backend typecheck / lint / synthetic fixtures / em dashes       | pass                                 |
+| Backend unit + coverage threshold                               | **762 passed** (47 files)            |
+| Migrations on an empty database                                 | pass                                 |
+| Backend integration + coverage, `medoflow_app` with RLS applied | **401 passed, 2 skipped** (30 files) |
+| `consultationLive.int.test.ts`                                  | **9 passed**, 835 ms                 |
+| `aiScribe.int.test.ts`                                          | **38 passed**, 3283 ms               |
+| `liveCaption.bench.int.test.ts`                                 | skipped (opt-in, as designed)        |
+| Backend audit + secret scan                                     | pass                                 |
+| Frontend typecheck / lint / em dashes                           | pass                                 |
+| Frontend unit + component + coverage threshold                  | **675 passed** (57 files)            |
+| Frontend audit + production build                               | pass                                 |
+| Browser e2e, full suite                                         | **104 passed**, 9.9 min              |
+| Backend Docker image + OpenNext build                           | pass                                 |
+
+**Lesson for the next change:** run `node scripts/check-no-em-dash.js` before pushing. It is cheap, it is not part of `pnpm test`, and because it is ordered ahead of the test steps a single comment costs a full CI cycle.
 
 ## 5. Design notes
 
@@ -202,7 +227,7 @@ Prints a p50/p95 table for the caption endpoint against the mock, and again with
 2. **Force the free-tier rate limit** on Groq (talk continuously for a few minutes) and confirm the client backs off **and stays backed off** rather than oscillating.
 3. **Confirm the Whisper path** shows unlabelled captions exactly as before, and that `liveSpeakerLabels` is `false` in `GET /ai-scribe/capabilities`.
 4. **Set env on Render** if the defaults are not wanted: `AI_SCRIBE_LIVE_SEGMENT_MS`, `AI_SCRIBE_LIVE_TIMEOUT_MS`, `LIVE_TRANSCRIPT_RATE_LIMIT_MAX`.
-5. **Re-run the backend integration suite on an idle machine** (§4.4). It has been run and is green apart from one CPU-starvation timeout that passes in 455 ms on its own; a clean run replaces that flake in the PR evidence.
+5. ~~Re-run the backend integration suite on an idle machine~~ **Done, in CI** (§4.6): 401 passed, 2 skipped, with `aiScribe.int.test.ts` green in 3.3 s. No local re-run needed.
 
 | Profile | Provider / model              | N   | Dropped | First-word p50 / p95 | Round-trip p50 / p95 | Target met |
 | ------- | ----------------------------- | --- | ------- | -------------------- | -------------------- | ---------- |
