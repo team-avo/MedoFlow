@@ -8,7 +8,7 @@
   "variableDescription": "target: the MedoFlow address the sub-domain must CNAME to (medoflow.pages.dev today). token: the ownership token MedoFlow shows the clinic.",
   "hostRequired": true,
   "syncPubKeyDomain": "medoflow.example",
-  "syncRedirectDomain": "medoflow.pages.dev",
+  "syncRedirectDomain": "medoflow.com",
   "records": [
     {
       "type": "CNAME",

@@ -1,4 +1,8 @@
 # Cloudflare Pages front door (ADR 0005, zero-cost clinic addresses).
+# LEGACY after the medoflow.com migration: new clinics are served by the Worker
+# wildcard route *.medoflow.com and need no run here. Still used to (re)deploy the
+# production branch, which keeps medoflow.pages.dev and the clinic custom domains
+# (DOMAIN_PROVIDER=pages) alive. See arh-agent-docs/medoflow-com-domain-migration-guide.md.
 # Run by hand: Actions › "Front door (Pages)" › Run workflow.
 #   label empty   → production branch `medoflow` → https://medoflow.pages.dev (the app)
 #   label=<clinic> → branch deployment          → https://<clinic>.medoflow.pages.dev

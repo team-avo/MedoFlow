@@ -159,6 +159,36 @@ Evidence: `backend/src/tests/domainDiagnose.test.ts`, `pagesDomainProvider.test.
 - Live end to end: `frontend/e2e/live-site.spec.ts` over `http://<slug>.localhost` (real API, real 404/308).
 - Baseline posture of today's hosts: walkthrough §4.5.
 
+## Addendum (2026-11-25): own root domain `medoflow.com`
+
+Once MedoFlow owns `medoflow.com`, the app moves off the free `*.pages.dev`
+addresses. See `arh-agent-docs/medoflow-com-domain-migration-guide.md`.
+
+- **Front door → Worker route.** Cloudflare Pages cannot serve a wildcard custom
+  domain. The app already runs as the Worker `medoflow-web`, so the apex
+  `medoflow.com` (a Workers Custom Domain) and `*.medoflow.com` (a Worker route,
+  `frontend/wrangler.jsonc`) go straight to that Worker. No per-clinic Pages
+  branch deploy is needed: `SITE_LAUNCH_MODE=wildcard` makes `siteLaunchService`
+  report a subdomain live without calling Cloudflare.
+- **Pages project kept.** The `medoflow` Pages project still serves
+  `medoflow.pages.dev`, any old branch deployments, and — crucially — every clinic
+  **custom** domain added through `DOMAIN_PROVIDER=pages` (those still CNAME to
+  `medoflow.pages.dev`, which is why `SITE_CNAME_TARGET` stays `medoflow.pages.dev`).
+- **Legacy redirects.** `cf-worker.js` runs `retiredHostRedirect` first: when
+  `LEGACY_ROOT_DOMAINS` is set it 308s `medoflow.pages.dev` and
+  `<label>.medoflow.pages.dev` to the matching `medoflow.com` address (method,
+  body, path and query preserved). Empty var ⇒ no-op, so the change is dormant
+  until cut-over.
+- **API.** `api.medoflow.com` is a Render custom domain, DNS-only (grey) so the
+  Worker never runs for it; `api.<root>` already classifies as `api` in
+  `classifyHost`.
+- **Cookies.** The app and API are now sibling subdomains of one registrable
+  domain, so `REFRESH_COOKIE_SAMESITE=strict` becomes an option (B0.6.9); `none`
+  is kept for now.
+
+Evidence: `frontend/tests/unit/retiredHostRedirect.test.ts`;
+`backend/src/tests/integration/siteLaunch.int.test.ts` (wildcard mode).
+
 ## Sign-off
 
 | Role             | Name | Date | Signature |

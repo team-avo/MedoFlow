@@ -148,3 +148,28 @@ describe('without Cloudflare configured', () => {
     }
   })
 })
+
+describe('wildcard mode (medoflow.com: one Worker route, no per-clinic deploy)', () => {
+  it('reports LIVE at <label>.medoflow.com without calling Cloudflare Pages', async () => {
+    const prevMode = process.env.SITE_LAUNCH_MODE
+    const prevRoot = process.env.SITE_ROOT_DOMAIN
+    process.env.SITE_LAUNCH_MODE = 'wildcard'
+    process.env.SITE_ROOT_DOMAIN = 'medoflow.com'
+    const before = deployed.length
+    try {
+      const s = await status()
+      expect(s.status).toBe('LIVE')
+      expect(s.url).toMatch(/^https:\/\/.+\.medoflow\.com$/)
+      // Retry runs requestLaunch, which must also short-circuit (no Pages deploy).
+      const retry = await api(server.url, '/site/launch/retry', { token: owner, body: {} })
+      expect(retry.status).toBe(200)
+      expect(retry.body.data.status).toBe('LIVE')
+      expect(deployed.length).toBe(before)
+    } finally {
+      if (prevMode === undefined) delete process.env.SITE_LAUNCH_MODE
+      else process.env.SITE_LAUNCH_MODE = prevMode
+      if (prevRoot === undefined) delete process.env.SITE_ROOT_DOMAIN
+      else process.env.SITE_ROOT_DOMAIN = prevRoot
+    }
+  })
+})

@@ -59,6 +59,21 @@ export const RESERVED_SITE_LABELS: ReadonlySet<string> = new Set([
   'preview',
 ])
 
+/**
+ * How a clinic subdomain <label>.<root> is served:
+ *  - 'pages'    : a per-clinic Cloudflare Pages branch deploy (CTO-26), used
+ *                 while the root is the Pages front door (<project>.pages.dev).
+ *  - 'wildcard' : a single Cloudflare Worker route *.<root> serves every label
+ *                 with no per-clinic deploy, used once we own the root domain
+ *                 (medoflow.com migration).
+ * Explicit and defaulting to 'pages', so existing behaviour and tests are
+ * unchanged until the operator sets SITE_LAUNCH_MODE=wildcard at cut-over.
+ */
+export function siteLaunchMode(env: NodeJS.ProcessEnv = process.env): 'pages' | 'wildcard' {
+  const v = (env.SITE_LAUNCH_MODE || '').trim().toLowerCase()
+  return v === 'wildcard' ? 'wildcard' : 'pages'
+}
+
 export type DomainProviderName = 'manual' | 'cloudflare' | 'pages'
 
 export function domainProviderName(env: NodeJS.ProcessEnv = process.env): DomainProviderName {

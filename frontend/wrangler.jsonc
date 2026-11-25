@@ -13,10 +13,14 @@
   "observability": { "enabled": true },
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "medoflow-web" }],
-  // Component 8: custom domains (arh-agent-docs/cloudflare-custom-domains-setup-guide.md).
-  // Enable only after the <root> zone is active in this Cloudflare account:
-  // "routes": [
-  //   { "pattern": "app.<root>", "custom_domain": true },
-  //   { "pattern": "*.<root>/*", "zone_name": "<root>" }
-  // ]   (api.<root> is excluded with a Worker-less route in the dashboard, see the guide)
+  // Component 8: medoflow.com on this Worker (arh-agent-docs/medoflow-com-domain-migration-guide.md).
+  // The Custom Domain binds the apex (Cloudflare creates its DNS record + cert);
+  // the wildcard route serves every <label>.medoflow.com from the same Worker, so
+  // no per-clinic Pages deploy is needed. api.medoflow.com stays DNS-only (grey),
+  // so the Worker never runs for it. These bind only once the medoflow.com zone is
+  // active in this account and the deploy token has Zone Read + Workers Routes Edit.
+  "routes": [
+    { "pattern": "medoflow.com", "custom_domain": true },
+    { "pattern": "*.medoflow.com/*", "zone_name": "medoflow.com" }
+  ]
 }
