@@ -165,11 +165,16 @@ Once MedoFlow owns `medoflow.com`, the app moves off the free `*.pages.dev`
 addresses. See `arh-agent-docs/medoflow-com-domain-migration-guide.md`.
 
 - **Front door → Worker route.** Cloudflare Pages cannot serve a wildcard custom
-  domain. The app already runs as the Worker `medoflow-web`, so the apex
-  `medoflow.com` (a Workers Custom Domain) and `*.medoflow.com` (a Worker route,
-  `frontend/wrangler.jsonc`) go straight to that Worker. No per-clinic Pages
-  branch deploy is needed: `SITE_LAUNCH_MODE=wildcard` makes `siteLaunchService`
-  report a subdomain live without calling Cloudflare.
+  domain. The app already runs as the Worker `medoflow-web`, so both the apex
+  `medoflow.com/*` and `*.medoflow.com/*` are bound as zone **routes** in
+  `frontend/wrangler.jsonc` and go straight to that Worker. Routes (not custom
+  domains) are used because the apex already carries a proxied DNS record; a
+  `custom_domain` tries to manage that record and Cloudflare rejects it (error
+  100117). The apex route also intercepts apex requests ahead of whatever origin
+  the apex record points at, so any leftover apex→www forwarding stops. Each
+  pattern needs a proxied DNS record (e.g. AAAA `100::`) in the zone. No per-clinic
+  Pages branch deploy is needed: `SITE_LAUNCH_MODE=wildcard` makes
+  `siteLaunchService` report a subdomain live without calling Cloudflare.
 - **Pages project kept.** The `medoflow` Pages project still serves
   `medoflow.pages.dev`, any old branch deployments, and — crucially — every clinic
   **custom** domain added through `DOMAIN_PROVIDER=pages` (those still CNAME to

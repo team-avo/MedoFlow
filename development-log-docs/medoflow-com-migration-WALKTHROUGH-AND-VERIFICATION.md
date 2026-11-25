@@ -26,7 +26,7 @@ The Pages project `medoflow` is deliberately kept: it still serves
 
 **Frontend / Worker**
 
-- `frontend/wrangler.jsonc` — live `routes`: `medoflow.com` (Custom Domain) + `*.medoflow.com/*` (zone route).
+- `frontend/wrangler.jsonc` — live `routes`: `medoflow.com/*` + `*.medoflow.com/*`, both zone **routes** (not a custom domain: the apex already has a proxied DNS record, which a `custom_domain` refuses — Cloudflare 100117). The apex route also preempts any leftover apex→www origin forwarding. Each needs a proxied DNS record (e.g. AAAA `100::`).
 - `frontend/lib/site/retiredHostRedirect.ts` (**new**) — pure `retiredHostRedirect(url, env)` returning a 308 Response or null. Named to avoid the existing `legacyRedirect.ts` (per-clinic `/clinic/*` URL moves).
 - `frontend/cf-worker.js` — runs `retiredHostRedirect` first, before the HTTPS/HSTS logic.
 - `frontend/tests/unit/retiredHostRedirect.test.ts` (**new**) — 14 tests.
