@@ -22,8 +22,12 @@
 #   CLOUDFLARE_ACCOUNT_ID    523c0186a1808be62e718907053c513b
 #   RENDER_DEPLOY_HOOK_URL   only if deploy-backend is re-enabled (Render › medoflow-backend › Settings › Deploy Hook)
 # Variables:
-#   BACKEND_URL                          e.g. https://medoflow-backend.onrender.com (no trailing slash)
-#   FRONTEND_URL                         https://medoflow-web.advertout-medoflow.workers.dev
+#   BACKEND_URL                          e.g. https://api.medoflow.com (no trailing slash)
+#   FRONTEND_URL                         https://medoflow.com
+#   SITE_ROOT_DOMAIN                     medoflow.com (also the Worker var; empty in dev)
+#   APP_HOSTS                            medoflow.com
+#   LEGACY_ROOT_DOMAINS                  medoflow.pages.dev,medoflow-web.advertout-medoflow.workers.dev
+#                                        (empty until cut-over; the Worker then 308s these to medoflow.com)
 #   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY   optional, pk_test_… / pk_live_…
 name: CI / Deploy
 
@@ -285,12 +289,30 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Deploy the bundle built above as-is (otherwise wrangler hands off to `opennextjs-cloudflare deploy`).
           OPEN_NEXT_DEPLOY: 'true'
-        run: pnpm exec wrangler deploy --message "${GITHUB_SHA::7} via GitHub Actions"
+          # Runtime Worker vars for the retired-host 308 redirects (cf-worker.js ->
+          # retiredHostRedirect). Empty LEGACY_ROOT_DOMAINS = redirects off.
+          LEGACY_ROOT_DOMAINS: ${{ vars.LEGACY_ROOT_DOMAINS }}
+          SITE_ROOT_DOMAIN: ${{ vars.SITE_ROOT_DOMAIN }}
+        run: >
+          pnpm exec wrangler deploy --message "${GITHUB_SHA::7} via GitHub Actions"
+          --var LEGACY_ROOT_DOMAINS:"$LEGACY_ROOT_DOMAINS"
+          --var SITE_ROOT_DOMAIN:"$SITE_ROOT_DOMAIN"
       - name: Smoke check
         env:
-          FRONTEND_URL: ${{ vars.FRONTEND_URL || 'https://medoflow-web.advertout-medoflow.workers.dev' }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL || 'https://medoflow.com' }}
+          LEGACY_ROOT_DOMAINS: ${{ vars.LEGACY_ROOT_DOMAINS }}
         run: |
           for path in / /login /dashboard; do
             code=$(curl -s -o /dev/null -w '%{http_code}' "$FRONTEND_URL$path")
             echo "$path → $code"; [ "$code" -lt 400 ] || exit 1
           done
+          # Once a legacy root is set, it must 308 to the new root (keeping the path).
+          if [ -n "$LEGACY_ROOT_DOMAINS" ]; then
+            legacy=${LEGACY_ROOT_DOMAINS%%,*}
+            loc=$(curl -s -o /dev/null -w '%{redirect_url}' "https://$legacy/login")
+            echo "https://$legacy/login → $loc"
+            case "$loc" in
+              "$FRONTEND_URL"/login*) echo "legacy redirect OK" ;;
+              *) echo "::error::expected a 308 to $FRONTEND_URL/login, got '$loc'"; exit 1 ;;
+            esac
+          fi

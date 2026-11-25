@@ -1,4 +1,7 @@
 # Cloudflare Pages front door for many clinics at once (ADR 0005).
+# LEGACY after the medoflow.com migration: clinic subdomains are served by the
+# Worker wildcard route *.medoflow.com, so this is no longer needed for new
+# clinics. Kept only to re-seed branch deployments on the medoflow.pages.dev era.
 # Run by hand: Actions › "Front door (Pages), many clinics" › Run workflow,
 # labels = everwell,brightsmile,…  Run "Front door (Pages)" with an empty label
 # first, so the Pages project exists.

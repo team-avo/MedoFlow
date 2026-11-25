@@ -17,7 +17,8 @@
 import { Queue, Worker, type Job } from 'bullmq'
 import prisma from '../../config/prisma'
 import { withTenantBypass } from '../../config/tenantContext'
-import { RESERVED_SITE_LABELS } from '../config'
+import { RESERVED_SITE_LABELS, siteLaunchMode } from '../config'
+import { siteOrigin, subdomainHost } from '../routing/hosts'
 import { idleWorkerOptions, parseRedisUrl } from '../../queues/redisConnection'
 import { getPagesClient } from '../frontDoor/pagesClient'
 import * as auditService from '../../services/auditService'
@@ -192,6 +193,12 @@ export async function requestLaunch(
   clinicId: string,
   opts: { force?: boolean; performedById?: string | null } = {}
 ): Promise<{ status: LaunchStatus }> {
+  // Wildcard mode (medoflow.com): the Worker route *.<root> already serves every
+  // label, so there is nothing to deploy. The address is live as soon as the
+  // clinic has a subdomain.
+  if (siteLaunchMode() === 'wildcard') {
+    return { status: (await labelFor(clinicId)) ? 'LIVE' : 'NONE' }
+  }
   if (!getPagesClient()) return { status: 'NOT_CONFIGURED' }
   const label = await labelFor(clinicId)
   if (!label) return { status: 'NONE' }
@@ -212,6 +219,20 @@ export async function requestLaunch(
 }
 
 export async function launchStatus(clinicId: string) {
+  // Wildcard mode (medoflow.com): no SiteLaunch row is written; the address is
+  // synthesised from the clinic's subdomain label and the Worker wildcard route.
+  if (siteLaunchMode() === 'wildcard') {
+    const label = await labelFor(clinicId)
+    if (!label) return { status: 'NONE' as LaunchStatus }
+    return {
+      status: 'LIVE' as LaunchStatus,
+      label,
+      url: siteOrigin(subdomainHost(label)),
+      lastError: null,
+      attempts: 0,
+      liveAt: null,
+    }
+  }
   if (!getPagesClient()) return { status: 'NOT_CONFIGURED' as LaunchStatus }
   const row = await prisma.siteLaunch.findUnique({
     where: { clinicId },

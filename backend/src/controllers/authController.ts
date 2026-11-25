@@ -29,12 +29,14 @@ const MIN_PASSWORD_LENGTH = 8
 /**
  * Refresh-cookie attributes (F0.2.3). The cookie is HttpOnly, so page script
  * can never read it. SameSite comes from REFRESH_COOKIE_SAMESITE:
- *  - 'none' (production default): the app and the API are on different
- *    sites today (workers.dev vs onrender.com), so a Strict/Lax cookie is
- *    never sent with the app's XHR and refresh silently fails. 'none' is
- *    Secure + Partitioned (CHIPS: the cookie only exists under the app's
- *    top-level site), and CSRF is blocked by requireClientHeader below.
- *  - 'strict': use once app and API share a registrable domain (B0.6.9).
+ *  - 'none' (production default): kept because the app host and the API host
+ *    may be on different sites (e.g. the Pages front door medoflow.pages.dev vs
+ *    onrender.com), where a Strict/Lax cookie is never sent with the app's XHR
+ *    and refresh silently fails. 'none' is Secure + Partitioned (CHIPS: the
+ *    cookie only exists under the app's top-level site), and CSRF is blocked by
+ *    requireClientHeader below.
+ *  - 'strict': an option once app and API share a registrable domain, e.g.
+ *    medoflow.com + api.medoflow.com after the domain migration (B0.6.9).
  *  - 'lax': local development default (different ports, same site).
  */
 export const refreshCookieOptions = (): {

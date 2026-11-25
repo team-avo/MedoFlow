@@ -57,27 +57,30 @@ services:
       # production (config/clinicReview.ts).
       - key: ONBOARDING_CONFIRM_NAME
         value: 'on'
-      # Frontend origin(s) allowed by CORS (comma-separated).
-      # Component 8 cut-over (arh-agent-docs/cloudflare-custom-domains-setup-guide.md):
-      # once app.<root> / api.<root> / *.<root> are live, set
-      #   CORS_ORIGIN=https://app.<root>,https://*.<root>   (verified custom domains are
-      #   allowed automatically)  FRONTEND_URL/APP_URL=https://app.<root>
-      #   BACKEND_URL=https://api.<root>  SITE_ROOT_DOMAIN=<root>  APP_HOSTS=app.<root>
-      #   SITE_CNAME_TARGET=sites.<root>  SITE_PREVIEW_SECRET (secret)
-      #   SITE_ASSETS_BUCKET / SITE_ASSETS_PUBLIC_BASE_URL  (public R2 bucket)
-      #   DOMAIN_PROVIDER=cloudflare + CF_API_TOKEN / CF_ZONE_ID (secrets)
-      # CTO-38, today (no domain owned): clinic custom domains on the Pages project
-      #   DOMAIN_PROVIDER=pages  SITE_CNAME_TARGET=medoflow.pages.dev
-      #   CF_PAGES_API_TOKEN (secret; Account · Cloudflare Pages · Edit) + CF_ACCOUNT_ID
-      #   (the same pair turns on CTO-26 auto-launch). Domain Connect: DOMAIN_CONNECT_*
-      #   (docs/domain-connect/README.md), only once a domain is owned.
-      #   TRUST_PROXY=2 if api.<root> is proxied (orange cloud), else 1
-      - key: CORS_ORIGIN
-        value: https://medoflow-web.advertout-medoflow.workers.dev
+      # Domain / routing (arh-agent-docs/medoflow-com-domain-migration-guide.md).
+      # The app runs at the apex medoflow.com (a Cloudflare Worker route), the API at
+      # api.medoflow.com (Render custom domain), and every clinic subdomain
+      # <label>.medoflow.com is served by the one Worker wildcard route *.medoflow.com,
+      # so SITE_LAUNCH_MODE=wildcard disables the per-clinic Pages deploy (CTO-26).
+      # Clinic custom domains still CNAME to the Pages project, so DOMAIN_PROVIDER=pages
+      # and SITE_CNAME_TARGET=medoflow.pages.dev stay (set as Render secrets/vars, with
+      # CF_PAGES_API_TOKEN + CF_ACCOUNT_ID). api.medoflow.com is DNS-only (grey), so
+      # TRUST_PROXY=1. Domain Connect (DOMAIN_CONNECT_*, docs/domain-connect/README.md)
+      # is optional and off until onboarded.
+      - key: CORS_ORIGIN # app + any clinic subdomain; verified custom domains are allowed automatically
+        value: https://medoflow.com,https://*.medoflow.com
       - key: FRONTEND_URL
-        value: https://medoflow-web.advertout-medoflow.workers.dev
+        value: https://medoflow.com
       - key: APP_URL
-        value: https://medoflow-web.advertout-medoflow.workers.dev
+        value: https://medoflow.com
+      - key: BACKEND_URL
+        value: https://api.medoflow.com
+      - key: SITE_ROOT_DOMAIN
+        value: medoflow.com
+      - key: APP_HOSTS
+        value: medoflow.com
+      - key: SITE_LAUNCH_MODE # wildcard = Worker route serves *.medoflow.com, no per-clinic Pages deploy
+        value: wildcard
       - key: JWT_SECRET
         generateValue: true
       # ── Secrets: prompted once when the Blueprint is created ──────────────────
