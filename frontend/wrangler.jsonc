@@ -14,13 +14,17 @@
   "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "medoflow-web" }],
   // Component 8: medoflow.com on this Worker (arh-agent-docs/medoflow-com-domain-migration-guide.md).
-  // The Custom Domain binds the apex (Cloudflare creates its DNS record + cert);
-  // the wildcard route serves every <label>.medoflow.com from the same Worker, so
-  // no per-clinic Pages deploy is needed. api.medoflow.com stays DNS-only (grey),
-  // so the Worker never runs for it. These bind only once the medoflow.com zone is
-  // active in this account and the deploy token has Zone Read + Workers Routes Edit.
+  // Both are zone ROUTES, not custom domains: a route attaches the Worker to an
+  // existing proxied (orange) DNS record and does not try to manage DNS, so it
+  // works when the apex already has a record (a custom_domain refuses that with
+  // Cloudflare error 100117). The apex route also intercepts apex requests before
+  // whatever origin the apex A/AAAA record points at, so any leftover apex->www
+  // forwarding stops. The apex and the `*` wildcard each need a proxied DNS record
+  // (e.g. AAAA 100::) in the zone. api.medoflow.com stays DNS-only (grey), so the
+  // Worker never runs for it. These bind only once the medoflow.com zone is active
+  // in this account and the deploy token has Zone Read + Workers Routes Edit.
   "routes": [
-    { "pattern": "medoflow.com", "custom_domain": true },
+    { "pattern": "medoflow.com/*", "zone_name": "medoflow.com" },
     { "pattern": "*.medoflow.com/*", "zone_name": "medoflow.com" }
   ]
 }
